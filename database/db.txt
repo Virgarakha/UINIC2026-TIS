@@ -1,0 +1,372 @@
+================================================================================
+           RINGKASAN STRUKTUR & CONTOH DATA DATABASE: SISTEM SAMPAH
+================================================================================
+Platform    : Website Data Sampah & Early Warning Banjir di Indonesia
+Arsitektur  : Hybrid Relational + JSONB + Modular Micro-Tables
+Aktor       : Warga (Pelapor & Penukar Poin), Pengepul (Eksekutor Daur Ulang),
+              Petugas Dinas Kebersihan / BPBD, Admin, AI Engine
+DBMS        : PostgreSQL (PostGIS / Spasial Ready)
+Workspace   : uinic08 / database
+================================================================================
+
+
+================================================================================
+BAGIAN I: MICRO-TABLES (MASTER / LOOKUP REFERENCE TABLES)
+Keterangan: Menggantikan ENUM statis agar admin dapat menambah kategori, status,
+            jenis sampah daur ulang, atau tipe tanggapan tanpa migrasi DDL.
+================================================================================
+
+--------------------------------------------------------------------------------
+M1. TABEL: kategori_sampah
+Keterangan: Master kategori titik masalah/lokasi sampah untuk pin & filter peta.
+--------------------------------------------------------------------------------
+KOLOM        | TYPE        | KETERANGAN                       | CONTOH DATA
+-------------+-------------+----------------------------------+--------------------------------------
+id           | UUID        | Primary Key (Auto UUID v4)       | '11111111-1111-4111-8111-111111111111'
+slug         | VARCHAR(50) | Slug unik URL & query            | 'sumbatan_sungai' (Opsi: tps_liar, drainase)
+nama         | VARCHAR(100)| Nama label kategori              | 'Sumbatan Sungai'
+icon         | VARCHAR(50) | Simbol icon emoji / SVG          | '🌊'
+warna_badge  | VARCHAR(20) | Kode hex warna marker di peta    | '#ef4444' (Merah)
+deskripsi    | TEXT        | Keterangan lingkup kategori      | 'Sampah menyumbat aliran air sungai & jembatan'
+urutan       | INT         | Urutan sorting di dropdown       | 1
+is_active    | BOOLEAN     | Status aktif ditampilkan         | TRUE
+created_at   | TIMESTAMPTZ | Waktu kategori dibuat            | '2026-10-15 00:00:00+07'
+
+
+--------------------------------------------------------------------------------
+M2. TABEL: status_laporan
+Keterangan: Master status progres tahapan laporan warga.
+--------------------------------------------------------------------------------
+KOLOM        | TYPE        | KETERANGAN                       | CONTOH DATA
+-------------+-------------+----------------------------------+--------------------------------------
+id           | UUID        | Primary Key (Auto UUID v4)       | '22222222-2222-4222-8222-222222222222'
+slug         | VARCHAR(50) | Slug unik status                 | 'terverifikasi_ai'
+nama         | VARCHAR(100)| Nama label status di UI          | 'Terverifikasi AI'
+warna_badge  | VARCHAR(20) | Kode hex warna badge status      | '#3b82f6' (Biru)
+urutan       | INT         | Urutan alur tahapan (1 s/d 6)    | 2
+deskripsi    | TEXT        | Arti tahapan status              | 'Foto valid & keyakinan AI >= 70%'
+is_active    | BOOLEAN     | Status aktif                     | TRUE
+created_at   | TIMESTAMPTZ | Waktu status dibuat              | '2026-10-15 00:00:00+07'
+
+
+--------------------------------------------------------------------------------
+M3. TABEL: kategori_hadiah
+Keterangan: Master kategori item reward yang dapat ditukar poin oleh warga.
+--------------------------------------------------------------------------------
+KOLOM        | TYPE        | KETERANGAN                       | CONTOH DATA
+-------------+-------------+----------------------------------+--------------------------------------
+id           | UUID        | Primary Key (Auto UUID v4)       | '33333333-3333-4333-8333-333333333333'
+slug         | VARCHAR(50) | Slug kategori hadiah             | 'barang_fisik' (Opsi: voucher_digital, sembako)
+nama         | VARCHAR(100)| Nama kategori reward             | 'Merchandise & Alat Ramah Lingkungan'
+icon         | VARCHAR(50) | Icon reward                      | '🥤'
+deskripsi    | TEXT        | Keterangan tipe barang           | 'Barang fisik yang dikirimkan via kurir'
+is_active    | BOOLEAN     | Status aktif                     | TRUE
+created_at   | TIMESTAMPTZ | Waktu dibuat                     | '2026-10-15 00:00:00+07'
+
+
+--------------------------------------------------------------------------------
+M4. TABEL: master_jenis_sampah
+Keterangan: Master material daur ulang lengkap dengan estimasi harga beli/kg pengepul.
+--------------------------------------------------------------------------------
+KOLOM                 | TYPE          | KETERANGAN                    | CONTOH DATA
+----------------------+---------------+-------------------------------+--------------------------------------
+id                    | UUID          | Primary Key (Auto UUID v4)    | '44444444-4444-4444-8444-444444444444'
+slug                  | VARCHAR(50)   | Slug jenis material           | 'plastik_pet'
+nama                  | VARCHAR(100)  | Nama jenis sampah             | 'Plastik PET (Botol Bening Bersih)'
+harga_per_kg_estimasi | NUMERIC(10, 2)| Harga taksiran per kg         | 3500.00 (Rp 3.500 / kg)
+satuan                | VARCHAR(20)   | Satuan timbangan              | 'kg'
+is_daur_ulang         | BOOLEAN       | Memiliki nilai ekonomi        | TRUE
+icon                  | VARCHAR(50)   | Icon material                 | '🍾'
+is_active             | BOOLEAN       | Status aktif                  | TRUE
+created_at            | TIMESTAMPTZ   | Waktu dibuat                  | '2026-10-15 00:00:00+07'
+
+
+--------------------------------------------------------------------------------
+M5. TABEL: master_tipe_tanggapan
+Keterangan: Master opsi pilihan validasi warga ("100 orang menanggapi").
+--------------------------------------------------------------------------------
+KOLOM         | TYPE        | KETERANGAN                      | CONTOH DATA
+--------------+-------------+---------------------------------+--------------------------------------
+id            | UUID        | Primary Key (Auto UUID v4)      | '55555555-5555-4555-8555-555555555555'
+slug          | VARCHAR(50) | Slug aksi tanggapan             | 'kondisi_memburuk'
+label         | VARCHAR(100)| Teks tombol di aplikasi warga   | 'Kondisi Memburuk (Air Mulai Naik)'
+icon          | VARCHAR(50) | Icon ekspresi                   | '⚠️'
+bobot_urgensi | INT         | Bobot pengali prioritas di peta | 3
+is_active     | BOOLEAN     | Status aktif                    | TRUE
+created_at    | TIMESTAMPTZ | Waktu dibuat                    | '2026-10-15 00:00:00+07'
+
+
+================================================================================
+BAGIAN II: TABEL UTAMA / OPERASIONAL SISTEM
+================================================================================
+
+--------------------------------------------------------------------------------
+1. TABEL: users
+Keterangan: Menyimpan akun pengguna, peran, serta saldo poin reward aktif.
+--------------------------------------------------------------------------------
+KOLOM           | TYPE         | KETERANGAN                       | CONTOH DATA
+----------------+--------------+----------------------------------+--------------------------------------
+id              | UUID         | Primary Key (Auto UUID v4)       | 'a1b2c3d4-e5f6-4a7b-8c9d-0123456789ab'
+username        | VARCHAR(50)  | Username unik akun               | 'budi_santoso'
+email           | VARCHAR(255) | Email unik untuk login           | 'budi.santoso@email.com'
+password_hash   | VARCHAR(255) | Hash password aman (bcrypt)      | '$2a$12$e8Y7z7r9t0yU9Q1x...'
+full_name       | VARCHAR(100) | Nama lengkap pengguna            | 'Budi Santoso'
+phone_number    | VARCHAR(20)  | Nomor WhatsApp / HP aktif        | '081234567890'
+role            | ENUM         | 'warga' | 'pengepul'             | 'warga'
+                |              | 'petugas_dinas' | 'admin'        | 
+total_points    | INT          | Saldo poin aktif (bisa ditukar)  | 250  <-- (Hasil lapor sampah valid & reward)
+lifetime_points | INT          | Total akumulasi poin sepanjang masa| 750  <-- (Untuk tier badge warga)
+is_active       | BOOLEAN      | Status keaktifan akun            | TRUE
+created_at      | TIMESTAMPTZ  | Waktu pendaftaran akun           | '2026-10-16 10:15:00+07'
+updated_at      | TIMESTAMPTZ  | Waktu pembaruan profil/poin      | '2026-10-16 16:45:00+07'
+
+
+--------------------------------------------------------------------------------
+2. TABEL: alamat_pengguna
+Keterangan: Buku alamat tersimpan milik warga untuk pengiriman hadiah fisik.
+--------------------------------------------------------------------------------
+KOLOM           | TYPE         | KETERANGAN                       | CONTOH DATA
+----------------+--------------+----------------------------------+--------------------------------------
+id              | UUID         | Primary Key (Auto UUID v4)       | 'c1d2e3f4-a5b6-7890-1234-abcdef123456'
+user_id         | UUID         | FK -> users(id)                  | 'a1b2c3d4-e5f6-4a7b-8c9d-0123456789ab'
+label_alamat    | VARCHAR(50)  | Label nama alamat                | 'Rumah Utama' (Opsi: Rumah, Kantor, Kost)
+nama_penerima   | VARCHAR(100) | Nama penerima paket              | 'Budi Santoso'
+nomor_telepon   | VARCHAR(20)  | Nomor HP aktif penerima          | '081234567890'
+alamat_lengkap  | TEXT         | Jalan, nomor rumah, RT/RW        | 'Jl. Danau Ranau Raya No. 12, RT 04 / RW 07'
+kelurahan       | VARCHAR(100) | Nama kelurahan / desa            | 'Sawojajar'
+kecamatan       | VARCHAR(100) | Nama kecamatan                   | 'Kedungkandang'
+kota_kabupaten  | VARCHAR(100) | Kota / Kabupaten tujuan          | 'Kota Malang'
+provinsi        | VARCHAR(100) | Provinsi                         | 'Jawa Timur'
+kode_pos        | VARCHAR(10)  | Kode pos pengiriman              | '65139'
+is_default      | BOOLEAN      | Alamat utama pengiriman          | TRUE
+created_at      | TIMESTAMPTZ  | Waktu alamat dibuat              | '2026-10-16 11:00:00+07'
+updated_at      | TIMESTAMPTZ  | Terakhir alamat diedit           | '2026-10-16 11:00:00+07'
+
+
+--------------------------------------------------------------------------------
+3. TABEL: katalog_hadiah
+Keterangan: Daftar hadiah (merchandise, voucher, sembako) yang dapat ditukar poin.
+--------------------------------------------------------------------------------
+KOLOM           | TYPE         | KETERANGAN                       | CONTOH DATA
+----------------+--------------+----------------------------------+--------------------------------------
+id              | UUID         | Primary Key (Auto UUID v4)       | 'e9f8a7b6-c5d4-3e2f-1a0b-9876543210ab'
+kategori_id     | UUID         | FK -> kategori_hadiah(id)        | '33333333-3333-4333-8333-333333333333'
+nama_hadiah     | VARCHAR(150) | Nama item hadiah                 | 'Tumbler Stainless Ramah Lingkungan 500ml'
+deskripsi       | TEXT         | Detail spesifikasi hadiah        | 'Tumbler tahan panas/dingin 12 jam, edisi Peduli Sungai.'
+foto_url        | TEXT         | Foto visual hadiah               | 'https://storage.sistemsampah.id/hadiah/tumbler.png'
+poin_dibutuhkan | INT          | Harga poin untuk penukaran       | 200  <-- (Butuh 200 poin)
+stok            | INT          | Sisa stok yang tersedia          | 45   <-- (Berkurang otomatis saat diklaim)
+is_active       | BOOLEAN      | Status item aktif ditampilkan    | TRUE
+created_at      | TIMESTAMPTZ  | Waktu item ditambahkan           | '2026-10-15 08:00:00+07'
+updated_at      | TIMESTAMPTZ  | Waktu update stok/item           | '2026-10-16 16:50:00+07'
+
+
+--------------------------------------------------------------------------------
+4. TABEL: laporan_sampah
+Keterangan: Data inti laporan titik sampah yang dibuat oleh warga (lokasi + foto).
+            Terhubung ke micro-table 'kategori_sampah' dan 'status_laporan'.
+--------------------------------------------------------------------------------
+KOLOM                | TYPE           | KETERANGAN                     | CONTOH DATA
+---------------------+----------------+--------------------------------+---------------------------------------
+id                   | UUID           | Primary Key (Auto UUID v4)     | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+user_id              | UUID           | FK -> users(id) (Pelapor)      | 'a1b2c3d4-e5f6-4a7b-8c9d-0123456789ab'
+title                | VARCHAR(150)   | Judul singkat laporan          | 'Sumbatan Sampah di Sungai Brantas'
+photo_url            | TEXT           | URL foto lokasi sampah         | 'https://storage.sistemsampah.id/laporan/brantas_01.jpg'
+description          | TEXT           | Deskripsi detail oleh warga    | 'Sampah plastik & ranting menumpuk tebal di jembatan.'
+latitude             | DECIMAL(10, 7) | Koordinat lintang (-90 s/d 90) | -7.9666200
+longitude            | DECIMAL(10, 7) | Koordinat bujur (-180 s/d 180) | 112.6326300
+address              | TEXT           | Alamat lengkap / patokan       | 'Jl. Gatot Subroto, Klojen, Kota Malang, Jawa Timur'
+kategori_id          | UUID           | FK -> kategori_sampah(id)      | '11111111-1111-4111-8111-111111111111' (Sumbatan Sungai)
+status_id            | UUID           | FK -> status_laporan(id)       | '22222222-2222-4222-8222-222222222222' (Terverifikasi AI)
+category             | VARCHAR(50)    | Slug kategori (kompatibilitas) | 'sumbatan_sungai'
+status               | VARCHAR(50)    | Slug status (kompatibilitas)   | 'terverifikasi_ai'
+parent_id            | UUID           | FK -> laporan_sampah(id)       | NULL (Induk) / 'c9d8e7f6-...' (Anak)
+total_tanggapan      | INT            | Counter respon warga lain      | 100  <-- (100 orang menanggapi/upvote)
+total_update_laporan | INT            | Counter foto update warga lain | 2    <-- (Warga B & C menambahkan foto update)
+created_at           | TIMESTAMPTZ    | Waktu submit laporan           | '2026-10-16 14:30:00+07'
+updated_at           | TIMESTAMPTZ    | Waktu update terakhir          | '2026-10-16 16:45:00+07'
+
+
+--------------------------------------------------------------------------------
+5. TABEL: tanggapan_laporan (FITUR: 100 ORANG MENANGGAPI HAL YANG SAMA)
+Keterangan: Warga lain memvalidasi atau memberi tanggapan (+10 poin reward).
+--------------------------------------------------------------------------------
+KOLOM           | TYPE         | KETERANGAN                       | CONTOH DATA
+----------------+--------------+----------------------------------+--------------------------------------
+id              | UUID         | Primary Key (Auto UUID v4)       | '8f7e6d5c-4b3a-2109-8765-43210fedcba9'
+laporan_id      | UUID         | FK -> laporan_sampah(id)         | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+user_id         | UUID         | FK -> users(id) (Warga Penanggap)| 'f4e3d2c1-b0a9-8765-4321-fedcba987654'
+tipe_id         | UUID         | FK -> master_tipe_tanggapan(id)  | '55555555-5555-4555-8555-555555555555'
+tipe            | VARCHAR(50)  | Slug tipe tanggapan              | 'konfirmasi_ada'
+komentar        | TEXT         | Komentar / update kondisi warga  | 'Benar sekali, air sungai mulai meluap setinggi mata kaki.'
+photo_url       | TEXT         | Foto kondisi terkini (opsional)  | 'https://storage.sistemsampah.id/tanggapan/update_02.jpg'
+created_at      | TIMESTAMPTZ  | Waktu warga mengirim tanggapan   | '2026-10-16 15:45:20+07'
+
+
+--------------------------------------------------------------------------------
+6. TABEL: data_lingkungan
+Keterangan: Snapshot cuaca, hidrologi, dan geografi saat analisis dilakukan.
+            Bersifat IMMUTABLE / APPEND-ONLY sebagai bukti otentik inferensi AI.
+--------------------------------------------------------------------------------
+KOLOM           | TYPE         | KETERANGAN                       | CONTOH DATA
+----------------+--------------+----------------------------------+--------------------------------------
+id              | UUID         | Primary Key (Auto UUID v4)       | 'f1e2d3c4-b5a6-7890-1234-56789abcdef0'
+laporan_id      | UUID         | FK (Unique) -> laporan_sampah(id)| 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+observed_at     | TIMESTAMPTZ  | Waktu pengamatan cuaca           | '2026-10-16 14:30:10+07'
+weather_data    | JSONB        | Curah hujan, suhu, prakiraan     | {"kondisi": "berawan", "curah_hujan_24_jam_mm": 18}
+season_data     | JSONB        | Musim & klasifikasi BMKG         | {"klasifikasi": "masa_peralihan"}
+geographic_data | JSONB        | Elevasi, sungai, kontur lahan    | {"kota": "Malang", "dekat_sungai": true, "elevasi": 440}
+historical_data | JSONB        | Riwayat banjir lampau            | {"riwayat_banjir": "pernah_terjadi"}
+source_metadata | JSONB        | Penyedia data & periode pantau   | {"penyedia": "BMKG / Open-Meteo API"}
+created_at      | TIMESTAMPTZ  | Waktu rekaman disimpan ke DB     | '2026-10-16 14:30:12+07'
+
+
+--------------------------------------------------------------------------------
+7. TABEL: analisis_ai
+Keterangan: Hasil analisis multimodal AI (Vision pada foto + Korelasi data cuaca).
+            Memicu TRIGGER ANTI-FRAUD: Poin cair hanya jika confidence >= 70%.
+--------------------------------------------------------------------------------
+KOLOM              | TYPE           | KETERANGAN                    | CONTOH DATA
+-------------------+----------------+-------------------------------+--------------------------------------
+id                 | UUID           | Primary Key (Auto UUID v4)    | '7890abcd-ef12-3456-7890-abcdef123456'
+laporan_id         | UUID           | FK (Unique) -> laporan_sampah | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+jenis_kasus        | JSONB          | Masalah utama & sekunder      | {"utama": "sumbatan_sungai"}
+temuan_visual      | JSONB          | Deteksi objek foto & volume   | {"volume_m3": 2.5, "sumbatan_persen": 45}
+kondisi_lingkungan | JSONB          | Refleksi cuaca & geografi     | {"lokasi": "Malang", "curah_hujan_mm": 18}
+faktor_penyebab    | JSONB          | Dugaan sumber penyebab        | [{"faktor": "pembuangan_sampah_liar"}]
+analisis_dampak    | JSONB          | Dampak aliran & genangan      | [{"dampak": "luapan_air", "tingkat": "tinggi"}]
+analisis_risiko    | JSONB          | Tingkat risiko banjir         | {"risiko_banjir": "tinggi_jika_hujan_deras"}
+prediksi           | JSONB          | Estimasi tinggi luapan banjir | {"tinggi_banjir_cm": "30 - 50", "durasi": "5 jam"}
+rekomendasi        | JSONB          | Saran aksi dinas & pengepul   | [{"tindakan": "bersihkan_sungai", "prioritas": "tinggi"}]
+confidence_score   | NUMERIC(5,2)   | Keyakinan model (0 - 100%)    | 88.50  <-- (Lolos Anti-Fraud >= 70%)
+data_quality       | JSONB          | Validitas foto & kesimpulan   | {"foto_tersedia": true, "status": "sementara"}
+analyzed_at        | TIMESTAMPTZ    | Waktu inferensi selesai       | '2026-10-16 14:30:45+07'
+
+
+--------------------------------------------------------------------------------
+8. TABEL: penjemputan_sampah (PROOF OF PICKUP & TIMBANGAN RIIL PENGEPUL)
+Keterangan: Mencatat eksekusi penjemputan sampah oleh pengepul, penimbangan riil
+            plastik/kardus, foto bukti bersih (After-Photo), serta bonus penyelesaian.
+--------------------------------------------------------------------------------
+KOLOM             | TYPE           | KETERANGAN                     | CONTOH DATA
+------------------+----------------+--------------------------------+--------------------------------------
+id                | UUID           | Primary Key (Auto UUID v4)     | '3b4c5d6e-7f8a-9b0c-1d2e-3f4a5b6c7d8e'
+laporan_id        | UUID           | FK (Unique) -> laporan_sampah  | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+pengepul_id       | UUID           | FK -> users(id) (Pengepul)     | 'e6f7a8b9-c0d1-2e3f-4a5b-6c7d8e9f0a1b' (Pak Slamet)
+photo_bukti_bersih| TEXT           | URL foto lokasi bersih (After) | 'https://storage.sistemsampah.id/bukti/brantas_bersih.jpg'
+berat_plastik_kg  | NUMERIC(6, 2)  | Berat riil botol PET plastik   | 42.50  (kg)
+berat_kardus_kg   | NUMERIC(6, 2)  | Berat riil kardus/kertas       | 28.00  (kg)
+berat_logam_kg    | NUMERIC(6, 2)  | Berat riil kaleng/logam        | 4.50   (kg)
+total_berat_kg    | NUMERIC(6, 2)  | Total berat sampah diangkut    | 75.00  (kg)
+nilai_ekonomi_rp  | NUMERIC(12, 2) | Total nilai tebus/penjualan    | 165000.00 (Rp 165.000)
+catatan           | TEXT           | Catatan penimbangan pengepul   | 'Aliran sungai sudah normal kembali, sampah diangkut pick-up.'
+dijemput_at       | TIMESTAMPTZ    | Waktu eksekusi penjemputan     | '2026-10-16 17:30:00+07'
+
+
+--------------------------------------------------------------------------------
+9. TABEL: peringatan_dini (AUTOMATED EARLY WARNING FLOOD BROADCAST)
+Keterangan: Mencatat siaran peringatan dini bahaya luapan banjir ke warga sekitar
+            bantaran sungai saat AI mendeteksi sumbatan parah + hujan lebat.
+--------------------------------------------------------------------------------
+KOLOM                   | TYPE         | KETERANGAN                   | CONTOH DATA
+------------------------+--------------+------------------------------+--------------------------------------
+id                      | UUID         | Primary Key (Auto UUID v4)   | '9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d'
+laporan_id              | UUID         | FK -> laporan_sampah(id)     | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+tingkat_bahaya          | ENUM         | 'waspada' | 'siaga' | 'awas' | 'siaga'
+pesan_peringatan        | TEXT         | Isi pesan broadcast WhatsApp | 'PERINGATAN DINI: Sumbatan sampah di Sungai Brantas berpotensi luapan 30-50 cm jika hujan berlanjut.'
+radius_peringatan_meter | INT          | Radius terdampak             | 500  (meter)
+estimasi_warga_terdampak| INT          | Estimasi jumlah KK/warga     | 185  (warga bantaran sungai)
+is_broadcast_sent       | BOOLEAN      | Status broadcast terkirim    | TRUE
+broadcast_at            | TIMESTAMPTZ  | Waktu siaran disebarkan      | '2026-10-16 14:31:00+07'
+
+
+--------------------------------------------------------------------------------
+10. TABEL: penukaran_hadiah (TRANSAKSI KLAIM HADIAH & PENGIRIMAN)
+Keterangan: Mencatat pesanan penukaran poin warga, pengurangan stok, serta
+            menyimpan SNAPSHOT data alamat pengiriman saat order dibuat.
+--------------------------------------------------------------------------------
+KOLOM              | TYPE           | KETERANGAN                    | CONTOH DATA
+-------------------+----------------+-------------------------------+--------------------------------------
+id                 | UUID           | Primary Key (Auto UUID v4)    | 'f7e6d5c4-b3a2-1098-7654-3210fedcba98'
+user_id            | UUID           | FK -> users(id) (Pemesan)     | 'a1b2c3d4-e5f6-4a7b-8c9d-0123456789ab' (Budi)
+hadiah_id          | UUID           | FK -> katalog_hadiah(id)      | 'e9f8a7b6-c5d4-3e2f-1a0b-9876543210ab' (Tumbler)
+poin_terpotong     | INT            | Jumlah poin yang dipotong     | 200
+status_klaim       | ENUM           | Status pengiriman pesanan     | 'diproses'
+nama_penerima      | VARCHAR(100)   | Snapshot nama penerima paket  | 'Budi Santoso'
+nomor_telepon      | VARCHAR(20)    | Snapshot no. telp penerima    | '081234567890'
+alamat_pengiriman  | TEXT           | Snapshot alamat lengkap       | 'Jl. Danau Ranau Raya No. 12, Sawojajar'
+kota_kabupaten     | VARCHAR(100)   | Snapshot kota tujuan          | 'Kota Malang'
+kode_pos           | VARCHAR(10)    | Snapshot kode pos             | '65139'
+ekspedisi          | VARCHAR(50)    | Kurir pengiriman paket        | 'JNE Regular'
+nomor_resi         | VARCHAR(100)   | Nomor resi pelacakan          | 'JNE-MLG-982341209'
+catatan_pengiriman | TEXT           | Catatan kurir                 | 'Titipkan di pos satpam jika kosong'
+created_at         | TIMESTAMPTZ    | Waktu klaim dibuat            | '2026-10-16 16:50:00+07'
+updated_at         | TIMESTAMPTZ    | Terakhir status diperbarui    | '2026-10-16 17:15:00+07'
+
+
+--------------------------------------------------------------------------------
+11. TABEL: riwayat_poin (BUKU BESAR MUTASI POIN / POINT LEDGER)
+Keterangan: Audit trail setiap poin masuk (laporan valid, bonus tuntas) dan keluar (klaim hadiah).
+--------------------------------------------------------------------------------
+KOLOM           | TYPE         | KETERANGAN                       | CONTOH DATA
+----------------+--------------+----------------------------------+--------------------------------------
+id              | UUID         | Primary Key (Auto UUID v4)       | '7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d'
+user_id         | UUID         | FK -> users(id)                  | 'a1b2c3d4-e5f6-4a7b-8c9d-0123456789ab'
+laporan_id      | UUID         | FK -> laporan_sampah(id) (Ops.)  | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+klaim_id        | UUID         | FK -> penukaran_hadiah(id) (Ops.)| NULL (atau 'f7e6d5c4-...' saat klaim)
+jumlah_poin     | INT          | Perubahan poin (+50, +25, -200)  | +50 (lapor valid), +25 (bonus tuntas), -200 (klaim)
+tipe_transaksi  | ENUM         | 'laporan_terverifikasi_ai'       | 'laporan_terverifikasi_ai'
+                |              | 'bonus_sampah_terangkut'         |
+                |              | 'reward_pengepul'                |
+                |              | 'tukar_hadiah'                   |
+deskripsi       | TEXT         | Penjelasan rinci transaksi       | 'Poin reward verifikasi AI valid (Keyakinan 88.5%): Sungai Brantas'
+created_at      | TIMESTAMPTZ  | Waktu mutasi poin tercatat       | '2026-10-16 14:30:50+07'
+
+
+--------------------------------------------------------------------------------
+12. TABEL: riwayat_status_laporan
+Keterangan: Log audit riwayat status (saat diajukan, diverifikasi AI, diklaim pengepul, selesai).
+--------------------------------------------------------------------------------
+KOLOM              | TYPE         | KETERANGAN                      | CONTOH DATA
+-------------------+--------------+---------------------------------+--------------------------------------
+id                 | UUID         | Primary Key (Auto UUID v4)      | 'd1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a'
+laporan_id         | UUID         | FK -> laporan_sampah(id)        | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+changed_by_user_id | UUID         | FK -> users(id) (Aktor Aksi)    | 'e6f7a8b9-c0d1-2e3f-4a5b-6c7d8e9f0a1b' (Pengepul)
+previous_status    | VARCHAR(50)  | Status sebelum diubah           | 'dalam_penanganan'
+new_status         | VARCHAR(50)  | Status baru setelah aksi        | 'selesai'
+note               | TEXT         | Catatan bukti penanganan        | 'Sampah berhasil diangkut (75.00 kg) dengan bukti foto bersih.'
+created_at         | TIMESTAMPTZ  | Waktu status berubah            | '2026-10-16 17:30:00+07'
+
+
+================================================================================
+BAGIAN III: VIEW SPESIAL: view_peta_interaktif (DATA SIAP UNTUK UI PETA)
+Keterangan: Kueri gabungan otomatis dengan JOIN micro-tables (kategori & status)
+--------------------------------------------------------------------------------
+FIELD                         | SUMBER ASAL              | CONTOH NILAI DI POPUP PETA
+------------------------------+--------------------------+---------------------------------------
+laporan_id                    | laporan_sampah.id        | 'c9d8e7f6-5a4b-3c2d-1e0f-9876543210fe'
+title                         | laporan_sampah.title     | 'Sumbatan Sungai Brantas'
+photo_url                     | laporan_sampah.photo_url | 'https://.../brantas_01.jpg'
+latitude                      | laporan_sampah.latitude  | -7.9666200
+longitude                     | laporan_sampah.longitude | 112.6326300
+address                       | laporan_sampah.address   | 'Jl. Gatot Subroto, Klojen, Malang'
+category_slug                 | kategori_sampah.slug     | 'sumbatan_sungai'
+category_name                 | kategori_sampah.nama     | 'Sumbatan Sungai'
+category_icon                 | kategori_sampah.icon     | '🌊'
+category_color                | kategori_sampah.warna    | '#ef4444' (Merah)
+status_slug                   | status_laporan.slug      | 'selesai'
+status_name                   | status_laporan.nama      | 'Selesai / Bersih'
+status_color                  | status_laporan.warna     | '#059669' (Hijau)
+total_tanggapan               | laporan_sampah           | 100  <-- (Badge respon/upvote warga)
+total_update_laporan          | laporan_sampah           | 2    <-- (Foto update lanjutan Warga B, C)
+pelapor_username              | users.username           | 'budi_santoso'
+pelapor_points                | users.total_points       | 250  <-- (Poin aktif pelapor)
+volume_m3                     | analisis_ai.temuan_visual| '2.5'
+sumbatan_persen               | analisis_ai.temuan_visual| '45'
+tingkat_risiko_banjir         | analisis_ai.risiko       | 'tinggi_jika_hujan_deras'
+estimasi_tinggi_banjir_cm     | analisis_ai.prediksi     | '30 - 50'
+curah_hujan_24_jam_mm         | data_lingkungan.cuaca    | '18'
+berat_sampah_terangkut_kg     | penjemputan_sampah       | 75.00  (kg timbangan riil)
+photo_bukti_bersih            | penjemputan_sampah       | 'https://.../brantas_bersih.jpg' (Foto After)
+status_early_warning_banjir   | peringatan_dini          | 'siaga'
+================================================================================
