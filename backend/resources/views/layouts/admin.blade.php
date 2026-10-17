@@ -27,14 +27,14 @@
     <!-- Synto Custom Theme Styles -->
     <style>
         :root {
-            --synto-sidebar-bg: #111111;
-            --synto-sidebar-hover: #1b2656;
-            --synto-sidebar-active: #4f46e5;
+            --synto-sidebar-bg: #2B3752;
+            --synto-sidebar-hover: #262f43;
+            --synto-sidebar-active: #0EB29A;
             --synto-body: #f3f6f9;
             --synto-card: #ffffff;
             --synto-border: #e2e8f0;
             --synto-text-muted: #8c98ad;
-            --synto-primary: #4f46e5;
+            --synto-primary: #0EB29A;
         }
 
         body {

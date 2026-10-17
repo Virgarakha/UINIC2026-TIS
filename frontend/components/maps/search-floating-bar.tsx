@@ -1,0 +1,133 @@
+"use client";
+
+import * as React from "react";
+import { Search, X, Menu, Navigation, User as UserIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { User } from "@/types";
+
+export interface SearchFloatingBarProps {
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  activeCategory: string;
+  onCategoryChange: (cat: string) => void;
+  onMenuToggle?: () => void;
+  totalResults: number;
+  user?: User | null;
+  onOpenLogin?: () => void;
+  isRailVisible?: boolean;
+}
+
+export function SearchFloatingBar({
+  searchQuery,
+  onSearchChange,
+  activeCategory,
+  onCategoryChange,
+  onMenuToggle,
+  totalResults,
+  user,
+  onOpenLogin,
+  isRailVisible = false,
+}: SearchFloatingBarProps) {
+  const categories = [
+    { id: "all", label: `Semua (${totalResults})`, icon: "📍" },
+    { id: "banjir", label: "Kritis Banjir", icon: "🌊" },
+    { id: "wabah", label: "Wabah Sanitasi", icon: "🦟" },
+    { id: "kebakaran", label: "Gas Metana & Api", icon: "🔥" },
+    { id: "bau", label: "Bau Toksik", icon: "☣️" },
+    { id: "pengepul", label: "Siap Pengepul", icon: "♻️" },
+  ];
+
+  return (
+    <div
+      className={cn(
+        "absolute top-4 z-20 flex flex-col gap-2.5 max-w-xl w-[calc(100vw-32px)] sm:w-auto transition-all duration-300",
+        isRailVisible ? "left-4 sm:left-[84px]" : "left-4"
+      )}
+    >
+      {/* 1. Google Maps Search Pill */}
+      <div className="flex items-center h-12 w-full sm:w-[440px] bg-white rounded-full shadow-xl shadow-slate-200/70 border border-slate-200/90 px-3.5 gap-2 transition-all hover:shadow-2xl">
+        {!isRailVisible && (
+          <button
+            onClick={onMenuToggle}
+            className="p-1.5 text-[#2B3752] hover:text-[#0EB29A] rounded-full hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
+            title="Menu Navigasi"
+            aria-label="Menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Telusuri titik sampah, sungai, parit..."
+          className="flex-1 bg-transparent text-xs sm:text-sm font-medium text-[#2B3752] placeholder:text-slate-400 outline-none min-w-0"
+        />
+
+        {searchQuery ? (
+          <button
+            onClick={() => onSearchChange("")}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer flex-shrink-0"
+            title="Hapus pencarian"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : (
+          <div className="p-1 text-slate-400 flex-shrink-0">
+            <Search className="h-4 w-4" />
+          </div>
+        )}
+
+        <div className="h-5 w-px bg-slate-200 mx-0.5 flex-shrink-0" />
+
+        {/* Login Button (When not logged in) OR User Status */}
+        {!user ? (
+          <button
+            onClick={onOpenLogin}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-bold hover:opacity-95 active:scale-95 transition-all shadow-md shadow-[#0EB29A]/20 cursor-pointer whitespace-nowrap flex-shrink-0"
+            title="Masuk untuk memantau titik tersimpan"
+          >
+            <UserIcon className="h-3.5 w-3.5" />
+            <span>Masuk</span>
+          </button>
+        ) : (
+          <button
+            onClick={onMenuToggle}
+            className="flex items-center gap-1.5 py-1 px-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
+            title={`Masuk sebagai ${user.name}`}
+          >
+            <div className="h-7 w-7 rounded-full bg-[#0EB29A] text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+              {user.name.charAt(0)}
+            </div>
+            <span className="text-xs font-bold text-[#2B3752] hidden sm:inline max-w-[80px] truncate">
+              {user.name.split(" ")[0]}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* 2. Google Maps Horizontal Category Filter Chips */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 pr-4 max-w-full">
+        {categories.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => onCategoryChange(cat.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-md cursor-pointer select-none",
+                isActive
+                  ? "bg-[#0EB29A] text-white border border-transparent shadow-[#0EB29A]/30 scale-[1.02]"
+                  : "bg-white text-[#2B3752] border border-slate-200/90 hover:bg-slate-50 hover:border-[#0EB29A]/40"
+              )}
+            >
+              <span className="text-xs leading-none">{cat.icon}</span>
+              <span>{cat.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

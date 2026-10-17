@@ -35,5 +35,11 @@ class DatabaseSeeder extends Seeder
         if (User::count() <= 1) {
             User::factory(25)->create();
         }
+
+        // 3. Seed Micro-Tables & Rewards Master Data
+        $this->call(MicroTablesSeeder::class);
+
+        // 4. Seed Realistic Reports, AI Analysis & Operasional Data
+        $this->call(LaporanSampahSeeder::class);
     }
 }

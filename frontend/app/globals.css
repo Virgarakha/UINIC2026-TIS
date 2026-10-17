@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2B3752;
+  --primary: #0EB29A;
+  --primary-hover: #0ca18b;
+  --secondary: #2E6E65;
+  --navy: #2B3752;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: #0EB29A;
+  --color-secondary: #2E6E65;
+  --color-navy: #2B3752;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #ffffff;
+  color: #2B3752;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom competition-grade utility classes */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+
+/* Subtle frosted glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Custom Leaflet DivIcon styling */
+.custom-truck-marker-icon,
+.custom-gmap-pin,
+.gmaps-origin-beacon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Custom Leaflet Popup for Collector Truck (Anchored Above the Vehicle) */
+.custom-truck-leaflet-popup .leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+}
+
+.custom-truck-leaflet-popup .leaflet-popup-content {
+  margin: 0 !important;
+  line-height: normal !important;
+  width: 270px !important;
+}
+
+.custom-truck-leaflet-popup .leaflet-popup-tip-container {
+  overflow: visible !important;
+}
+
+.custom-truck-leaflet-popup .leaflet-popup-tip {
+  background: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid rgba(226, 232, 240, 0.6) !important;
+}
+
+.custom-truck-leaflet-popup a.leaflet-popup-close-button {
+  top: 10px !important;
+  right: 10px !important;
+  color: #ffffff !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  transition: all 0.2s !important;
+  z-index: 20 !important;
+  border: none !important;
+  text-decoration: none !important;
+}
+
+.custom-truck-leaflet-popup a.leaflet-popup-close-button:hover {
+  background: rgba(0, 0, 0, 0.65) !important;
+  color: #ffffff !important;
+}
+
+

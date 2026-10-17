@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\LaporanController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,7 +23,31 @@ Route::prefix('auth')->name('auth.')->group(function () {
     });
 });
 
-// Resource Endpoints
+// Waste Reporting & Geolocation Map Endpoints (Public + Optional Token)
+Route::prefix('laporan')->name('laporan.')->group(function () {
+    Route::get('/', [LaporanController::class, 'index'])->name('index');
+    Route::get('/{id}', [LaporanController::class, 'show'])->name('show');
+    Route::post('/', [LaporanController::class, 'store'])->name('store');
+});
+
+// Master & Environmental Public Feeds
+Route::get('/kategori-sampah', [LaporanController::class, 'kategori'])->name('kategori.index');
+Route::get('/peringatan-dini', [LaporanController::class, 'peringatanDini'])->name('peringatan.index');
+Route::get('/katalog-hadiah', [LaporanController::class, 'katalogHadiah'])->name('hadiah.index');
+
+// Pengepul Pickup & Verification Endpoints
+Route::prefix('penjemputan')->name('penjemputan.')->group(function () {
+    Route::post('/mulai', [LaporanController::class, 'mulaiPenjemputan'])->name('mulai');
+    Route::post('/selesai', [LaporanController::class, 'selesaiPenjemputan'])->name('selesai');
+    Route::post('/lokasi', [LaporanController::class, 'updateLokasi'])->name('lokasi');
+    Route::get('/armada-aktif', [LaporanController::class, 'armadaAktif'])->name('armadaAktif');
+    Route::post('/batal', [LaporanController::class, 'batalPenjemputan'])->name('batal');
+});
+
+// User Profile Update Endpoint (Supports auth or user_id for demo mode)
+Route::post('/user/profile', [UserController::class, 'updateProfile'])->name('user.profile.update');
+
+// Resource Endpoints (Authenticated)
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
 });

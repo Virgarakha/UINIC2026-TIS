@@ -18,84 +18,81 @@
     </nav>
 </div>
 
-<!-- 4 Top Stat Cards (Synto Exact Style) -->
+<!-- 4 Top Stat Cards (Sistem Sampah Live Metrics) -->
 <div class="row g-3 mb-4">
-    <!-- Stat 1: API Requests Volume -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="synto-card h-100">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <div class="d-flex align-items-center gap-2">
-                    <div class="stat-icon purple">
-                        <i class="bi bi-wallet2"></i>
-                    </div>
-                    <span class="text-secondary fw-semibold" style="font-size: 13px;">API Requests</span>
-                </div>
-                <span class="trend-pill up">
-                    <i class="bi bi-arrow-up-short"></i> 20%
-                </span>
-            </div>
-            <h3 class="fw-bold text-dark mb-1">268,420</h3>
-            <small class="text-muted" style="font-size: 11.5px;">vs last week</small>
-        </div>
-    </div>
-
-    <!-- Stat 2: Total Users -->
+    <!-- Stat 1: Total Laporan Sampah -->
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="synto-card h-100">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <div class="d-flex align-items-center gap-2">
                     <div class="stat-icon blue">
-                        <i class="bi bi-people"></i>
+                        <i class="bi bi-trash3-fill"></i>
                     </div>
-                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Total Users</span>
+                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Laporan Sampah</span>
                 </div>
-                <span class="trend-pill up">
-                    <i class="bi bi-arrow-up-short"></i> 12.5%
-                </span>
+                <a href="{{ route('admin.laporan.index') }}" class="trend-pill up text-decoration-none">
+                    Lihat <i class="bi bi-arrow-right-short"></i>
+                </a>
             </div>
-            <h3 class="fw-bold text-dark mb-1">{{ number_format($stats['total_users']) }}</h3>
-            <small class="text-muted" style="font-size: 11.5px;">registered accounts</small>
+            <h3 class="fw-bold text-dark mb-1">{{ number_format($stats['total_laporan']) }}</h3>
+            <small class="text-muted" style="font-size: 11.5px;">total titik warga masuk</small>
         </div>
     </div>
 
-    <!-- Stat 3: Verified Accounts -->
+    <!-- Stat 2: Kritis Bahaya Lingkungan -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="synto-card h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="stat-icon red">
+                        <i class="bi bi-shield-exclamation"></i>
+                    </div>
+                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Bahaya Lingkungan</span>
+                </div>
+                <span class="trend-pill text-danger bg-danger-subtle fw-bold">
+                    <i class="bi bi-exclamation-triangle"></i> Kritis
+                </span>
+            </div>
+            <h3 class="fw-bold text-danger mb-1">{{ number_format($stats['laporan_kritis']) }}</h3>
+            <small class="text-muted" style="font-size: 11.5px;">peringatan multi-bahaya aktif</small>
+        </div>
+    </div>
+
+    <!-- Stat 3: Peringatan Dini Aktif -->
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="synto-card h-100">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <div class="d-flex align-items-center gap-2">
                     <div class="stat-icon amber">
-                        <i class="bi bi-patch-check"></i>
+                        <i class="bi bi-broadcast"></i>
                     </div>
-                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Verified Users</span>
+                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Peringatan Dini</span>
                 </div>
-                @php
-                    $verifiedPercent = $stats['total_users'] > 0 ? round(($stats['verified_users'] / $stats['total_users']) * 100, 1) : 0;
-                @endphp
                 <span class="trend-pill neutral">
-                    {{ $verifiedPercent }}%
+                    Live Broadcast
                 </span>
             </div>
-            <h3 class="fw-bold text-dark mb-1">{{ number_format($stats['verified_users']) }}</h3>
-            <small class="text-muted" style="font-size: 11.5px;">email verified accounts</small>
+            <h3 class="fw-bold text-warning mb-1">{{ number_format($stats['peringatan_aktif']) }}</h3>
+            <small class="text-muted" style="font-size: 11.5px;">radius warga aktif dipantau</small>
         </div>
     </div>
 
-    <!-- Stat 4: Active API Tokens -->
+    <!-- Stat 4: Penjemputan Pengepul -->
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="synto-card h-100">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <div class="d-flex align-items-center gap-2">
                     <div class="stat-icon green">
-                        <i class="bi bi-key"></i>
+                        <i class="bi bi-truck"></i>
                     </div>
-                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Active Tokens</span>
+                    <span class="text-secondary fw-semibold" style="font-size: 13px;">Penjemputan</span>
                 </div>
                 <span class="trend-pill up">
-                    <i class="bi bi-check-lg"></i> 100%
+                    Mitra
                 </span>
             </div>
-            <h3 class="fw-bold text-dark mb-1">{{ number_format($stats['total_tokens']) }}</h3>
-            <small class="text-muted" style="font-size: 11.5px;">Sanctum access tokens</small>
+            <h3 class="fw-bold text-success mb-1">{{ number_format($stats['total_penjemputan']) }}</h3>
+            <small class="text-muted" style="font-size: 11.5px;">order daur ulang diproses</small>
         </div>
     </div>
 </div>
