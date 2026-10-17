@@ -199,6 +199,9 @@ class LaporanSampahService extends BaseService
 
             if ($hasAi) {
                 $ai = $data['analisis_ai'];
+                if (! empty($data['metadata_forensik'])) {
+                    $ai['metadata_forensik'] = $data['metadata_forensik'];
+                }
                 $confidence = (float) ($ai['confidence_score'] ?? 0.85);
                 if ($confidence > 1.0) {
                     $confidence = $confidence / 100.0;

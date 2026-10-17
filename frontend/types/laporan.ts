@@ -32,6 +32,18 @@ export interface MasterJenisSampah {
   dapat_didaur_ulang: boolean;
 }
 
+export interface MetadataForensik {
+  is_geotag_verified: boolean;
+  waktu_pengambilan: string;
+  latitude: number;
+  longitude: number;
+  gps_akurasi_meter: number;
+  alamat_perkiraan?: string;
+  device_fingerprint: string;
+  integrity_hash: string;
+  capture_mode: "live_camera" | "upload_file";
+}
+
 export interface AnalisisAi {
   id: number;
   laporan_id: number;
@@ -45,6 +57,8 @@ export interface AnalisisAi {
   jenis_sampah_dominan_id?: number | null;
   jenis_sampah_dominan?: MasterJenisSampah | string | null;
   nilai_ekonomi_estimasi?: number | null;
+  metadata_forensik?: MetadataForensik | null;
+  raw_payload_json?: any;
 }
 
 export interface LaporanSampah {

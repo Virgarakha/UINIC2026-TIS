@@ -20,6 +20,9 @@ import {
   LogOut,
   Flame,
   Check,
+  AlertTriangle,
+  Radio,
+  BellRing,
 } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Layer as LeafletLayer } from "leaflet";
 import { SearchFloatingBar } from "./search-floating-bar";
@@ -31,11 +34,14 @@ import { RailDrawerPanel } from "./rail-drawer-panel";
 import { LoginModal } from "./login-modal";
 import { PengepulVerificationModal } from "./pengepul-verification-modal";
 import { EditProfileModal } from "./edit-profile-modal";
-import { User, LaporanSampah } from "@/types";
+import { EarlyWarningBanner } from "./early-warning-banner";
+import { User, LaporanSampah, PeringatanDini } from "@/types";
 import {
   fetchLaporanListApi,
+  fetchPeringatanDiniApi,
   logoutApi,
   MOCK_LAPORAN_SAMPAH,
+  MOCK_PERINGATAN_DINI,
   ActiveArmadaTruck,
   fetchActiveArmadaApi,
   updateTruckLocationApi,
@@ -294,8 +300,11 @@ export function GoogleMapsView() {
   const [isSideMenuOpen, setIsSideMenuOpen] = React.useState(false);
   const [mapLayer, setMapLayer] = React.useState<"streets" | "satellite">("streets");
   const [showHeatmap, setShowHeatmap] = React.useState<boolean>(false);
+  const [showHazardZones, setShowHazardZones] = React.useState<boolean>(true);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = React.useState<boolean>(false);
+  const [warnings, setWarnings] = React.useState<PeringatanDini[]>(MOCK_PERINGATAN_DINI);
   const heatmapLayerRef = React.useRef<any>(null);
+  const hazardLayersRef = React.useRef<any[]>([]);
 
   // Load stored user session and bookmarks on mount
   React.useEffect(() => {
@@ -311,10 +320,34 @@ export function GoogleMapsView() {
         setReports(data);
       }
     });
+
+    // Also fetch active early warning disaster broadcasts
+    fetchPeringatanDiniApi().then((warns) => {
+      if (isMounted && warns && warns.length > 0) {
+        setWarnings(warns);
+      }
+    });
+
     return () => {
       isMounted = false;
     };
   }, []);
+
+  // Handle URL query ?id=X to automatically focus & open report drawer
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !reports || reports.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get("id");
+    if (idParam) {
+      const rep = reports.find((r) => r.id === parseInt(idParam, 10));
+      if (rep) {
+        setSelectedReport(rep);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([rep.latitude, rep.longitude], 16, { duration: 1.0 });
+        }
+      }
+    }
+  }, [reports]);
 
   // Load weather for selected report
   React.useEffect(() => {
@@ -531,6 +564,185 @@ export function GoogleMapsView() {
       }
     };
   }, [showHeatmap, filteredReports]);
+
+  // Callback to fly camera to emergency hazard zone
+  const handleFlyToHazard = React.useCallback(
+    (warning: PeringatanDini) => {
+      if (!mapInstanceRef.current) return;
+      const matchedReport =
+        warning.laporan ||
+        reports.find((r) => r.id === warning.laporan_id) ||
+        MOCK_LAPORAN_SAMPAH.find((r) => r.id === warning.laporan_id);
+
+      const lat =
+        matchedReport?.latitude ||
+        (warning.id === 1 ? -7.9826 : warning.id === 2 ? -7.9712 : -7.9901);
+      const lng =
+        matchedReport?.longitude ||
+        (warning.id === 1 ? 112.6308 : warning.id === 2 ? 112.6342 : 112.6219);
+
+      setShowHazardZones(true);
+      mapInstanceRef.current.flyTo([lat, lng], 15, {
+        duration: 1.2,
+      });
+
+      const targetReport = matchedReport || reports[0] || null;
+      if (targetReport) {
+        setTimeout(() => {
+          setSelectedReport(targetReport);
+        }, 1200);
+      }
+    },
+    [reports]
+  );
+
+  // Synchronize Geofenced Hazard Pulse Circles & Danger Buffers
+  React.useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !isMapReady) return;
+
+    // Clean up previous hazard layers
+    hazardLayersRef.current.forEach((layer) => {
+      try {
+        map.removeLayer(layer);
+      } catch {}
+    });
+    hazardLayersRef.current = [];
+
+    if (!showHazardZones) return;
+
+    import("leaflet").then((leafletModule) => {
+      const L = (leafletModule as any).default || leafletModule;
+      if (!mapInstanceRef.current) return;
+
+      const newLayers: any[] = [];
+
+      // Consolidate hazard targets from warnings and high-risk reports
+      const activeHazardTargets: Array<{
+        id: number | string;
+        lat: number;
+        lng: number;
+        level: string;
+        tipeBahaya: string;
+        radiusMeters: number;
+        lokasi: string;
+        report?: LaporanSampah;
+      }> = [];
+
+      // 1. Prioritize active warning broadcasts
+      warnings.forEach((w) => {
+        const matchedReport =
+          w.laporan ||
+          reports.find((r) => r.id === w.laporan_id) ||
+          MOCK_LAPORAN_SAMPAH.find((r) => r.id === w.laporan_id);
+
+        const lat =
+          matchedReport?.latitude ||
+          (w.id === 1 ? -7.9826 : w.id === 2 ? -7.9712 : -7.9901);
+        const lng =
+          matchedReport?.longitude ||
+          (w.id === 1 ? 112.6308 : w.id === 2 ? 112.6342 : 112.6219);
+        const radius = w.radius_terdampak_meter || 500;
+        const loc = matchedReport?.alamat_lokasi || "Wilayah Kota Malang";
+
+        activeHazardTargets.push({
+          id: `warn_${w.id}`,
+          lat,
+          lng,
+          level: w.level_peringatan || "AWAS",
+          tipeBahaya: w.tipe_bahaya || "Bencana Sampah",
+          radiusMeters: radius,
+          lokasi: loc,
+          report: matchedReport,
+        });
+      });
+
+      // 2. If no warnings loaded yet, detect critical flood/hazard reports
+      if (activeHazardTargets.length === 0) {
+        reports.forEach((r) => {
+          if (r.is_resiko_banjir || r.tipe_bahaya) {
+            activeHazardTargets.push({
+              id: `rep_${r.id}`,
+              lat: r.latitude,
+              lng: r.longitude,
+              level: r.is_resiko_banjir ? "AWAS" : "SIAGA",
+              tipeBahaya: r.tipe_bahaya || "Potensi Banjir",
+              radiusMeters: r.is_resiko_banjir ? 800 : 400,
+              lokasi: r.alamat_lokasi,
+              report: r,
+            });
+          }
+        });
+      }
+
+      activeHazardTargets.forEach((t) => {
+        const isAwas = t.level === "AWAS";
+        const color = isAwas ? "#ef4444" : "#f59e0b";
+
+        // Circle 1: Outer Buffer Perimeter (Animated dashed border)
+        const outerCircle = L.circle([t.lat, t.lng], {
+          radius: t.radiusMeters,
+          color,
+          fillColor: color,
+          fillOpacity: isAwas ? 0.12 : 0.08,
+          weight: 2,
+          dashArray: "6, 8",
+        }).addTo(map);
+
+        // Circle 2: Inner Core Critical Perimeter (35% of total radius)
+        const innerCircle = L.circle([t.lat, t.lng], {
+          radius: Math.round(t.radiusMeters * 0.35),
+          color,
+          fillColor: color,
+          fillOpacity: isAwas ? 0.24 : 0.16,
+          weight: 1.5,
+        }).addTo(map);
+
+        // Floating Tag on the top perimeter of the hazard zone
+        // 1 degree latitude ~= 111,000 meters
+        const latOffset = (t.radiusMeters / 111000) * 0.96;
+        const tagIcon = L.divIcon({
+          className: "custom-hazard-tag-marker",
+          html: `
+            <div style="transform: translate(-50%, -100%);">
+              <div class="px-2.5 py-1 rounded-full ${
+                isAwas ? "bg-rose-600 shadow-rose-600/50" : "bg-amber-600 shadow-amber-600/50"
+              } text-white text-[10px] font-black shadow-lg border-2 border-white flex items-center gap-1.5 whitespace-nowrap cursor-pointer hover:scale-105 transition-transform">
+                <span class="inline-block w-2 h-2 rounded-full bg-white animate-ping"></span>
+                <span>${t.level}: ${t.tipeBahaya} (${t.radiusMeters}m)</span>
+              </div>
+            </div>
+          `,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+
+        const tagMarker = L.marker([t.lat + latOffset, t.lng], {
+          icon: tagIcon,
+          zIndexOffset: 350,
+        }).addTo(map);
+
+        if (t.report) {
+          tagMarker.on("click", () => {
+            setSelectedReport(t.report!);
+          });
+        }
+
+        newLayers.push(outerCircle, innerCircle, tagMarker);
+      });
+
+      hazardLayersRef.current = newLayers;
+    });
+
+    return () => {
+      hazardLayersRef.current.forEach((layer) => {
+        try {
+          map.removeLayer(layer);
+        } catch {}
+      });
+      hazardLayersRef.current = [];
+    };
+  }, [showHazardZones, warnings, reports, isMapReady]);
 
   // Synchronize Markers
   React.useEffect(() => {
@@ -1245,7 +1457,16 @@ export function GoogleMapsView() {
         />
       )}
 
-      {/* 2. Google Maps Floating Search Bar & Category Chips */}
+      {/* 2. Emergency Disaster Early Warning Broadcast Banner */}
+      {!activeRouteReport && (
+        <EarlyWarningBanner
+          warnings={warnings}
+          onFlyToHazard={handleFlyToHazard}
+          className={selectedReport ? "hidden md:block" : ""}
+        />
+      )}
+
+      {/* 2b. Google Maps Floating Search Bar & Category Chips */}
       {!selectedReport && !activeRouteReport && !activeRailPanel && (
         <SearchFloatingBar
           searchQuery={searchQuery}
@@ -1472,11 +1693,56 @@ export function GoogleMapsView() {
               </div>
             </div>
 
-            {/* Overlays / Analysis Layer: Heatmap */}
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
+            {/* Overlays / Analysis Layer: Hazard Zones & Heatmap */}
+            <div className="pt-2 border-t border-slate-100 space-y-2">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                Analisis Kepadatan
+                Analisis Kepadatan & Risiko
               </span>
+
+              {/* Hazard Buffer Zones Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowHazardZones(!showHazardZones)}
+                className={cn(
+                  "w-full p-2.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer",
+                  showHazardZones
+                    ? "border-rose-400 bg-rose-500/10 text-rose-950 shadow-xs"
+                    : "border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      "h-7 w-7 rounded-lg flex items-center justify-center shadow-xs",
+                      showHazardZones
+                        ? "bg-gradient-to-tr from-rose-500 to-red-600 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    )}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold block leading-tight">Zona Bahaya Bencana</span>
+                    <span className="text-[10px] text-slate-500">Radius luapan & metana</span>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    "w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
+                    showHazardZones ? "bg-rose-500" : "bg-slate-200"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out",
+                      showHazardZones ? "translate-x-4" : "translate-x-0"
+                    )}
+                  />
+                </div>
+              </button>
+
+              {/* Heatmap Toggle */}
               <button
                 type="button"
                 onClick={() => setShowHeatmap(!showHeatmap)}
@@ -1527,10 +1793,15 @@ export function GoogleMapsView() {
           type="button"
           onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
           className="flex items-center gap-2 p-1.5 pr-3 rounded-2xl bg-white shadow-xl shadow-slate-200/70 border border-slate-200/90 hover:scale-105 transition-all cursor-pointer"
-          title="Ubah Lapisan & Heatmap Peta"
+          title="Ubah Lapisan & Zona Bahaya Peta"
         >
           <div className="h-10 w-10 rounded-xl overflow-hidden border border-slate-200 bg-[#2B3752] flex items-center justify-center text-white relative">
             <Layers className="h-5 w-5" />
+            {showHazardZones && (
+              <span className="absolute -top-1 -left-1 h-3.5 w-3.5 rounded-full bg-rose-500 border border-white flex items-center justify-center shadow-xs">
+                <AlertTriangle className="h-2 w-2 text-white" />
+              </span>
+            )}
             {showHeatmap && (
               <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-orange-500 border border-white flex items-center justify-center shadow-xs">
                 <Flame className="h-2 w-2 text-white" />
@@ -1540,7 +1811,11 @@ export function GoogleMapsView() {
           <div className="flex flex-col text-left">
             <span className="text-[11px] font-bold text-[#2B3752]">Lapisan</span>
             <span className="text-[10px] text-slate-400 font-medium capitalize">
-              {showHeatmap
+              {showHazardZones && showHeatmap
+                ? "Bahaya + Panas 🔥"
+                : showHazardZones
+                ? "Zona Bahaya ⚠️"
+                : showHeatmap
                 ? "Peta + Heatmap 🔥"
                 : mapLayer === "streets"
                 ? "Peta Jalan"

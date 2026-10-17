@@ -1,4 +1,4 @@
-import { LaporanSampah, PeringatanDini, KatalogHadiah, User } from "@/types";
+import { LaporanSampah, PeringatanDini, KatalogHadiah, User, MetadataForensik } from "@/types";
 
 export const getApiBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -201,6 +201,7 @@ export interface CreateLaporanPayload {
   status_id?: number;
   is_resiko_banjir?: boolean;
   tipe_bahaya?: string | null;
+  metadata_forensik?: MetadataForensik | null;
   analisis_ai?: {
     volume_sampah_m3: number;
     persentase_sumbatan_aliran: number;

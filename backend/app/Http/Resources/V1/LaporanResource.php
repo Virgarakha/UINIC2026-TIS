@@ -43,8 +43,12 @@ class LaporanResource extends JsonResource
                 'nilai_ekonomi_estimasi' => (int) ($raw['nilai_ekonomi_estimasi'] ?? 125000),
                 'model_version' => $ai->model_version,
                 'analyzed_at' => $ai->analyzed_at?->toISOString(),
+                'metadata_forensik' => $raw['metadata_forensik'] ?? null,
+                'is_geotag_verified' => (bool) ($raw['metadata_forensik']['is_geotag_verified'] ?? false),
             ];
         }
+
+        $metaForensik = $aiData['metadata_forensik'] ?? null;
 
         return [
             'id' => $this->id,
@@ -79,6 +83,8 @@ class LaporanResource extends JsonResource
             'alamat_lokasi' => $this->alamat_lokasi ?? '',
             'is_resiko_banjir' => (bool) $this->is_resiko_banjir,
             'tipe_bahaya' => $this->tipe_bahaya,
+            'is_geotag_verified' => (bool) ($metaForensik['is_geotag_verified'] ?? false),
+            'metadata_forensik' => $metaForensik,
             'poin_diberikan' => (int) $this->poin_diberikan,
             'total_tanggapan' => (int) $this->total_tanggapan,
             'total_foto_tambahan' => (int) $this->total_foto_tambahan,

@@ -202,6 +202,17 @@ class VoiceNavigationService {
       { priority: "high", force: true }
     );
   }
+
+  public announceEmergencyWarning(
+    level: string,
+    tipeBahaya: string,
+    lokasi: string,
+    radiusMeters: number
+  ): void {
+    const cleanLokasi = lokasi.split(",")[0] || "wilayah terdampak";
+    const alertSpeech = `Peringatan dini status ${level}! Terdeteksi bahaya ${tipeBahaya} di ${cleanLokasi}. Zona risiko diperkirakan hingga radius ${radiusMeters} meter. Warga diimbau waspada dan menjauhi area luapan.`;
+    this.speak(alertSpeech, { priority: "high", force: true, rate: 1.0 });
+  }
 }
 
 export const voiceNavigator = new VoiceNavigationService();

@@ -80,7 +80,10 @@ class LaporanController extends BaseApiController
      */
     public function peringatanDini(): JsonResponse
     {
-        $warnings = PeringatanDini::where('status_aktif', true)->latest()->get();
+        $warnings = PeringatanDini::where('status_aktif', true)
+            ->with(['laporan.status', 'laporan.kategori'])
+            ->latest()
+            ->get();
 
         return $this->sendResponse($warnings, 'Daftar peringatan dini aktif berhasil diambil');
     }
