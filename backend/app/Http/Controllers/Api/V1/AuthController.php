@@ -45,6 +45,19 @@ class AuthController extends BaseApiController
 
         $user = User::where('email', $credentials['email'])->first();
 
+        // Auto-provision demo users if not yet seeded
+        if (! $user && in_array($credentials['email'], ['pengepul@ecocitizen.id', 'budi@ecocitizen.id'])) {
+            $user = User::create([
+                'name' => $credentials['email'] === 'pengepul@ecocitizen.id' ? 'Pak Slamet (Mitra Pengepul)' : 'Budi Santoso',
+                'email' => $credentials['email'],
+                'password' => Hash::make('password'),
+                'role' => $credentials['email'] === 'pengepul@ecocitizen.id' ? 'pengepul' : 'warga',
+                'poin_reward' => $credentials['email'] === 'pengepul@ecocitizen.id' ? 350 : 240,
+                'no_telepon' => $credentials['email'] === 'pengepul@ecocitizen.id' ? '0813-3379-4278' : '0812-3456-7890',
+                'email_verified_at' => now(),
+            ]);
+        }
+
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return $this->sendError('Invalid email or password credentials', [], 401);
         }

@@ -31,6 +31,32 @@ class DatabaseSeeder extends Seeder
             $admin->createToken('admin-api-key');
         }
 
+        // Seed default Pengepul (Pak Slamet) for quick demo
+        User::firstOrCreate(
+            ['email' => 'pengepul@ecocitizen.id'],
+            [
+                'name' => 'Pak Slamet (Mitra Pengepul)',
+                'password' => Hash::make('password'),
+                'role' => 'pengepul',
+                'poin_reward' => 350,
+                'no_telepon' => '0813-3379-4278',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        // Seed default Warga (Budi Santoso) for quick demo
+        User::firstOrCreate(
+            ['email' => 'budi@ecocitizen.id'],
+            [
+                'name' => 'Budi Santoso',
+                'password' => Hash::make('password'),
+                'role' => 'warga',
+                'poin_reward' => 240,
+                'no_telepon' => '0812-3456-7890',
+                'email_verified_at' => now(),
+            ]
+        );
+
         // 2. Seed 25 realistic users for testing DataTables and API pagination
         if (User::count() <= 1) {
             User::factory(25)->create();

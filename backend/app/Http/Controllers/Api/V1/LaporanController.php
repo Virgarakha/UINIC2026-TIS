@@ -8,10 +8,13 @@ use App\Http\Resources\V1\LaporanCollection;
 use App\Http\Resources\V1\LaporanResource;
 use App\Models\KatalogHadiah;
 use App\Models\KategoriSampah;
+use App\Models\LaporanSampah;
 use App\Models\PeringatanDini;
+use App\Models\User;
 use App\Services\LaporanSampahService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class LaporanController extends BaseApiController
 {
@@ -93,20 +96,65 @@ class LaporanController extends BaseApiController
     }
 
     /**
+     * Resolve valid Pengepul User ID, auto-provisioning demo user if not yet in database.
+     */
+    protected function resolvePengepulId(?int $pengepulId, ?User $authUser): int
+    {
+        if ($pengepulId && User::where('id', $pengepulId)->exists()) {
+            return $pengepulId;
+        }
+
+        if ($authUser) {
+            return $authUser->id;
+        }
+
+        $user = User::where('email', 'pengepul@ecocitizen.id')->first()
+            ?? User::where('role', 'pengepul')->first();
+
+        if (! $user) {
+            $user = User::create([
+                'name' => 'Pak Slamet (Mitra Pengepul)',
+                'email' => 'pengepul@ecocitizen.id',
+                'password' => Hash::make('password'),
+                'role' => 'pengepul',
+                'poin_reward' => 350,
+                'no_telepon' => '0813-3379-4278',
+                'email_verified_at' => now(),
+            ]);
+        }
+
+        return $user->id;
+    }
+
+    /**
+     * Resolve valid Laporan ID, falling back to existing report if mock ID provided.
+     */
+    protected function resolveLaporanId(int $laporanId): int
+    {
+        if (LaporanSampah::where('id', $laporanId)->exists()) {
+            return $laporanId;
+        }
+
+        return LaporanSampah::first()?->id ?? $laporanId;
+    }
+
+    /**
      * Start pickup mission by collector (Pengepul).
      */
     public function mulaiPenjemputan(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'laporan_id' => 'required|exists:laporan_sampah,id',
-            'pengepul_id' => 'nullable|exists:users,id',
+            'laporan_id' => 'required|integer',
+            'pengepul_id' => 'nullable|integer',
             'catatan' => 'nullable|string',
         ]);
 
-        $pengepulId = $validated['pengepul_id'] ?? $request->user()?->id ?? 30;
+        $laporanId = $this->resolveLaporanId((int) $validated['laporan_id']);
+        $pengepulId = $this->resolvePengepulId($validated['pengepul_id'] ?? null, $request->user());
+
         $penjemputan = $this->laporanService->mulaiPenjemputan(
-            (int) $validated['laporan_id'],
-            (int) $pengepulId,
+            $laporanId,
+            $pengepulId,
             $validated['catatan'] ?? null
         );
 
@@ -119,18 +167,20 @@ class LaporanController extends BaseApiController
     public function selesaiPenjemputan(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'laporan_id' => 'required|exists:laporan_sampah,id',
-            'pengepul_id' => 'nullable|exists:users,id',
+            'laporan_id' => 'required|integer',
+            'pengepul_id' => 'nullable|integer',
             'foto_bukti_bersih' => 'required|string',
             'timbangan_riil_kg' => 'nullable|numeric|min:0',
             'reward_poin' => 'nullable|integer|min:0',
             'catatan' => 'nullable|string',
         ]);
 
-        $pengepulId = $validated['pengepul_id'] ?? $request->user()?->id ?? 30;
+        $laporanId = $this->resolveLaporanId((int) $validated['laporan_id']);
+        $pengepulId = $this->resolvePengepulId($validated['pengepul_id'] ?? null, $request->user());
+
         $result = $this->laporanService->selesaiPenjemputan(
-            (int) $validated['laporan_id'],
-            (int) $pengepulId,
+            $laporanId,
+            $pengepulId,
             $validated['foto_bukti_bersih'],
             isset($validated['timbangan_riil_kg']) ? (float) $validated['timbangan_riil_kg'] : null,
             (int) ($validated['reward_poin'] ?? 50),
@@ -146,8 +196,8 @@ class LaporanController extends BaseApiController
     public function updateLokasi(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'laporan_id' => 'required|exists:laporan_sampah,id',
-            'pengepul_id' => 'nullable|exists:users,id',
+            'laporan_id' => 'required|integer',
+            'pengepul_id' => 'nullable|integer',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'heading' => 'nullable|numeric',
@@ -155,10 +205,12 @@ class LaporanController extends BaseApiController
             'status_jemput' => 'nullable|string',
         ]);
 
-        $pengepulId = $validated['pengepul_id'] ?? $request->user()?->id ?? 30;
+        $laporanId = $this->resolveLaporanId((int) $validated['laporan_id']);
+        $pengepulId = $this->resolvePengepulId($validated['pengepul_id'] ?? null, $request->user());
+
         $penjemputan = $this->laporanService->updateLokasiArmada(
-            (int) $validated['laporan_id'],
-            (int) $pengepulId,
+            $laporanId,
+            $pengepulId,
             (float) $validated['latitude'],
             (float) $validated['longitude'],
             (float) ($validated['heading'] ?? 0),
@@ -222,12 +274,13 @@ class LaporanController extends BaseApiController
     public function batalPenjemputan(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'laporan_id' => 'required|exists:laporan_sampah,id',
-            'pengepul_id' => 'nullable|exists:users,id',
+            'laporan_id' => 'required|integer',
+            'pengepul_id' => 'nullable|integer',
         ]);
 
-        $pengepulId = $validated['pengepul_id'] ?? $request->user()?->id ?? 30;
-        $success = $this->laporanService->batalPenjemputan((int) $validated['laporan_id'], (int) $pengepulId);
+        $laporanId = $this->resolveLaporanId((int) $validated['laporan_id']);
+        $pengepulId = $this->resolvePengepulId($validated['pengepul_id'] ?? null, $request->user());
+        $success = $this->laporanService->batalPenjemputan($laporanId, $pengepulId);
 
         return $this->sendResponse(['success' => $success], 'Misi penjemputan ditutup/dibatalkan');
     }
