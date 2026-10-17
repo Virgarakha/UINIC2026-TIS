@@ -34,7 +34,6 @@ import { RailDrawerPanel } from "./rail-drawer-panel";
 import { LoginModal } from "./login-modal";
 import { PengepulVerificationModal } from "./pengepul-verification-modal";
 import { EditProfileModal } from "./edit-profile-modal";
-import { EarlyWarningBanner } from "./early-warning-banner";
 import { User, LaporanSampah, PeringatanDini } from "@/types";
 import {
   fetchLaporanListApi,
@@ -59,10 +58,37 @@ import { getLiveWeather, WeatherData } from "@/lib/weather";
 import { getDistanceMeters, cn } from "@/lib/utils";
 import { getDirections, RouteDirectionData, calculateBearing } from "@/lib/routing";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useGpsTracker, GpsPosition } from "@/hooks/use-gps-tracker";
 import { voiceNavigator } from "@/lib/voice-navigation";
 import { createHeatLayer } from "@/lib/heatmap";
 import { siteConfig } from "@/config/site";
 import "leaflet/dist/leaflet.css";
+
+/**
+ * Shortest rotational path angle unwrapping
+ */
+function normalizeRotation(prevAngle: number, targetHeading: number): number {
+  const targetAngle = -targetHeading;
+  let diff = (targetAngle - prevAngle) % 360;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return prevAngle + diff;
+}
+
+/**
+ * Cardinal direction label in Indonesian (Utara, Barat, Timur, Selatan)
+ */
+function getCardinalDirection(deg: number): { label: string; code: string } {
+  const normalized = ((deg % 360) + 360) % 360;
+  if (normalized >= 337.5 || normalized < 22.5) return { label: "Utara", code: "U" };
+  if (normalized >= 22.5 && normalized < 67.5) return { label: "Timur Laut", code: "TL" };
+  if (normalized >= 67.5 && normalized < 112.5) return { label: "Timur", code: "T" };
+  if (normalized >= 112.5 && normalized < 157.5) return { label: "Tenggara", code: "TG" };
+  if (normalized >= 157.5 && normalized < 202.5) return { label: "Selatan", code: "S" };
+  if (normalized >= 202.5 && normalized < 247.5) return { label: "Barat Daya", code: "BD" };
+  if (normalized >= 247.5 && normalized < 292.5) return { label: "Barat", code: "B" };
+  return { label: "Barat Laut", code: "BL" };
+}
 
 /**
  * Creates dynamic Leaflet DivIcon for the waste collection truck.
@@ -75,7 +101,8 @@ function createTruckDivIcon(
     status: string;
     heading: number;
   },
-  zoom: number
+  zoom: number,
+  isHeadingUp: boolean = false
 ) {
   // Proportional vehicle scaling matching road width, slightly larger when zoomed out
   let width: number;
@@ -93,13 +120,14 @@ function createTruckDivIcon(
   const statusText = isPickingUp ? "Tahap Pengambilan" : "OTW ke Lokasi";
   const badgeBg = isPickingUp ? "bg-emerald-600" : "bg-[#0EB29A]";
   const heading = truck.heading ?? 0;
+  const badgeCounterRotate = isHeadingUp ? `rotate(${heading}deg)` : "rotate(0deg)";
 
   // Floating status badge scaling
   let badgeHtml = "";
   if (zoom >= 15) {
     const scale = zoom >= 17 ? 0.95 : zoom === 16 ? 0.85 : 0.75;
     badgeHtml = `
-      <div class="mb-0.5 px-2 py-0.5 rounded-full bg-[#2B3752]/95 border border-[#0EB29A] text-white text-[10px] font-black shadow-xl flex items-center gap-1.5 whitespace-nowrap backdrop-blur-md pointer-events-none origin-bottom transition-transform duration-200" style="transform: scale(${scale});">
+      <div class="mb-0.5 px-2 py-0.5 rounded-full bg-[#2B3752]/95 border border-[#0EB29A] text-white text-[10px] font-black shadow-xl flex items-center gap-1.5 whitespace-nowrap backdrop-blur-md pointer-events-none origin-bottom transition-transform duration-300" style="transform: scale(${scale}) ${badgeCounterRotate};">
         <span class="h-1.5 w-1.5 rounded-full ${isPickingUp ? "bg-emerald-400" : "bg-[#0EB29A]"} animate-ping"></span>
         <span class="tracking-tight text-white">${truck.driverName}</span>
         <span class="text-[8.5px] px-1.5 py-0.2 rounded-full ${badgeBg} text-white font-bold uppercase tracking-wider">${statusText}</span>
@@ -107,7 +135,7 @@ function createTruckDivIcon(
     `;
   } else if (zoom >= 12) {
     badgeHtml = `
-      <div class="mb-0.5 px-1.5 py-0.2 rounded-full bg-[#2B3752]/95 border border-[#0EB29A] text-white text-[8.5px] font-black shadow-md flex items-center gap-1 whitespace-nowrap pointer-events-none origin-bottom" style="transform: scale(0.7);">
+      <div class="mb-0.5 px-1.5 py-0.2 rounded-full bg-[#2B3752]/95 border border-[#0EB29A] text-white text-[8.5px] font-black shadow-md flex items-center gap-1 whitespace-nowrap pointer-events-none origin-bottom transition-transform duration-300" style="transform: scale(0.7) ${badgeCounterRotate};">
         <span class="h-1.5 w-1.5 rounded-full ${isPickingUp ? "bg-emerald-400" : "bg-[#0EB29A]"}"></span>
         <span class="tracking-tight text-white">${truck.driverName.split(" ")[0] || "Pengepul"}</span>
       </div>
@@ -267,6 +295,51 @@ export function GoogleMapsView() {
   } | null>(null);
   const [isSimulatingDrive, setIsSimulatingDrive] = React.useState<boolean>(false);
   const [simulationIndex, setSimulationIndex] = React.useState<number>(0);
+  const [navigationMode, setNavigationMode] = React.useState<"gps" | "simulation">("gps");
+  const [autoCenterGps, setAutoCenterGps] = React.useState<boolean>(true);
+  const [isMapPannedAway, setIsMapPannedAway] = React.useState<boolean>(false);
+  const [isHeadingUpEnabled, setIsHeadingUpEnabled] = React.useState<boolean>(true);
+  const [deviceCompassHeading, setDeviceCompassHeading] = React.useState<number | null>(null);
+  const [mapRotation, setMapRotation] = React.useState<number>(0);
+  const autoCenterGpsRef = React.useRef<boolean>(true);
+  const lastGpsBroadcastRef = React.useRef<number>(0);
+
+  React.useEffect(() => {
+    autoCenterGpsRef.current = autoCenterGps;
+  }, [autoCenterGps]);
+
+  // Hardware compass sensor (deviceorientation) for mobile gyroscope orientation
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if ((e as any).webkitCompassHeading !== undefined && (e as any).webkitCompassHeading !== null) {
+        setDeviceCompassHeading(Math.round((e as any).webkitCompassHeading));
+      } else if (e.alpha !== null && e.alpha !== undefined) {
+        const comp = (360 - e.alpha) % 360;
+        setDeviceCompassHeading(Math.round(comp));
+      }
+    };
+
+    const win = window as any;
+    if ("ondeviceorientationabsolute" in win) {
+      window.addEventListener("deviceorientationabsolute", handleOrientation as any);
+    }
+    if ("ondeviceorientation" in win) {
+      window.addEventListener("deviceorientation", handleOrientation as any);
+    }
+
+    win.__setVehicleHeading = (h: number) => {
+      setCollectorLocation((prev) => (prev ? { ...prev, heading: h } : { lat: geo.latitude || -7.9826, lng: geo.longitude || 112.6308, heading: h }));
+      setDeviceCompassHeading(h);
+    };
+
+    return () => {
+      window.removeEventListener("deviceorientationabsolute", handleOrientation as any);
+      window.removeEventListener("deviceorientation", handleOrientation as any);
+      delete win.__setVehicleHeading;
+    };
+  }, [geo.latitude, geo.longitude]);
 
   // User Authentication & Mini-Rail state
   const [user, setUser] = React.useState<User | null>(null);
@@ -287,11 +360,202 @@ export function GoogleMapsView() {
     score: number;
   } | null>(null);
 
+  // Armada & Driver Idle Tracking (> 10 minutes without movement/activity)
+  const ARMADA_IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes (600,000 ms)
+  const [lastMovementTimestamp, setLastMovementTimestamp] = React.useState<number>(0);
+  const [isDriverIdle, setIsDriverIdle] = React.useState<boolean>(false);
+  const prevMovementPosRef = React.useRef<{ lat: number; lng: number } | null>(null);
+
+  // Initialize movement timestamp on client mount (prevents Next.js prerender unstable Date.now warning)
+  React.useEffect(() => {
+    setLastMovementTimestamp(Date.now());
+  }, []);
+
   // In-App Directions (Route) state
   const [activeRouteReport, setActiveRouteReport] = React.useState<LaporanSampah | null>(null);
   const [routeData, setRouteData] = React.useState<RouteDirectionData | null>(null);
   const [isRoutingLoading, setIsRoutingLoading] = React.useState(false);
   const [travelMode, setTravelMode] = React.useState<"driving" | "motorcycle" | "walking">("driving");
+
+  // Determine effective vehicle heading and cardinal direction (Utara, Barat, Timur, Selatan)
+  const truckHeading = collectorLocation?.heading ?? 0;
+  const effectiveHeading = truckHeading !== 0 ? truckHeading : (deviceCompassHeading ?? 0);
+  const isHeadingUpMode =
+    Boolean(activeRouteReport) &&
+    pengepulMissionStatus === "otw" &&
+    autoCenterGps &&
+    !isMapPannedAway &&
+    isHeadingUpEnabled &&
+    !isDriverIdle;
+  const cardinal = getCardinalDirection(effectiveHeading);
+
+  // Smooth angle unwrapping transition for map rotation
+  React.useEffect(() => {
+    if (isHeadingUpMode) {
+      setMapRotation((prev) => normalizeRotation(prev, effectiveHeading));
+    } else {
+      setMapRotation((prev) => normalizeRotation(prev, 0));
+    }
+  }, [isHeadingUpMode, effectiveHeading]);
+
+  // Recenter map camera on collector truck towards destination & restore Heading-Up alignment
+  const handleRecenterOnTruck = React.useCallback(() => {
+    setAutoCenterGps(true);
+    setIsMapPannedAway(false);
+    setIsHeadingUpEnabled(true);
+    setLastMovementTimestamp(Date.now());
+    setIsDriverIdle(false);
+
+    const targetLat =
+      collectorLocation?.lat ??
+      geo.latitude ??
+      routeData?.coordinates?.[0]?.[0] ??
+      -7.9826;
+    const targetLng =
+      collectorLocation?.lng ??
+      geo.longitude ??
+      routeData?.coordinates?.[0]?.[1] ??
+      112.6308;
+
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      const targetZoom = Math.max(currentZoom, 17);
+      mapInstanceRef.current.flyTo([targetLat, targetLng], targetZoom, {
+        duration: 0.8,
+        easeLinearity: 0.25,
+      });
+    }
+  }, [collectorLocation, geo.latitude, geo.longitude, routeData]);
+
+  // High-Precision Real-time GPS Tracker for mobile driving navigation
+  const handleGpsLocationUpdate = React.useCallback(
+    (pos: GpsPosition) => {
+      if (navigationMode !== "gps") return;
+
+      // Check if driver has physically moved (> 5 meters or speed > 1 km/h)
+      const prevPos = prevMovementPosRef.current;
+      const movedDistance = prevPos
+        ? getDistanceMeters(prevPos.lat, prevPos.lng, pos.lat, pos.lng)
+        : 100;
+
+      if (pos.speedKmh > 1 || movedDistance >= 5) {
+        prevMovementPosRef.current = { lat: pos.lat, lng: pos.lng };
+        setLastMovementTimestamp(Date.now());
+        setIsDriverIdle(false);
+      }
+
+      setCollectorLocation({
+        lat: pos.lat,
+        lng: pos.lng,
+        heading: pos.heading,
+      });
+
+      if (autoCenterGpsRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.panTo([pos.lat, pos.lng], {
+          animate: true,
+          duration: 0.5,
+        });
+      }
+
+      // If active mission is OTW and driver is NOT idle, broadcast to backend and observers (throttled to 1.5s)
+      if (pengepulMissionStatus === "otw" && activeRouteReport && !isDriverIdle) {
+        const now = Date.now();
+        if (now - lastGpsBroadcastRef.current >= 1500) {
+          lastGpsBroadcastRef.current = now;
+
+          updateTruckLocationApi({
+            laporanId: activeRouteReport.id,
+            pengepulId: user?.id || 30,
+            latitude: pos.lat,
+            longitude: pos.lng,
+            heading: pos.heading,
+            kecepatanKmh: pos.speedKmh,
+            statusJemput: "menuju_lokasi",
+          }).catch((err) => console.warn("GPS broadcast error:", err));
+
+          if (typeof BroadcastChannel !== "undefined") {
+            try {
+              const ch = new BroadcastChannel("uinic_armada_tracking");
+              ch.postMessage({
+                type: "TRUCK_LOCATION_UPDATE",
+                data: {
+                  laporan_id: activeRouteReport.id,
+                  pengepul_id: user?.id || 30,
+                  pengepul_nama: user?.name || "Pak Joko (Mitra Pengepul)",
+                  latitude: pos.lat,
+                  longitude: pos.lng,
+                  heading: pos.heading,
+                  kecepatan_kmh: pos.speedKmh,
+                  status_jemput: "menuju_lokasi",
+                },
+              });
+              ch.close();
+            } catch {}
+          }
+        }
+      }
+    },
+    [navigationMode, pengepulMissionStatus, activeRouteReport, user]
+  );
+
+  const gpsTracker = useGpsTracker({
+    enabled: Boolean(activeRouteReport) && navigationMode === "gps",
+    highAccuracy: true,
+    minDistanceMeters: 1,
+    onLocationUpdate: handleGpsLocationUpdate,
+  });
+
+  // Periodic check: If driver or armada has been idle for > 10 minutes, hide truck icon
+  React.useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const isMissionActive =
+        pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan";
+
+      if (isMissionActive && lastMovementTimestamp > 0) {
+        const idleDuration = Date.now() - lastMovementTimestamp;
+        if (idleDuration >= ARMADA_IDLE_TIMEOUT_MS) {
+          if (!isDriverIdle) {
+            setIsDriverIdle(true);
+          }
+        } else {
+          if (isDriverIdle) {
+            setIsDriverIdle(false);
+          }
+        }
+      } else {
+        if (isDriverIdle) {
+          setIsDriverIdle(false);
+        }
+      }
+
+      // Also filter out any stale armada in activeArmadaList
+      setActiveArmadaList((prev) => {
+        const now = Date.now();
+        const filtered = prev.filter((t) => {
+          const updateStr = t.waktu_update_lokasi || (t as any).updated_at;
+          if (!updateStr) return true;
+          const time = new Date(updateStr).getTime();
+          return isNaN(time) || now - time < ARMADA_IDLE_TIMEOUT_MS;
+        });
+        if (filtered.length !== prev.length) {
+          return filtered;
+        }
+        return prev;
+      });
+    }, 5000);
+
+    return () => clearInterval(checkInterval);
+  }, [pengepulMissionStatus, lastMovementTimestamp, isDriverIdle, ARMADA_IDLE_TIMEOUT_MS]);
+
+  // Testing helper for automated verification of idle state
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__setDriverIdleForTesting = (isIdle: boolean) => {
+        setIsDriverIdle(isIdle);
+        setLastMovementTimestamp(isIdle ? Date.now() - 11 * 60 * 1000 : Date.now());
+      };
+    }
+  }, []);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [activeCategory, setActiveCategory] = React.useState("all");
@@ -441,6 +705,12 @@ export function GoogleMapsView() {
         map.on("zoomend", updateZoom);
         setMapZoom(map.getZoom());
 
+        const handleUserDrag = () => {
+          setIsMapPannedAway(true);
+          setAutoCenterGps(false);
+        };
+        map.on("dragstart", handleUserDrag);
+
         setTimeout(() => {
           if (map) map.invalidateSize();
         }, 200);
@@ -564,37 +834,6 @@ export function GoogleMapsView() {
       }
     };
   }, [showHeatmap, filteredReports]);
-
-  // Callback to fly camera to emergency hazard zone
-  const handleFlyToHazard = React.useCallback(
-    (warning: PeringatanDini) => {
-      if (!mapInstanceRef.current) return;
-      const matchedReport =
-        warning.laporan ||
-        reports.find((r) => r.id === warning.laporan_id) ||
-        MOCK_LAPORAN_SAMPAH.find((r) => r.id === warning.laporan_id);
-
-      const lat =
-        matchedReport?.latitude ||
-        (warning.id === 1 ? -7.9826 : warning.id === 2 ? -7.9712 : -7.9901);
-      const lng =
-        matchedReport?.longitude ||
-        (warning.id === 1 ? 112.6308 : warning.id === 2 ? 112.6342 : 112.6219);
-
-      setShowHazardZones(true);
-      mapInstanceRef.current.flyTo([lat, lng], 15, {
-        duration: 1.2,
-      });
-
-      const targetReport = matchedReport || reports[0] || null;
-      if (targetReport) {
-        setTimeout(() => {
-          setSelectedReport(targetReport);
-        }, 1200);
-      }
-    },
-    [reports]
-  );
 
   // Synchronize Geofenced Hazard Pulse Circles & Danger Buffers
   React.useEffect(() => {
@@ -877,6 +1116,9 @@ export function GoogleMapsView() {
 
     const coords = routeData.coordinates;
     const interval = setInterval(() => {
+      setLastMovementTimestamp(Date.now());
+      setIsDriverIdle(false);
+
       setSimulationIndex((prev) => {
         const next = prev + 1;
         if (next >= coords.length) {
@@ -980,8 +1222,8 @@ export function GoogleMapsView() {
           }
         }
 
-        // Smoothly pan map to follow the truck
-        if (mapInstanceRef.current) {
+        // Smoothly pan map to follow the truck if autoCenter is active
+        if (autoCenterGpsRef.current && mapInstanceRef.current) {
           mapInstanceRef.current.panTo([nextPoint[0], nextPoint[1]], {
             animate: true,
             duration: 0.6,
@@ -1003,7 +1245,14 @@ export function GoogleMapsView() {
       try {
         const data = await fetchActiveArmadaApi();
         if (isMounted && Array.isArray(data)) {
-          setActiveArmadaList(data);
+          const now = Date.now();
+          const activeOnly = data.filter((t) => {
+            const updateStr = t.waktu_update_lokasi || (t as any).updated_at;
+            if (!updateStr) return true;
+            const time = new Date(updateStr).getTime();
+            return isNaN(time) || now - time < ARMADA_IDLE_TIMEOUT_MS;
+          });
+          setActiveArmadaList(activeOnly);
         }
       } catch {
         // silent fallback
@@ -1056,7 +1305,7 @@ export function GoogleMapsView() {
         channel.close();
       }
     };
-  }, []);
+  }, [ARMADA_IDLE_TIMEOUT_MS]);
 
   // Multi-Armada Truck Map Layer (Rendered for ALL users: cross-client, other accounts, citizens)
   React.useEffect(() => {
@@ -1067,6 +1316,7 @@ export function GoogleMapsView() {
       if (!mapInstanceRef.current) return;
 
       const activeKeys = new Set<string>();
+      const now = Date.now();
 
       activeArmadaList.forEach((truck) => {
         // If current tab is actively driving this specific truck along the local route,
@@ -1077,6 +1327,15 @@ export function GoogleMapsView() {
 
         if (isCurrentTabDriver) {
           return;
+        }
+
+        // If truck is idle for more than 10 minutes, do not render its icon
+        const updateStr = truck.waktu_update_lokasi || (truck as any).updated_at;
+        if (updateStr) {
+          const updateTime = new Date(updateStr).getTime();
+          if (!isNaN(updateTime) && now - updateTime >= ARMADA_IDLE_TIMEOUT_MS) {
+            return;
+          }
         }
 
         const truckKey = `truck_${truck.laporan_id || truck.id}`;
@@ -1092,7 +1351,8 @@ export function GoogleMapsView() {
             status: truck.status_jemput,
             heading,
           },
-          mapZoom
+          mapZoom,
+          isHeadingUpMode
         );
 
         const popupHtml = createTruckPopupHtml({
@@ -1150,14 +1410,15 @@ export function GoogleMapsView() {
         renderMarkers(L);
       });
     }
-  }, [activeArmadaList, isMapReady, activeRouteReport, pengepulMissionStatus, mapZoom]);
+  }, [activeArmadaList, isMapReady, activeRouteReport, pengepulMissionStatus, mapZoom, isHeadingUpMode]);
 
   // Realtime Local Collector Truck Layer (Rendered ONLY on active mission tab for ultra-smooth 60fps)
   React.useEffect(() => {
     const isMissionActive =
-      pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan";
+      (pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan") &&
+      !isDriverIdle;
 
-    // If penugasan is NOT active, cleanly remove truck marker from the map
+    // If penugasan is NOT active or driver is idle > 10 mins, cleanly remove truck marker from the map
     if (!isMissionActive) {
       if (collectorTruckMarkerRef.current && mapInstanceRef.current) {
         mapInstanceRef.current.removeLayer(collectorTruckMarkerRef.current);
@@ -1187,7 +1448,8 @@ export function GoogleMapsView() {
           status: pengepulMissionStatus,
           heading,
         },
-        mapZoom
+        mapZoom,
+        isHeadingUpMode
       );
 
       const localPopupHtml = createTruckPopupHtml({
@@ -1236,7 +1498,7 @@ export function GoogleMapsView() {
         renderLocalTruck(L);
       });
     }
-  }, [pengepulMissionStatus, collectorLocation, user, isMapReady, routeData, mapZoom]);
+  }, [pengepulMissionStatus, collectorLocation, user, isMapReady, routeData, mapZoom, isHeadingUpMode, isDriverIdle]);
 
   // Clear any existing route polyline layers, origin beacon marker, and collector truck
   const clearRouteLayers = () => {
@@ -1260,6 +1522,7 @@ export function GoogleMapsView() {
     setCollectorLocation(null);
     setIsSimulatingDrive(false);
     setSimulationIndex(0);
+    setNavigationMode("gps");
   };
 
   // Request in-app road routing direction (Google Maps Style)
@@ -1270,8 +1533,8 @@ export function GoogleMapsView() {
     setActiveRouteReport(destReport);
     setIsRoutingLoading(true);
 
-    const originLat = geo.latitude || -7.9826;
-    const originLng = geo.longitude || 112.6308;
+    const originLat = gpsTracker.position?.lat || geo.latitude || -7.9826;
+    const originLng = gpsTracker.position?.lng || geo.longitude || 112.6308;
     const origin: [number, number] = [originLat, originLng];
     const dest: [number, number] = [destReport.latitude, destReport.longitude];
 
@@ -1371,6 +1634,8 @@ export function GoogleMapsView() {
     setCollectorLocation(null);
     setIsSimulatingDrive(false);
     setSimulationIndex(0);
+    setIsMapPannedAway(false);
+    setAutoCenterGps(true);
     if (selectedReport && mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([selectedReport.latitude, selectedReport.longitude], 16, { duration: 0.8 });
     }
@@ -1410,7 +1675,15 @@ export function GoogleMapsView() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-100 select-none">
       {/* 1. Leaflet Fullscreen Map Container */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div
+        ref={mapContainerRef}
+        className="w-full h-full z-0"
+        style={{
+          transform: isHeadingUpMode ? `rotate(${mapRotation}deg) scale(1.35)` : "none",
+          transformOrigin: "center center",
+          transition: isHeadingUpMode ? "transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)" : "transform 0.3s ease-out",
+        }}
+      />
 
       {/* Mini Rail Sidebar (Google Maps Left Rail - Visible when logged in) */}
       {user && (
@@ -1457,15 +1730,6 @@ export function GoogleMapsView() {
         />
       )}
 
-      {/* 2. Emergency Disaster Early Warning Broadcast Banner */}
-      {!activeRouteReport && (
-        <EarlyWarningBanner
-          warnings={warnings}
-          onFlyToHazard={handleFlyToHazard}
-          className={selectedReport ? "hidden md:block" : ""}
-        />
-      )}
-
       {/* 2b. Google Maps Floating Search Bar & Category Chips */}
       {!selectedReport && !activeRouteReport && !activeRailPanel && (
         <SearchFloatingBar
@@ -1500,38 +1764,125 @@ export function GoogleMapsView() {
           }
           isRailVisible={Boolean(user)}
           user={user}
-          currentLat={collectorLocation?.lat ?? geo.latitude}
-          currentLng={collectorLocation?.lng ?? geo.longitude}
+          currentLat={collectorLocation?.lat ?? gpsTracker.position?.lat ?? geo.latitude}
+          currentLng={collectorLocation?.lng ?? gpsTracker.position?.lng ?? geo.longitude}
           missionStatus={pengepulMissionStatus}
           onMissionStatusChange={(st) => {
             setPengepulMissionStatus(st);
             if (st === "otw") {
-              if (routeData?.coordinates?.length) {
-                const p0 = routeData.coordinates[0];
-                const p1 = routeData.coordinates[1] || p0;
-                const brng = calculateBearing(p0[0], p0[1], p1[0], p1[1]);
-                setCollectorLocation({ lat: p0[0], lng: p0[1], heading: brng });
-                setSimulationIndex(0);
+              setLastMovementTimestamp(Date.now());
+              setIsDriverIdle(false);
+              setAutoCenterGps(true);
+              setIsMapPannedAway(false);
+              let truckLat = -7.9826;
+              let truckLng = 112.6308;
+              if (navigationMode === "simulation") {
+                if (routeData?.coordinates?.length) {
+                  const p0 = routeData.coordinates[0];
+                  const p1 = routeData.coordinates[1] || p0;
+                  const brng = calculateBearing(p0[0], p0[1], p1[0], p1[1]);
+                  setCollectorLocation({ lat: p0[0], lng: p0[1], heading: brng });
+                  setSimulationIndex(0);
+                  truckLat = p0[0];
+                  truckLng = p0[1];
+                }
+                setIsSimulatingDrive(true);
+              } else {
+                // Real-World Mobile GPS Mode
+                const lat = gpsTracker.position?.lat ?? geo.latitude ?? (routeData?.coordinates?.[0]?.[0] || -7.9826);
+                const lng = gpsTracker.position?.lng ?? geo.longitude ?? (routeData?.coordinates?.[0]?.[1] || 112.6308);
+                const heading = gpsTracker.position?.heading ?? 0;
+                setCollectorLocation({ lat, lng, heading });
+                setIsSimulatingDrive(false);
+                truckLat = lat;
+                truckLng = lng;
               }
-              setIsSimulatingDrive(true);
+              // Immediately center camera on truck at driving zoom
+              if (mapInstanceRef.current) {
+                mapInstanceRef.current.flyTo([truckLat, truckLng], 17, {
+                  duration: 0.9,
+                  easeLinearity: 0.25,
+                });
+              }
             } else if (st === "tahap_pengambilan" || st === "selesai" || st === "idle") {
               setIsSimulatingDrive(false);
             }
           }}
           isSimulatingDrive={isSimulatingDrive}
           onToggleSimulateDrive={() => setIsSimulatingDrive((prev) => !prev)}
+          navigationMode={navigationMode}
+          onNavigationModeChange={(mode) => {
+            setNavigationMode(mode);
+            if (mode === "gps") {
+              setIsSimulatingDrive(false);
+              if (gpsTracker.position) {
+                setCollectorLocation({
+                  lat: gpsTracker.position.lat,
+                  lng: gpsTracker.position.lng,
+                  heading: gpsTracker.position.heading,
+                });
+              }
+            } else if (mode === "simulation" && pengepulMissionStatus === "otw") {
+              setIsSimulatingDrive(true);
+            }
+          }}
+          gpsAccuracy={gpsTracker.position?.accuracy ?? null}
+          gpsSpeedKmh={gpsTracker.position?.speedKmh ?? 0}
+          gpsError={gpsTracker.error}
+          autoCenterGps={autoCenterGps}
+          onToggleAutoCenterGps={() => {
+            if (!autoCenterGps || isMapPannedAway) {
+              handleRecenterOnTruck();
+            } else {
+              setAutoCenterGps(false);
+              setIsMapPannedAway(true);
+            }
+          }}
+          onRecenterTruck={handleRecenterOnTruck}
+          isMapPannedAway={isMapPannedAway}
           onJumpNearTarget={() => {
             if (activeRouteReport) {
               const destLat = activeRouteReport.latitude;
               const destLng = activeRouteReport.longitude;
+              const nearLat = destLat - 0.0003;
+              const nearLng = destLng - 0.0003;
+              const heading = 45;
               setCollectorLocation({
-                lat: destLat - 0.0003,
-                lng: destLng - 0.0003,
-                heading: 45,
+                lat: nearLat,
+                lng: nearLng,
+                heading,
               });
               setIsSimulatingDrive(false);
+              updateTruckLocationApi({
+                laporanId: activeRouteReport.id,
+                pengepulId: user?.id || 30,
+                latitude: nearLat,
+                longitude: nearLng,
+                heading,
+                kecepatanKmh: 0,
+                statusJemput: "menuju_lokasi",
+              }).catch(() => {});
+              if (typeof BroadcastChannel !== "undefined") {
+                try {
+                  const ch = new BroadcastChannel("uinic_armada_tracking");
+                  ch.postMessage({
+                    type: "TRUCK_LOCATION_UPDATE",
+                    data: {
+                      laporan_id: activeRouteReport.id,
+                      pengepul_id: user?.id || 30,
+                      pengepul_nama: user?.name || "Pak Joko (Mitra Pengepul)",
+                      latitude: nearLat,
+                      longitude: nearLng,
+                      heading,
+                      kecepatan_kmh: 0,
+                      status_jemput: "menuju_lokasi",
+                    },
+                  });
+                  ch.close();
+                } catch {}
+              }
               if (mapInstanceRef.current) {
-                mapInstanceRef.current.flyTo([destLat - 0.0003, destLng - 0.0003], 17, {
+                mapInstanceRef.current.flyTo([nearLat, nearLng], 17, {
                   duration: 0.8,
                 });
               }
@@ -1568,6 +1919,129 @@ export function GoogleMapsView() {
           }}
         />
       ) : null}
+
+      {/* 3b. Floating Recenter on Truck Button (Google Maps Style) */}
+      {activeRouteReport && (
+        <div className="fixed bottom-[140px] left-4 sm:bottom-8 sm:left-[440px] z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <button
+            type="button"
+            onClick={handleRecenterOnTruck}
+            className={cn(
+              "flex items-center gap-2.5 px-4 py-2.5 rounded-full shadow-2xl transition-all duration-200 cursor-pointer text-xs font-black select-none",
+              isMapPannedAway
+                ? "bg-white text-[#0EB29A] border-2 border-[#0EB29A] scale-105 shadow-[#0EB29A]/30 hover:bg-[#0EB29A]/10 animate-pulse"
+                : "bg-white/95 text-[#2B3752] border border-slate-200 hover:border-[#0EB29A] hover:bg-white backdrop-blur-md"
+            )}
+            title="Pusatkan kamera peta ke armada truk Anda menuju titik tujuan"
+          >
+            <div
+              className={cn(
+                "h-6 w-6 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                isMapPannedAway ? "bg-[#0EB29A] text-white" : "bg-[#0EB29A]/15 text-[#0EB29A]"
+              )}
+            >
+              <Compass
+                className={cn("h-4 w-4", isMapPannedAway ? "animate-spin" : "")}
+                style={{ animationDuration: "4s" }}
+              />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="leading-tight text-xs font-black">
+                {isMapPannedAway ? "Pusatkan Kembali" : "Recentered"}
+              </span>
+              <span className="text-[9px] font-bold text-slate-400 leading-none">
+                {isMapPannedAway
+                  ? "Peta digeser • Ketuk untuk ikuti"
+                  : `Mengikuti Arah (${cardinal.label})`}
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* 3c. Floating Compass Needle & Cardinal Heading Widget (Google Maps Navigation Style) */}
+      {activeRouteReport && (
+        <div className="fixed top-20 right-4 sm:top-6 sm:right-6 z-30 animate-in fade-in zoom-in-95 duration-200">
+          <button
+            type="button"
+            onClick={() => {
+              if (isMapPannedAway) {
+                handleRecenterOnTruck();
+              } else {
+                setIsHeadingUpEnabled((prev) => !prev);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-2xl shadow-xl transition-all duration-300 cursor-pointer backdrop-blur-md border select-none",
+              isHeadingUpMode
+                ? "bg-white/95 border-[#0EB29A] text-[#2B3752] hover:bg-white shadow-[#0EB29A]/20"
+                : "bg-white/90 border-slate-200 text-slate-600 hover:bg-white"
+            )}
+            title={
+              isHeadingUpMode
+                ? `Mode: Mengikuti Arah Kemudi (${cardinal.label} ${Math.round(((effectiveHeading % 360) + 360) % 360)}°). Ketuk untuk kunci arah Utara.`
+                : "Mode: Kunci Arah Utara (North-Up). Ketuk untuk mengikuti arah kemudi."
+            }
+          >
+            {/* Rotating Compass Dial */}
+            <div className="relative w-7 h-7 rounded-full bg-slate-100 border border-slate-300/80 flex items-center justify-center shadow-inner flex-shrink-0">
+              {/* Compass Needle (Rotates to always point towards magnetic North) */}
+              <div
+                className="w-full h-full flex items-center justify-center transition-transform duration-500 ease-out"
+                style={{
+                  transform: `rotate(${mapRotation}deg)`,
+                }}
+              >
+                {/* North Pointer (Red) */}
+                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[3px] border-x-transparent border-b-[8px] border-b-rose-600 drop-shadow-xs" />
+                {/* Center Pin */}
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-700 z-10 border border-white" />
+                {/* South Pointer (Slate) */}
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[3px] border-x-transparent border-t-[8px] border-t-slate-400" />
+              </div>
+              <span className="absolute -top-1 left-1/2 -translate-x-1/2 text-[7.5px] font-black text-rose-600 pointer-events-none">
+                U
+              </span>
+            </div>
+
+            {/* Direction & Degree Label */}
+            <div className="flex flex-col text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-[#2B3752] leading-tight">
+                  {cardinal.label}
+                </span>
+                <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-[#0EB29A]/15 text-[#0EB29A]">
+                  {Math.round(((effectiveHeading % 360) + 360) % 360)}°
+                </span>
+              </div>
+              <span className="text-[9px] font-semibold text-slate-400 leading-none">
+                {isHeadingUpMode ? "Arah Kemudi" : "Kunci Utara"}
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* 3d. Floating Idle Alert Banner (Hidden truck notice when idle > 10 minutes) */}
+      {isDriverIdle && (pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan") && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-top duration-300">
+          <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-slate-900/90 text-white shadow-2xl backdrop-blur-md border border-amber-400/40 text-xs font-bold">
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+            <span>Armada idle (&gt; 10 mnt) • Ikon disembunyikan</span>
+            <button
+              type="button"
+              onClick={() => {
+                setLastMovementTimestamp(Date.now());
+                setIsDriverIdle(false);
+                handleRecenterOnTruck();
+              }}
+              className="ml-1.5 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-black text-[11px] shadow-sm cursor-pointer transition-all active:scale-95"
+            >
+              Aktifkan
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Quick Floating Banner when route is active but user is viewing place details */}
       {!activeRouteReport && routeData && selectedReport && (
@@ -1609,26 +2083,34 @@ export function GoogleMapsView() {
       )}
 
       {/* 4. Prominent Floating Action Button (+) for Instant Reporting */}
-      <div className="absolute right-6 bottom-8 z-30 flex flex-col items-end gap-3">
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-2.5 h-14 px-5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white font-bold text-sm shadow-2xl shadow-[#0EB29A]/40 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white"
-          title="Laporkan Titik Timbunan Sampah Baru (GPS & AI)"
+      {!activeRouteReport && (
+        <div
+          className={cn(
+            "absolute right-6 bottom-8 z-30 flex flex-col items-end gap-3",
+            selectedReport ? "hidden sm:flex" : "flex"
+          )}
         >
-          <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center">
-            <Plus className="h-5 w-5" />
-          </div>
-          <span className="tracking-tight">Lapor Sampah</span>
-        </button>
-      </div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2.5 h-14 px-5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white font-bold text-sm shadow-2xl shadow-[#0EB29A]/40 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white"
+            title="Laporkan Titik Timbunan Sampah Baru (GPS & AI)"
+          >
+            <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center">
+              <Plus className="h-5 w-5" />
+            </div>
+            <span className="tracking-tight">Lapor Sampah</span>
+          </button>
+        </div>
+      )}
 
       {/* 5. Google Maps Bottom Left: Layer Switcher & Heatmap Popover */}
-      <div
-        className={cn(
-          "absolute bottom-8 z-20 transition-all duration-300",
-          user ? "left-4 sm:left-[84px]" : "left-6"
-        )}
-      >
+      {!selectedReport && !activeRouteReport && (
+        <div
+          className={cn(
+            "absolute bottom-8 z-20 transition-all duration-300",
+            user ? "left-4 sm:left-[84px]" : "left-6"
+          )}
+        >
         {/* Layer Popover Menu */}
         {isLayerMenuOpen && (
           <div className="mb-2 p-3.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 text-[#2B3752] space-y-3 animate-in fade-in slide-in-from-bottom-2">
@@ -1824,6 +2306,7 @@ export function GoogleMapsView() {
           </div>
         </button>
       </div>
+      )}
 
       {/* Heatmap Density Legend (when heatmap is enabled) */}
       {showHeatmap && (

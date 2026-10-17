@@ -288,15 +288,24 @@ export function calculateBearing(
 }
 
 /**
- * Interpolate coordinate between two points based on fraction (0 to 1).
+ * Calculate distance in meters between two coordinates using Haversine formula.
  */
-export function interpolatePosition(
-  coord1: [number, number],
-  coord2: [number, number],
-  fraction: number
-): [number, number] {
-  const lat = coord1[0] + (coord2[0] - coord1[0]) * fraction;
-  const lng = coord1[1] + (coord2[1] - coord1[1]) * fraction;
-  return [lat, lng];
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
 }
 

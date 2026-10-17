@@ -68,7 +68,7 @@ export function MiniRailSidebar({
   ];
 
   return (
-    <aside className="w-[68px] h-screen bg-white border-r border-slate-200/90 fixed left-0 top-0 z-30 flex flex-col items-center py-3 select-none shadow-xs">
+    <aside className="hidden sm:flex w-[68px] h-screen bg-white border-r border-slate-200/90 fixed left-0 top-0 z-30 flex-col items-center py-3 select-none shadow-xs">
       {/* 1. Hamburger Menu Button (Top) */}
       <button
         onClick={onToggleMenu}

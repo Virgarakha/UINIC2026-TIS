@@ -25,10 +25,12 @@ import {
   Camera,
   Volume2,
   VolumeX,
+  Radio,
+  Crosshair,
 } from "lucide-react";
 import { RouteDirectionData } from "@/lib/routing";
 import { LaporanSampah, User } from "@/types";
-import { getDistanceMeters } from "@/lib/utils";
+import { getDistanceMeters, cn } from "@/lib/utils";
 import { startPenjemputanApi, updateTruckLocationApi } from "@/lib/api-client";
 import { voiceNavigator } from "@/lib/voice-navigation";
 
@@ -51,6 +53,15 @@ export interface RouteDirectionPanelProps {
   isSimulatingDrive?: boolean;
   onToggleSimulateDrive?: () => void;
   onJumpNearTarget?: () => void;
+  navigationMode?: "gps" | "simulation";
+  onNavigationModeChange?: (mode: "gps" | "simulation") => void;
+  gpsAccuracy?: number | null;
+  gpsSpeedKmh?: number;
+  gpsError?: string | null;
+  autoCenterGps?: boolean;
+  onToggleAutoCenterGps?: () => void;
+  onRecenterTruck?: () => void;
+  isMapPannedAway?: boolean;
 }
 
 export function RouteDirectionPanel({
@@ -72,12 +83,45 @@ export function RouteDirectionPanel({
   isSimulatingDrive = false,
   onToggleSimulateDrive,
   onJumpNearTarget,
+  navigationMode = "gps",
+  onNavigationModeChange,
+  gpsAccuracy,
+  gpsSpeedKmh = 0,
+  gpsError,
+  autoCenterGps = true,
+  onToggleAutoCenterGps,
+  onRecenterTruck,
+  isMapPannedAway = false,
 }: RouteDirectionPanelProps) {
   const [showAllSteps, setShowAllSteps] = React.useState(true);
   const [internalStatus, setInternalStatus] = React.useState<"idle" | "otw" | "tahap_pengambilan" | "selesai">(missionStatus);
   const [isSimulatedNear, setIsSimulatedNear] = React.useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = React.useState(voiceNavigator.isMuted);
   const [isVoiceSpeaking, setIsVoiceSpeaking] = React.useState(false);
+  const [mobileNavState, setMobileNavState] = React.useState<"compact" | "expanded">("compact");
+  const touchStartYRef = React.useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartYRef.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
+    touchStartYRef.current = null;
+
+    if (deltaY < -35) {
+      // Swiped UP -> expand
+      setMobileNavState("expanded");
+    } else if (deltaY > 45) {
+      // Swiped DOWN -> if expanded, collapse to compact; if compact, close
+      if (mobileNavState === "expanded") {
+        setMobileNavState("compact");
+      } else {
+        onClose();
+      }
+    }
+  };
 
   React.useEffect(() => {
     setIsVoiceMuted(voiceNavigator.isMuted);
@@ -176,80 +220,262 @@ export function RouteDirectionPanel({
   };
 
   return (
-    <div
-      className={`absolute top-0 bottom-0 z-30 w-full sm:w-[420px] bg-white shadow-2xl border-r border-slate-200/90 flex flex-col animate-in slide-in-from-left-4 duration-300 transition-all ${
-        isRailVisible ? "left-0 sm:left-[68px]" : "left-0"
-      }`}
-    >
-      {/* Top Header: Title & Close Button */}
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-xl bg-[#0EB29A]/15 text-[#0EB29A] flex items-center justify-center font-bold">
-            <Navigation className="h-4 w-4" />
+    <>
+      {/* Mobile Top Floating Maneuver HUD Banner (Google Maps Turn-by-Turn Style) */}
+      <div className="sm:hidden fixed top-3 inset-x-3 z-30 pointer-events-auto animate-in slide-in-from-top duration-300">
+        <div className="bg-[#073F37] text-white p-3 rounded-2xl shadow-xl border border-emerald-500/30 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-xl bg-[#0EB29A] text-white flex items-center justify-center flex-shrink-0 shadow-md">
+              {routeData?.steps?.[0]?.type ? (
+                getStepIcon(routeData.steps[0].type, routeData.steps[0].modifier)
+              ) : (
+                <ArrowUp className="h-5 w-5 stroke-[2.5]" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider block">
+                {routeData?.steps?.[0]?.instruction ? "Manuver Selanjutnya" : "Menuju Titik Sampah"}
+              </span>
+              <h4 className="text-xs font-black text-white truncate">
+                {routeData?.steps?.[0]?.instruction || report.alamat_lokasi}
+              </h4>
+              <span className="text-[10px] text-slate-300 font-medium">
+                {routeData?.formattedDistance || "1.2 km"} • {displayDistance}m tersisa
+              </span>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-black text-[#2B3752]">Petunjuk Arah Rute</h3>
-            <p className="text-[11px] text-slate-500">Navigasi Terintegrasi Google Maps Style</p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-1.5">
-          {/* Voice Guidance Toggle & Audio Wave Indicator */}
           <button
             type="button"
             onClick={() => {
               const muted = voiceNavigator.toggleMute();
               setIsVoiceMuted(muted);
-              if (!muted) {
-                voiceNavigator.testVoice();
-              }
+              if (!muted) voiceNavigator.testVoice();
             }}
-            className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`p-2 rounded-xl border transition-all cursor-pointer flex-shrink-0 ${
               !isVoiceMuted
-                ? "bg-[#0EB29A]/15 border-[#0EB29A]/40 text-[#0EB29A] shadow-xs"
-                : "bg-slate-100 border-slate-200 text-slate-400 hover:text-slate-600"
+                ? "bg-[#0EB29A]/25 border-[#0EB29A] text-emerald-300"
+                : "bg-white/10 border-white/20 text-slate-300"
             }`}
-            title={!isVoiceMuted ? "Suara Navigasi Aktif (Klik untuk Bisukan)" : "Suara Navigasi Bisu (Klik untuk Aktifkan)"}
+            title={!isVoiceMuted ? "Suara Aktif" : "Suara Bisu"}
           >
-            {!isVoiceMuted ? (
-              <div className="flex items-center gap-1">
-                <Volume2 className="h-4 w-4" />
-                {isVoiceSpeaking ? (
-                  <span className="flex items-center gap-0.5 px-0.5">
-                    <span className="w-1 h-3 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1 h-2 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1 h-3.5 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold hidden sm:inline">Suara</span>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
-                <VolumeX className="h-4 w-4" />
-                <span className="text-[10px] font-bold hidden sm:inline">Bisu</span>
-              </div>
-            )}
-          </button>
-
-          <button
-            onClick={onBackToDetail}
-            className="text-[11px] font-bold text-[#0EB29A] hover:bg-[#0EB29A]/10 px-2 py-1.5 rounded-lg transition-colors cursor-pointer"
-          >
-            Detail
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-[#2B3752] transition-colors cursor-pointer"
-            title="Tutup Petunjuk Rute"
-          >
-            <X className="h-5 w-5" />
+            {!isVoiceMuted ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
-      {/* Travel Mode Selector: Mobil / Motor / Jalan Kaki */}
-      <div className="p-3 bg-slate-50 border-b border-slate-100">
+      {/* Main Drawer Container: Fixed Bottom Sheet on Mobile, Left Sidebar on Desktop */}
+      <div
+        className={`fixed sm:absolute bottom-0 sm:bottom-auto sm:top-0 z-30 w-full sm:w-[420px] bg-white rounded-t-[28px] sm:rounded-none shadow-[0_-8px_30px_rgba(0,0,0,0.18)] sm:shadow-2xl border-t sm:border-t-0 sm:border-r border-slate-200/90 flex flex-col transition-all duration-300 ease-out overflow-hidden ${
+          isRailVisible ? "left-0 sm:left-[68px]" : "left-0"
+        } ${
+          mobileNavState === "compact"
+            ? (activeStatus === "idle" ? "h-[155px] sm:h-full" : "h-[125px] sm:h-full")
+            : "h-[82vh] sm:h-full"
+        }`}
+      >
+        {/* Mobile Top Drag Handle */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onClick={() => setMobileNavState((prev) => (prev === "compact" ? "expanded" : "compact"))}
+          className="pt-2.5 pb-1 flex flex-col items-center justify-center sm:hidden cursor-grab active:cursor-grabbing touch-none select-none bg-white flex-shrink-0"
+          title="Geser ke atas untuk detail lengkap atau ke bawah untuk menutup"
+        >
+          <div className="w-10 h-1.5 bg-slate-300 rounded-full" />
+        </div>
+
+        {/* Mobile Compact Driving Bar (Rendered on mobile when collapsed) */}
+        {mobileNavState === "compact" && (
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="sm:hidden px-4 pb-3 pt-1 flex items-center justify-between gap-3 flex-shrink-0"
+          >
+            {/* Left Controls: Close Button & Quick Recenter Button */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={onClose}
+                className="h-10 w-10 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                title="Tutup Navigasi"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              {onRecenterTruck && (
+                <button
+                  type="button"
+                  onClick={onRecenterTruck}
+                  className={cn(
+                    "h-10 w-10 rounded-full flex items-center justify-center transition-all shadow-xs cursor-pointer",
+                    isMapPannedAway
+                      ? "bg-[#0EB29A] text-white animate-pulse shadow-md shadow-[#0EB29A]/40"
+                      : "bg-slate-100 text-[#0EB29A] hover:bg-slate-200"
+                  )}
+                  title="Pusatkan Kamera ke Posisi Truk"
+                >
+                  <Crosshair className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Center ETA & Speed (Tap to expand) */}
+            <div
+              onClick={() => setMobileNavState("expanded")}
+              className="flex-1 min-w-0 text-center cursor-pointer"
+            >
+              <div className="flex items-center justify-center gap-1.5">
+                <span className="text-base font-black text-emerald-600">
+                  {routeData?.formattedDuration || "5 mnt"}
+                </span>
+                <span className="text-xs">🍃</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  {navigationMode === "gps" ? `${gpsSpeedKmh || 0} km/j` : "Simulasi"}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium truncate">
+                {displayDistance}m • {routeData?.formattedDistance || "1.2 km"}
+              </div>
+            </div>
+
+            {/* Right Action Button */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {activeStatus === "idle" && (
+                <button
+                  onClick={handleStartTask}
+                  className="py-2 px-3 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-black shadow-md shadow-[#0EB29A]/30 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="h-3 w-3 fill-white" />
+                  <span>Mulai</span>
+                </button>
+              )}
+
+              {activeStatus === "otw" && (
+                isWithin100Meters ? (
+                  <button
+                    onClick={() => {
+                      updateStatus("tahap_pengambilan");
+                      updateTruckLocationApi({
+                        laporanId: report.id,
+                        pengepulId: user?.id || 30,
+                        latitude: report.latitude,
+                        longitude: report.longitude,
+                        heading: 0,
+                        kecepatanKmh: 0,
+                        statusJemput: "tahap_pengambilan",
+                      });
+                    }}
+                    className="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-[#0EB29A] text-white text-xs font-black shadow-md shadow-emerald-500/30 animate-pulse flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span>Ambil</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setMobileNavState("expanded")}
+                    className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#2B3752] text-xs font-bold border border-slate-200 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Detail</span>
+                    <ChevronUp className="h-3.5 w-3.5 text-slate-500" />
+                  </button>
+                )
+              )}
+
+              {activeStatus === "tahap_pengambilan" && (
+                <button
+                  onClick={() => onOpenVerificationModal?.(report)}
+                  className="py-2 px-3 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-black shadow-md shadow-[#0EB29A]/30 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  <span>Foto</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Expanded Collapse Bar (Only shown on mobile when expanded) */}
+        {mobileNavState === "expanded" && (
+          <div className="sm:hidden px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <span className="text-[11px] font-bold text-slate-500">Panel Navigasi Lengkap</span>
+            <button
+              onClick={() => setMobileNavState("compact")}
+              className="text-[11px] font-bold text-[#0EB29A] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Ciutkan ke Peta</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Top Header: Title & Close Button */}
+        <div className={`p-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0 ${mobileNavState === "compact" ? "hidden sm:flex" : "flex"}`}>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-[#0EB29A]/15 text-[#0EB29A] flex items-center justify-center font-bold">
+              <Navigation className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-[#2B3752]">Petunjuk Arah Rute</h3>
+              <p className="text-[11px] text-slate-500">Navigasi Terintegrasi Google Maps Style</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {/* Voice Guidance Toggle & Audio Wave Indicator */}
+            <button
+              type="button"
+              onClick={() => {
+                const muted = voiceNavigator.toggleMute();
+                setIsVoiceMuted(muted);
+                if (!muted) {
+                  voiceNavigator.testVoice();
+                }
+              }}
+              className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                !isVoiceMuted
+                  ? "bg-[#0EB29A]/15 border-[#0EB29A]/40 text-[#0EB29A] shadow-xs"
+                  : "bg-slate-100 border-slate-200 text-slate-400 hover:text-slate-600"
+              }`}
+              title={!isVoiceMuted ? "Suara Navigasi Aktif (Klik untuk Bisukan)" : "Suara Navigasi Bisu (Klik untuk Aktifkan)"}
+            >
+              {!isVoiceMuted ? (
+                <div className="flex items-center gap-1">
+                  <Volume2 className="h-4 w-4" />
+                  {isVoiceSpeaking ? (
+                    <span className="flex items-center gap-0.5 px-0.5">
+                      <span className="w-1 h-3 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1 h-2 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1 h-3.5 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold hidden sm:inline">Suara</span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <VolumeX className="h-4 w-4" />
+                  <span className="text-[10px] font-bold hidden sm:inline">Bisu</span>
+                </div>
+              )}
+            </button>
+
+            <button
+              onClick={onBackToDetail}
+              className="text-[11px] font-bold text-[#0EB29A] hover:bg-[#0EB29A]/10 px-2 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Detail
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-[#2B3752] transition-colors cursor-pointer"
+              title="Tutup Petunjuk Rute"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Travel Mode Selector: Mobil / Motor / Jalan Kaki */}
+        <div className={`p-3 bg-slate-50 border-b border-slate-100 flex-shrink-0 ${mobileNavState === "compact" ? "hidden sm:block" : "block"}`}>
         <div className="grid grid-cols-3 gap-2 bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
           <button
             onClick={() => onTravelModeChange("driving")}
@@ -318,7 +544,7 @@ export function RouteDirectionPanel({
       </div>
 
       {/* Main Content Area: ETA, Summary, and Step-by-Step Directions */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${mobileNavState === "compact" ? "hidden sm:block" : "block"}`}>
         {/* Pengepul Mission Control Center (Only when logged in as role 'pengepul') */}
         {user?.role === "pengepul" && (
           <div className="p-4 rounded-2xl bg-white border-2 border-[#0EB29A] shadow-md shadow-[#0EB29A]/10 space-y-3">
@@ -381,6 +607,7 @@ export function RouteDirectionPanel({
               <div className="space-y-3">
                 {/* Realtime Truck Tracking HUD Card */}
                 <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#2B3752] to-[#1e273b] text-white shadow-xl border border-slate-700 space-y-2.5">
+                  {/* Top Bar: Driver Info & Mode Badge */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="h-7 w-7 rounded-lg bg-[#0EB29A] flex items-center justify-center text-white shadow-md shadow-[#0EB29A]/40">
@@ -392,70 +619,167 @@ export function RouteDirectionPanel({
                         </span>
                         <h5 className="text-xs font-black text-white flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                          GPS Aktif di Peta
+                          <span>{navigationMode === "gps" ? "GPS HP Siaga" : "Mode Simulasi"}</span>
                         </h5>
                       </div>
                     </div>
 
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0EB29A]/20 text-emerald-300 border border-[#0EB29A]/50">
-                      {isSimulatingDrive ? "Melaju ~35 km/j" : "Posisi Standby"}
+                      {navigationMode === "gps"
+                        ? `${gpsSpeedKmh || 0} km/j`
+                        : isSimulatingDrive
+                        ? "Melaju ~35 km/j"
+                        : "Posisi Standby"}
                     </span>
                   </div>
 
-                  {/* Distance Countdown & Geofence Status */}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">Sisa Jarak ke Titik:</span>
-                      <strong className="text-base font-black text-white">
-                        {displayDistance} meter
-                      </strong>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        isWithin100Meters
-                          ? "bg-emerald-500/25 text-emerald-300 border-emerald-400 animate-pulse"
-                          : "bg-amber-500/20 text-amber-300 border-amber-400"
-                      }`}
-                    >
-                      {isWithin100Meters ? "✓ Siap Ambil (≤ 100m)" : "Belum Sampai (> 100m)"}
-                    </span>
-                  </div>
-
-                  {/* Simulation Controls: Jalankan Truk / Lompat Tiba */}
-                  <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+                  {/* Mode Selector Tabs: GPS Nyata HP vs Simulasi */}
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-white/10 rounded-xl text-[11px] font-bold">
                     <button
                       type="button"
-                      onClick={onToggleSimulateDrive}
-                      className={`flex-1 py-1.5 px-3 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                        isSimulatingDrive
-                          ? "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
-                          : "bg-[#0EB29A] hover:bg-[#2E6E65] text-white shadow-md shadow-[#0EB29A]/40"
+                      onClick={() => onNavigationModeChange?.("gps")}
+                      className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        navigationMode === "gps"
+                          ? "bg-[#0EB29A] text-white shadow-md shadow-[#0EB29A]/40"
+                          : "text-slate-300 hover:text-white"
                       }`}
                     >
-                      {isSimulatingDrive ? (
-                        <>
-                          <span>⏸️ Jeda Laju Truk</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-3 w-3 fill-white" />
-                          <span>Jalankan Truk di Peta</span>
-                        </>
+                      <Radio className="h-3.5 w-3.5 animate-pulse" />
+                      <span>📱 GPS Nyata HP</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onNavigationModeChange?.("simulation")}
+                      className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        navigationMode === "simulation"
+                          ? "bg-slate-700 text-white shadow-md"
+                          : "text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      <Play className="h-3 w-3 fill-current" />
+                      <span>🎮 Simulasi Demo</span>
+                    </button>
+                  </div>
+
+                  {navigationMode === "gps" ? (
+                    /* GPS NYATA HP METRICS */
+                    <div className="space-y-2 pt-1 border-t border-white/10">
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                          <span className="text-[9.5px] text-slate-400 block font-medium">Sisa Jarak</span>
+                          <strong className="text-sm font-black text-white">{displayDistance}m</strong>
+                        </div>
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                          <span className="text-[9.5px] text-slate-400 block font-medium">Kecepatan HP</span>
+                          <strong className="text-sm font-black text-[#0EB29A]">{gpsSpeedKmh || 0} km/j</strong>
+                        </div>
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                          <span className="text-[9.5px] text-slate-400 block font-medium">Akurasi Satelit</span>
+                          <strong className="text-sm font-black text-emerald-300">±{gpsAccuracy || 5}m</strong>
+                        </div>
+                      </div>
+
+                      {/* Auto Center Toggle & Quick Test */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onRecenterTruck) {
+                              onRecenterTruck();
+                            } else {
+                              onToggleAutoCenterGps?.();
+                            }
+                          }}
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl text-[10.5px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            autoCenterGps && !isMapPannedAway
+                              ? "bg-[#0EB29A]/20 border-[#0EB29A] text-emerald-300"
+                              : "bg-white/5 border-white/15 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <Crosshair className={`h-3.5 w-3.5 ${autoCenterGps && !isMapPannedAway ? "text-[#0EB29A]" : ""}`} />
+                          <span>{autoCenterGps && !isMapPannedAway ? "🎯 Ikuti Posisi Truk (Aktif)" : "🎯 Pusatkan ke Truk"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSimulatedNear(true);
+                            onJumpNearTarget?.();
+                          }}
+                          className="py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/15 cursor-pointer whitespace-nowrap"
+                          title="Uji coba tiba dalam radius 45m"
+                        >
+                          ⚡ Tes Tiba (45m)
+                        </button>
+                      </div>
+
+                      <p className="text-[10px] text-slate-300 italic leading-snug">
+                        📡 Bawa HP Anda berjalan atau berkendara menuju titik. Truk di peta seluruh pengguna bergerak mengikuti GPS HP Anda secara realtime.
+                      </p>
+
+                      {gpsError && (
+                        <div className="p-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 text-[10px] font-medium">
+                          ⚠️ {gpsError}
+                        </div>
                       )}
-                    </button>
+                    </div>
+                  ) : (
+                    /* SIMULATION CONTROLS */
+                    <div className="space-y-2 pt-1 border-t border-white/10">
+                      <div className="flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium">Sisa Jarak ke Titik:</span>
+                          <strong className="text-base font-black text-white">
+                            {displayDistance} meter
+                          </strong>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            isWithin100Meters
+                              ? "bg-emerald-500/25 text-emerald-300 border-emerald-400 animate-pulse"
+                              : "bg-amber-500/20 text-amber-300 border-amber-400"
+                          }`}
+                        >
+                          {isWithin100Meters ? "✓ Siap Ambil (≤ 100m)" : "Belum Sampai (> 100m)"}
+                        </span>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsSimulatedNear(true);
-                        onJumpNearTarget?.();
-                      }}
-                      className="py-1.5 px-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold transition-all cursor-pointer border border-white/20 whitespace-nowrap"
-                      title="Simulasikan truk tiba dalam radius 45 meter"
-                    >
-                      ⚡ Tiba (&lt;100m)
-                    </button>
-                  </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={onToggleSimulateDrive}
+                          className={`flex-1 py-1.5 px-3 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            isSimulatingDrive
+                              ? "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
+                              : "bg-[#0EB29A] hover:bg-[#2E6E65] text-white shadow-md shadow-[#0EB29A]/40"
+                          }`}
+                        >
+                          {isSimulatingDrive ? (
+                            <>
+                              <span>⏸️ Jeda Laju Truk</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-3 w-3 fill-white" />
+                              <span>Jalankan Truk di Peta</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSimulatedNear(true);
+                            onJumpNearTarget?.();
+                          }}
+                          className="py-1.5 px-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold transition-all cursor-pointer border border-white/20 whitespace-nowrap"
+                          title="Simulasikan truk tiba dalam radius 45 meter"
+                        >
+                          ⚡ Tiba (&lt;100m)
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {!isWithin100Meters ? (
@@ -637,7 +961,7 @@ export function RouteDirectionPanel({
       </div>
 
       {/* Bottom Floating Bar in Panel: Close / Reset Button */}
-      <div className="p-3 border-t border-slate-100 bg-white flex items-center gap-2">
+      <div className={`p-3 border-t border-slate-100 bg-white flex items-center gap-2 flex-shrink-0 ${mobileNavState === "compact" ? "hidden sm:flex" : "flex"}`}>
         <button
           onClick={onBackToDetail}
           className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#2B3752] text-xs font-bold transition-colors cursor-pointer"
@@ -652,5 +976,6 @@ export function RouteDirectionPanel({
         </button>
       </div>
     </div>
+    </>
   );
 }

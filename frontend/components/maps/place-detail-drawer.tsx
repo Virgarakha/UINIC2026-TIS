@@ -93,6 +93,31 @@ export function PlaceDetailDrawer({
     };
   }, [report, nearbyReports]);
 
+  const [mobileSheetState, setMobileSheetState] = React.useState<"peek" | "expanded">("peek");
+  const touchStartYRef = React.useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartYRef.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
+    touchStartYRef.current = null;
+
+    if (deltaY < -40) {
+      // Swiped UP -> expand
+      setMobileSheetState("expanded");
+    } else if (deltaY > 50) {
+      // Swiped DOWN -> if expanded, collapse to peek; if peek, close
+      if (mobileSheetState === "expanded") {
+        setMobileSheetState("peek");
+      } else {
+        onClose();
+      }
+    }
+  };
+
   if (!report) return null;
 
   const handleCopyLink = () => {
@@ -127,14 +152,29 @@ export function PlaceDetailDrawer({
   return (
     <div
       className={cn(
-        "absolute top-4 z-30 w-[calc(100vw-32px)] sm:w-[410px] max-h-[calc(100vh-32px)] bg-white rounded-3xl shadow-2xl shadow-slate-300/50 border border-slate-200/90 flex flex-col overflow-hidden animate-in slide-in-from-left duration-300 transition-all",
-        isRailVisible ? "left-4 sm:left-[80px]" : "left-4"
+        // Mobile layout: Fixed bottom sheet, slide up/down
+        "fixed sm:absolute bottom-0 sm:bottom-auto sm:top-4 z-30 w-full sm:w-[410px] bg-white rounded-t-[28px] sm:rounded-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.18)] sm:shadow-2xl border-t sm:border border-slate-200/90 flex flex-col overflow-hidden transition-all duration-300 ease-out",
+        // Mobile height: peek (h-[310px]) vs expanded (h-[86vh]), Desktop is max-h
+        mobileSheetState === "peek" ? "h-[310px] sm:h-auto" : "h-[86vh] sm:h-auto",
+        "sm:max-h-[calc(100vh-32px)]",
+        isRailVisible ? "left-0 sm:left-[80px]" : "left-0 sm:left-4"
       )}
     >
-      {/* 1. Header Banner Image with Close Button */}
+      {/* Mobile Top Drag Handle Bar */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => setMobileSheetState((prev) => (prev === "peek" ? "expanded" : "peek"))}
+        className="pt-2.5 pb-1 flex flex-col items-center justify-center sm:hidden cursor-grab active:cursor-grabbing touch-none select-none bg-white border-b border-slate-50 flex-shrink-0"
+        title="Geser ke atas untuk detail lengkap atau ke bawah untuk menutup"
+      >
+        <div className="w-10 h-1.5 bg-slate-300 rounded-full" />
+      </div>
+
+      {/* 1. Desktop Only: Header Banner Image with Close Button */}
       <div
         onClick={() => setIsLightboxOpen(true)}
-        className="relative h-48 w-full bg-slate-900 flex-shrink-0 overflow-hidden cursor-pointer group"
+        className="hidden sm:block relative h-48 w-full bg-slate-900 flex-shrink-0 overflow-hidden cursor-pointer group"
         title="Klik untuk memperbesar bukti foto & membaca stempel forensik"
       >
         <img
@@ -179,15 +219,30 @@ export function PlaceDetailDrawer({
         </div>
       </div>
 
-      {/* 2. Place Title, Status & Address Block */}
-      <div className="p-4 border-b border-slate-100 flex-shrink-0 space-y-1.5 bg-white">
+      {/* 2. Place Title, Status & Address Block (Mobile & Desktop) */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="p-3.5 sm:p-4 border-b border-slate-100 flex-shrink-0 space-y-1.5 bg-white"
+      >
         <div className="flex items-start justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-black text-[#2B3752] leading-tight">
-            {report.alamat_lokasi}
-          </h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base sm:text-lg font-black text-[#2B3752] leading-tight truncate sm:whitespace-normal">
+              {report.alamat_lokasi}
+            </h2>
+          </div>
+          {/* Mobile Close X button */}
+          <button
+            onClick={onClose}
+            className="sm:hidden p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer flex-shrink-0"
+            title="Tutup"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          <HazardBadge hazard={report.tipe_bahaya} className="sm:hidden" />
           <span className="font-semibold text-[#2E6E65]">
             {report.kategori?.nama || "Umum"}
           </span>
@@ -205,12 +260,12 @@ export function PlaceDetailDrawer({
           )}
         </div>
 
-        <p className="text-xs text-slate-500 line-clamp-2">{report.deskripsi}</p>
+        <p className="text-xs text-slate-500 line-clamp-1 sm:line-clamp-2">{report.deskripsi}</p>
       </div>
 
-      {/* Stacked Nearby Reports Alert Banner (≤ 100 meters) */}
+      {/* Stacked Nearby Reports Alert Banner (≤ 100 meters) - Desktop */}
       {nearbyReports.length > 0 && (
-        <div className="mx-3.5 my-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#0EB29A]/15 via-[#2E6E65]/10 to-transparent border border-[#0EB29A]/30 flex items-center justify-between">
+        <div className="hidden sm:flex mx-3.5 my-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#0EB29A]/15 via-[#2E6E65]/10 to-transparent border border-[#0EB29A]/30 items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-[#0EB29A] text-white flex items-center justify-center font-bold text-xs shadow-xs">
               <Layers className="h-4 w-4" />
@@ -363,6 +418,58 @@ export function PlaceDetailDrawer({
 
       {/* 5. Scrollable Tab Contents */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Mobile Photo Banner (Inside scrollable body on mobile) */}
+        <div
+          onClick={() => setIsLightboxOpen(true)}
+          className="block sm:hidden relative h-40 w-full bg-slate-900 rounded-2xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0"
+          title="Klik untuk memperbesar bukti foto & membaca stempel forensik"
+        >
+          <img
+            src={report.foto_url || "https://placehold.co/600x400?text=Foto+Sampah"}
+            alt={report.alamat_lokasi}
+            className="w-full h-full object-cover brightness-95"
+          />
+
+          {/* Bottom Coordinates & Watermark Pill */}
+          <div className="absolute bottom-2 inset-x-2.5 flex items-center justify-between pointer-events-none">
+            <div className="bg-black/70 backdrop-blur-md text-white text-[10px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5 text-[#0EB29A]" />
+              <span>{report.latitude.toFixed(4)}, {report.longitude.toFixed(4)}</span>
+            </div>
+            {isForensicVerified && (
+              <span className="bg-[#0EB29A] text-white text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                <ShieldCheck className="h-3 w-3" />
+                Anti-Fraud GPS
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Stacked Nearby Reports Alert Banner (≤ 100 meters) - Mobile */}
+        {nearbyReports.length > 0 && (
+          <div className="flex sm:hidden p-2.5 rounded-2xl bg-gradient-to-r from-[#0EB29A]/15 via-[#2E6E65]/10 to-transparent border border-[#0EB29A]/30 items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-[#0EB29A] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                <Layers className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-[#2B3752] block leading-tight">
+                  {nearbyReports.length} Laporan Sekitar (≤ 100m)
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  Titik terdekat: {nearbyReports[0].distanceMeters} meter
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab("sekitar")}
+              className="px-2.5 py-1 rounded-xl bg-[#0EB29A] hover:bg-[#0ca18b] text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer"
+            >
+              Buka Tumpukan
+            </button>
+          </div>
+        )}
+
         {/* TAB: ANALISIS AI (Gemini 3.1 Flash Lite) */}
         {activeTab === "ai" && (
           <div className="space-y-3.5 animate-in fade-in duration-200">

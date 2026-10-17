@@ -441,9 +441,18 @@ class LaporanSampahService extends BaseService
      */
     public function getActiveArmada()
     {
+        $tenMinutesAgo = now()->subMinutes(10);
+
         return PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan'])
             ->whereNotNull('current_latitude')
             ->whereNotNull('current_longitude')
+            ->where(function ($query) use ($tenMinutesAgo) {
+                $query->where('waktu_update_lokasi', '>=', $tenMinutesAgo)
+                    ->orWhere(function ($sub) use ($tenMinutesAgo) {
+                        $sub->whereNull('waktu_update_lokasi')
+                            ->where('updated_at', '>=', $tenMinutesAgo);
+                    });
+            })
             ->with(['pengepul', 'laporan.status', 'laporan.kategori'])
             ->latest('waktu_update_lokasi')
             ->get();

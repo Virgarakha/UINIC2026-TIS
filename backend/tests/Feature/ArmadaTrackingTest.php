@@ -57,4 +57,38 @@ class ArmadaTrackingTest extends TestCase
         $getResAfter = $this->getJson('/api/v1/penjemputan/armada-aktif');
         $this->assertEmpty($getResAfter->json('data'));
     }
+
+    public function test_idle_armada_older_than_10_minutes_is_excluded(): void
+    {
+        $pengepul = User::where('role', 'pengepul')->first();
+        $laporan = LaporanSampah::first();
+
+        // 1. Truck with location updated 15 minutes ago (idle > 10 mins)
+        $this->postJson('/api/v1/penjemputan/lokasi', [
+            'laporan_id' => $laporan->id,
+            'pengepul_id' => $pengepul->id,
+            'latitude' => -7.9521000,
+            'longitude' => 112.6145000,
+            'heading' => 180.0,
+            'kecepatan_kmh' => 0.0,
+            'status_jemput' => 'menuju_lokasi',
+        ]);
+
+        $penjemputan = \App\Models\PenjemputanSampah::where('laporan_id', $laporan->id)->first();
+        $penjemputan->waktu_update_lokasi = now()->subMinutes(15);
+        $penjemputan->save();
+
+        // Should NOT appear because it is idle > 10 minutes
+        $res = $this->getJson('/api/v1/penjemputan/armada-aktif');
+        $this->assertEmpty($res->json('data'));
+
+        // 2. Now update location with fresh timestamp (active within 5 minutes)
+        $penjemputan->waktu_update_lokasi = now()->subMinutes(5);
+        $penjemputan->save();
+
+        // Should appear because it was active within 10 minutes
+        $resActive = $this->getJson('/api/v1/penjemputan/armada-aktif');
+        $this->assertNotEmpty($resActive->json('data'));
+        $this->assertEquals($laporan->id, $resActive->json('data.0.laporan_id'));
+    }
 }
