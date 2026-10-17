@@ -152,10 +152,10 @@ export function PlaceDetailDrawer({
   return (
     <div
       className={cn(
-        // Mobile layout: Fixed bottom sheet, slide up/down
-        "fixed sm:absolute bottom-0 sm:bottom-auto sm:top-4 z-30 w-full sm:w-[410px] bg-white rounded-t-[28px] sm:rounded-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.18)] sm:shadow-2xl border-t sm:border border-slate-200/90 flex flex-col overflow-hidden transition-all duration-300 ease-out",
-        // Mobile height: peek (h-[310px]) vs expanded (h-[86vh]), Desktop is max-h
-        mobileSheetState === "peek" ? "h-[310px] sm:h-auto" : "h-[86vh] sm:h-auto",
+        // Mobile layout: Fixed bottom sheet above bottom bar, slide up/down
+        "fixed sm:absolute bottom-16 sm:bottom-auto sm:top-4 z-40 w-full sm:w-[410px] bg-white rounded-t-[28px] sm:rounded-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.18)] sm:shadow-2xl border-t sm:border border-slate-200/90 flex flex-col overflow-hidden transition-all duration-300 ease-out",
+        // Mobile height: peek (h-[300px]) vs expanded (h-[calc(86vh-64px)]), Desktop is max-h
+        mobileSheetState === "peek" ? "h-[300px] sm:h-auto" : "h-[calc(86vh-64px)] sm:h-auto",
         "sm:max-h-[calc(100vh-32px)]",
         isRailVisible ? "left-0 sm:left-[80px]" : "left-0 sm:left-4"
       )}

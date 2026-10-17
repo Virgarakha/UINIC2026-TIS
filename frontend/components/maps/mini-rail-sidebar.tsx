@@ -10,6 +10,7 @@ import {
   Coins,
   LayoutDashboard,
   ExternalLink,
+  Truck,
 } from "lucide-react";
 import { User } from "@/types";
 
@@ -22,6 +23,8 @@ export interface MiniRailSidebarProps {
   onLogout: () => void;
   onOpenEditProfile?: () => void;
   activePanel?: "saved" | "recent" | null;
+  isPengepulOnline?: boolean;
+  onTogglePengepulOnline?: () => void;
 }
 
 export function MiniRailSidebar({
@@ -33,6 +36,8 @@ export function MiniRailSidebar({
   onLogout,
   onOpenEditProfile,
   activePanel,
+  isPengepulOnline = false,
+  onTogglePengepulOnline,
 }: MiniRailSidebarProps) {
   const [showProfileMenu, setShowProfileMenu] = React.useState(false);
 
@@ -145,6 +150,36 @@ export function MiniRailSidebar({
       {/* Spacer */}
       <div className="flex-1" />
 
+      {/* Pengepul Quick Online/Offline Toggle in Rail */}
+      {user.role === "pengepul" && (
+        <button
+          type="button"
+          onClick={onTogglePengepulOnline}
+          className={`flex flex-col items-center justify-center gap-0.5 w-[60px] py-2 mb-2 rounded-xl transition-all cursor-pointer group ${
+            isPengepulOnline
+              ? "bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 shadow-xs"
+              : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-transparent"
+          }`}
+          title={
+            isPengepulOnline
+              ? "Mitra Online (Mobil aktif di peta). Klik untuk Offline"
+              : "Mitra Offline. Klik untuk Online (Tampilkan mobil)"
+          }
+        >
+          <div className="relative">
+            <Truck className={`h-5 w-5 ${isPengepulOnline ? "text-[#0EB29A]" : "text-slate-400"}`} />
+            <span
+              className={`absolute -top-1 -right-1 h-2 w-2 rounded-full border border-white ${
+                isPengepulOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300"
+              }`}
+            />
+          </div>
+          <span className="text-[9px] font-black tracking-tight leading-tight uppercase">
+            {isPengepulOnline ? "Online" : "Offline"}
+          </span>
+        </button>
+      )}
+
       {/* 6. User Profile Button & Popup (Bottom) */}
       <div className="relative">
         <button
@@ -198,6 +233,35 @@ export function MiniRailSidebar({
                 </span>
                 <span>{user.poin || 240} Pts</span>
               </div>
+
+              {/* Status Armada Mitra Pengepul Switch */}
+              {user.role === "pengepul" && (
+                <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200/90 my-1">
+                  <div className="flex items-center gap-2">
+                    <Truck className={`h-4 w-4 ${isPengepulOnline ? "text-[#0EB29A]" : "text-slate-400"}`} />
+                    <div className="text-left">
+                      <span className="text-xs font-bold text-[#2B3752] block">Status Mitra</span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {isPengepulOnline ? "🟢 Online di Peta" : "⚪ Offline"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onTogglePengepulOnline}
+                    className={`w-10 h-5.5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                      isPengepulOnline ? "bg-[#0EB29A]" : "bg-slate-300"
+                    }`}
+                    title={isPengepulOnline ? "Klik untuk Offline" : "Klik untuk Online"}
+                  >
+                    <div
+                      className={`h-4.5 w-4.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                        isPengepulOnline ? "translate-x-4.5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
 
               {/* Edit Profil Akun Trigger */}
               <button

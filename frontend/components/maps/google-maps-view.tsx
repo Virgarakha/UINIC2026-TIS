@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Radio,
   BellRing,
+  Truck,
 } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Layer as LeafletLayer } from "leaflet";
 import { SearchFloatingBar } from "./search-floating-bar";
@@ -34,6 +35,7 @@ import { RailDrawerPanel } from "./rail-drawer-panel";
 import { LoginModal } from "./login-modal";
 import { PengepulVerificationModal } from "./pengepul-verification-modal";
 import { EditProfileModal } from "./edit-profile-modal";
+import { MobileNav } from "@/components/layouts/mobile-nav";
 import { User, LaporanSampah, PeringatanDini } from "@/types";
 import {
   fetchLaporanListApi,
@@ -117,8 +119,9 @@ function createTruckDivIcon(
 
   const height = Math.round(width * 2.3);
   const isPickingUp = truck.status === "tahap_pengambilan";
-  const statusText = isPickingUp ? "Tahap Pengambilan" : "OTW ke Lokasi";
-  const badgeBg = isPickingUp ? "bg-emerald-600" : "bg-[#0EB29A]";
+  const isStandby = truck.status === "siaga_online" || truck.status === "online";
+  const statusText = isPickingUp ? "Tahap Pengambilan" : isStandby ? "Siaga (Online)" : "OTW ke Lokasi";
+  const badgeBg = isPickingUp ? "bg-emerald-600" : isStandby ? "bg-teal-600" : "bg-[#0EB29A]";
   const heading = truck.heading ?? 0;
   const badgeCounterRotate = isHeadingUp ? `rotate(${heading}deg)` : "rotate(0deg)";
 
@@ -190,10 +193,23 @@ function createTruckPopupHtml(truck: {
     "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80";
 
   const isPickingUp = truck.status === "tahap_pengambilan";
-  const statusLabel = isPickingUp ? "Tahap Pengambilan di Lokasi" : "Sedang Menuju Lokasi (OTW)";
-  const statusBg = isPickingUp ? "#ecfdf5" : "rgba(14, 178, 154, 0.1)";
-  const statusColor = isPickingUp ? "#047857" : "#0EB29A";
-  const statusBorder = isPickingUp ? "#a7f3d0" : "rgba(14, 178, 154, 0.25)";
+  const isStandby = truck.status === "siaga_online" || truck.status === "online";
+  const statusLabel = isPickingUp
+    ? "Tahap Pengambilan di Lokasi"
+    : isStandby
+    ? "Siap Menjemput Sampah (Online • Siaga)"
+    : "Sedang Menuju Lokasi (OTW)";
+  const statusBg = isPickingUp
+    ? "#ecfdf5"
+    : isStandby
+    ? "rgba(13, 148, 136, 0.12)"
+    : "rgba(14, 178, 154, 0.1)";
+  const statusColor = isPickingUp ? "#047857" : isStandby ? "#0d9488" : "#0EB29A";
+  const statusBorder = isPickingUp
+    ? "#a7f3d0"
+    : isStandby
+    ? "rgba(13, 148, 136, 0.3)"
+    : "rgba(14, 178, 154, 0.25)";
   const cleanPhone = telepon.replace(/[^0-9]/g, "");
 
   return `
@@ -266,7 +282,11 @@ function createTruckPopupHtml(truck: {
   `;
 }
 
-export function GoogleMapsView() {
+export interface GoogleMapsViewProps {
+  showMobileNav?: boolean;
+}
+
+export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {}) {
   const geo = useGeolocation();
   const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = React.useRef<LeafletMap | null>(null);
@@ -360,6 +380,18 @@ export function GoogleMapsView() {
     score: number;
   } | null>(null);
 
+  // Pengepul Driver Online / Offline Status (Truk hanya muncul ketika status Online)
+  const [isPengepulOnline, setIsPengepulOnline] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("uinic_pengepul_online");
+      if (stored !== null) {
+        setIsPengepulOnline(stored === "true");
+      }
+    }
+  }, []);
+
   // Armada & Driver Idle Tracking (> 10 minutes without movement/activity)
   const ARMADA_IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes (600,000 ms)
   const [lastMovementTimestamp, setLastMovementTimestamp] = React.useState<number>(0);
@@ -426,6 +458,68 @@ export function GoogleMapsView() {
       });
     }
   }, [collectorLocation, geo.latitude, geo.longitude, routeData]);
+
+  // Toggle Pengepul Online / Offline Status (Truk armada tampil di peta saat Online, hilang saat Offline)
+  const handleTogglePengepulOnline = React.useCallback(
+    (targetState?: boolean) => {
+      const nextState = targetState !== undefined ? targetState : !isPengepulOnline;
+      setIsPengepulOnline(nextState);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("uinic_pengepul_online", nextState ? "true" : "false");
+      }
+
+      if (nextState) {
+        setLastMovementTimestamp(Date.now());
+        setIsDriverIdle(false);
+        if (!collectorLocation) {
+          const lat = geo.latitude || -7.9826;
+          const lng = geo.longitude || 112.6308;
+          setCollectorLocation({
+            lat,
+            lng,
+            heading: 0,
+          });
+        }
+      }
+
+      // Broadcast update across tabs and clients
+      if (typeof BroadcastChannel !== "undefined") {
+        try {
+          const ch = new BroadcastChannel("uinic_armada_tracking");
+          const curLat = collectorLocation?.lat || geo.latitude || -7.9826;
+          const curLng = collectorLocation?.lng || geo.longitude || 112.6308;
+          const truckLaporanId = activeRouteReport?.id || (user?.id ? user.id * 1000 : 9999);
+
+          if (nextState) {
+            ch.postMessage({
+              type: "TRUCK_LOCATION_UPDATE",
+              data: {
+                id: user?.id ? user.id * 100 : 999,
+                laporan_id: truckLaporanId,
+                pengepul_id: user?.id || 30,
+                pengepul_nama: user?.name || "Pak Joko (Mitra Pengepul)",
+                pengepul_foto: user?.avatar_url || user?.foto_profil,
+                status_jemput: activeRouteReport ? pengepulMissionStatus : "siaga_online",
+                latitude: curLat,
+                longitude: curLng,
+                heading: effectiveHeading || 0,
+                kecepatan_kmh: 0,
+                waktu_update_lokasi: new Date().toISOString(),
+              },
+            });
+          } else {
+            ch.postMessage({
+              type: "TRUCK_MISSION_FINISHED",
+              laporan_id: truckLaporanId,
+              pengepul_id: user?.id || 30,
+            });
+          }
+          ch.close();
+        } catch {}
+      }
+    },
+    [isPengepulOnline, collectorLocation, geo, activeRouteReport, user, pengepulMissionStatus, effectiveHeading]
+  );
 
   // High-Precision Real-time GPS Tracker for mobile driving navigation
   const handleGpsLocationUpdate = React.useCallback(
@@ -1320,10 +1414,12 @@ export function GoogleMapsView() {
 
       activeArmadaList.forEach((truck) => {
         // If current tab is actively driving this specific truck along the local route,
-        // let collectorTruckMarkerRef handle the 60fps local rendering.
+        // OR this truck belongs to the currently logged in pengepul on this tab,
+        // let collectorTruckMarkerRef handle the local rendering governed by isPengepulOnline.
         const isCurrentTabDriver =
-          activeRouteReport?.id === truck.laporan_id &&
-          (pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan");
+          (activeRouteReport?.id === truck.laporan_id &&
+            (pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan")) ||
+          (user?.role === "pengepul" && truck.pengepul_id === user?.id);
 
         if (isCurrentTabDriver) {
           return;
@@ -1412,14 +1508,20 @@ export function GoogleMapsView() {
     }
   }, [activeArmadaList, isMapReady, activeRouteReport, pengepulMissionStatus, mapZoom, isHeadingUpMode]);
 
-  // Realtime Local Collector Truck Layer (Rendered ONLY on active mission tab for ultra-smooth 60fps)
+  // Realtime Local Collector Truck Layer (Rendered ONLY when pengepul is ONLINE & active)
   React.useEffect(() => {
+    const isPengepul = user?.role === "pengepul";
     const isMissionActive =
-      (pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan") &&
+      pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan";
+
+    // Mobil HANYA muncul jika pengepul mengaktifkan status Online (atau sedang aktif menjalankan misi) dan tidak idle > 10 menit
+    const shouldShowTruck =
+      ((isPengepul && isPengepulOnline) || isMissionActive) &&
+      isPengepulOnline &&
       !isDriverIdle;
 
-    // If penugasan is NOT active or driver is idle > 10 mins, cleanly remove truck marker from the map
-    if (!isMissionActive) {
+    // If penugasan is NOT active or driver is idle > 10 mins or OFFLINE, cleanly remove truck marker from the map
+    if (!shouldShowTruck) {
       if (collectorTruckMarkerRef.current && mapInstanceRef.current) {
         mapInstanceRef.current.removeLayer(collectorTruckMarkerRef.current);
         collectorTruckMarkerRef.current = null;
@@ -1441,11 +1543,14 @@ export function GoogleMapsView() {
       if (!mapInstanceRef.current) return;
 
       const driverName = user?.name || "Pak Joko (Mitra Pengepul)";
+      const currentStatus =
+        pengepulMissionStatus === "idle" ? "siaga_online" : pengepulMissionStatus;
+
       const truckIcon = createTruckDivIcon(
         L,
         {
           driverName,
-          status: pengepulMissionStatus,
+          status: currentStatus,
           heading,
         },
         mapZoom,
@@ -1454,7 +1559,7 @@ export function GoogleMapsView() {
 
       const localPopupHtml = createTruckPopupHtml({
         driverName,
-        status: pengepulMissionStatus,
+        status: currentStatus,
         avatarUrl:
           user?.avatar_url ||
           user?.foto_profil ||
@@ -1498,7 +1603,7 @@ export function GoogleMapsView() {
         renderLocalTruck(L);
       });
     }
-  }, [pengepulMissionStatus, collectorLocation, user, isMapReady, routeData, mapZoom, isHeadingUpMode, isDriverIdle]);
+  }, [pengepulMissionStatus, collectorLocation, user, isMapReady, routeData, mapZoom, isHeadingUpMode, isDriverIdle, isPengepulOnline]);
 
   // Clear any existing route polyline layers, origin beacon marker, and collector truck
   const clearRouteLayers = () => {
@@ -1706,6 +1811,8 @@ export function GoogleMapsView() {
           }}
           onOpenEditProfile={() => setIsEditProfileModalOpen(true)}
           onLogout={handleLogout}
+          isPengepulOnline={isPengepulOnline}
+          onTogglePengepulOnline={handleTogglePengepulOnline}
         />
       )}
 
@@ -1745,6 +1852,67 @@ export function GoogleMapsView() {
         />
       )}
 
+      {/* 2c. Pengepul Online / Offline Floating Switch Pill */}
+      {user?.role === "pengepul" && !activeRouteReport && (
+        <div className="absolute top-[118px] right-3 sm:top-4 sm:right-6 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+          <button
+            type="button"
+            onClick={() => handleTogglePengepulOnline()}
+            className={cn(
+              "flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-xl border backdrop-blur-md transition-all duration-200 cursor-pointer select-none",
+              isPengepulOnline
+                ? "bg-emerald-600/95 hover:bg-emerald-700 text-white border-emerald-400/80 shadow-emerald-600/25 ring-2 ring-emerald-500/30"
+                : "bg-white/95 hover:bg-slate-50 text-slate-700 border-slate-200 shadow-slate-300/40"
+            )}
+            title={isPengepulOnline ? "Klik untuk Offline (Sembunyikan Armada)" : "Klik untuk Online (Aktifkan Armada & Siaga)"}
+          >
+            <div
+              className={cn(
+                "h-7 w-7 rounded-full flex items-center justify-center transition-transform",
+                isPengepulOnline ? "bg-white text-emerald-600" : "bg-slate-100 text-slate-400"
+              )}
+            >
+              <Truck className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col text-left leading-tight pr-1">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    "h-2 w-2 rounded-full",
+                    isPengepulOnline ? "bg-emerald-300 animate-pulse" : "bg-slate-300"
+                  )}
+                />
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {isPengepulOnline ? "Armada Online" : "Armada Offline"}
+                </span>
+              </div>
+              <span
+                className={cn(
+                  "text-[11px] font-extrabold",
+                  isPengepulOnline ? "text-emerald-100" : "text-slate-500"
+                )}
+              >
+                {isPengepulOnline ? "Siaga Penjemputan" : "Mode Istirahat"}
+              </span>
+            </div>
+            {/* Toggle switch track */}
+            <div
+              className={cn(
+                "w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out ml-0.5",
+                isPengepulOnline ? "bg-emerald-400/60" : "bg-slate-200"
+              )}
+            >
+              <div
+                className={cn(
+                  "h-4 w-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out",
+                  isPengepulOnline ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* 3. In-App Navigation Route Direction Panel OR Place Detail Card Drawer */}
       {activeRouteReport ? (
         <RouteDirectionPanel
@@ -1770,6 +1938,7 @@ export function GoogleMapsView() {
           onMissionStatusChange={(st) => {
             setPengepulMissionStatus(st);
             if (st === "otw") {
+              handleTogglePengepulOnline(true);
               setLastMovementTimestamp(Date.now());
               setIsDriverIdle(false);
               setAutoCenterGps(true);
@@ -2082,12 +2251,12 @@ export function GoogleMapsView() {
         </div>
       )}
 
-      {/* 4. Prominent Floating Action Button (+) for Instant Reporting */}
+      {/* 4. Prominent Floating Action Button (+) for Instant Reporting (Hidden on Mobile) */}
       {!activeRouteReport && (
         <div
           className={cn(
-            "absolute right-6 bottom-8 z-30 flex flex-col items-end gap-3",
-            selectedReport ? "hidden sm:flex" : "flex"
+            "absolute right-6 bottom-8 z-30 flex-col items-end gap-3",
+            selectedReport ? "hidden" : "hidden sm:flex"
           )}
         >
           <button
@@ -2103,11 +2272,11 @@ export function GoogleMapsView() {
         </div>
       )}
 
-      {/* 5. Google Maps Bottom Left: Layer Switcher & Heatmap Popover */}
+      {/* 5. Google Maps Bottom Left: Layer Switcher & Heatmap Popover (Hidden on Mobile) */}
       {!selectedReport && !activeRouteReport && (
         <div
           className={cn(
-            "absolute bottom-8 z-20 transition-all duration-300",
+            "hidden sm:block absolute bottom-8 z-20 transition-all duration-300",
             user ? "left-4 sm:left-[84px]" : "left-6"
           )}
         >
@@ -2611,6 +2780,11 @@ export function GoogleMapsView() {
             }
           }}
         />
+      )}
+
+      {/* 12. Mobile Bottom Navigation Bar (Fixed on mobile screens) */}
+      {showMobileNav && !activeRouteReport && (
+        <MobileNav />
       )}
     </div>
   );
