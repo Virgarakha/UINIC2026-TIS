@@ -513,6 +513,46 @@ export async function updateTruckLocationApi(payload: UpdateTruckLocationPayload
   }
 }
 
+export interface UpdatePengepulOnlineStatusPayload {
+  pengepulId?: number;
+  isOnline: boolean;
+  latitude?: number;
+  longitude?: number;
+  heading?: number;
+  kecepatanKmh?: number;
+}
+
+/**
+ * Persist Pengepul Online / Offline status and coordinates to backend database.
+ * Allows all citizens, admins, and other clients to see this armada truck on their maps.
+ */
+export async function updatePengepulOnlineStatusApi(
+  payload: UpdatePengepulOnlineStatusPayload
+): Promise<any> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/penjemputan/status-online`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        pengepul_id: payload.pengepulId,
+        is_online: payload.isOnline,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        heading: payload.heading ?? 0,
+        kecepatan_kmh: payload.kecepatanKmh ?? 0,
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const json = await res.json();
+    return json.data;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch all currently active armada trucks on missions across the city.
  */

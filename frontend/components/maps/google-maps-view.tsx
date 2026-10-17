@@ -47,6 +47,7 @@ import {
   fetchActiveArmadaApi,
   updateTruckLocationApi,
   cancelPenjemputanApi,
+  updatePengepulOnlineStatusApi,
 } from "@/lib/api-client";
 import {
   getStoredUser,
@@ -482,12 +483,22 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         }
       }
 
+      // Persist status and location to backend database so other users see this truck on their maps
+      const curLat = collectorLocation?.lat || geo.latitude || -7.9826;
+      const curLng = collectorLocation?.lng || geo.longitude || 112.6308;
+      updatePengepulOnlineStatusApi({
+        pengepulId: user?.id,
+        isOnline: nextState,
+        latitude: curLat,
+        longitude: curLng,
+        heading: effectiveHeading || 0,
+        kecepatanKmh: 0,
+      }).catch((err) => console.warn("Error updating pengepul online status in DB:", err));
+
       // Broadcast update across tabs and clients
       if (typeof BroadcastChannel !== "undefined") {
         try {
           const ch = new BroadcastChannel("uinic_armada_tracking");
-          const curLat = collectorLocation?.lat || geo.latitude || -7.9826;
-          const curLng = collectorLocation?.lng || geo.longitude || 112.6308;
           const truckLaporanId = activeRouteReport?.id || (user?.id ? user.id * 1000 : 9999);
 
           if (nextState) {
@@ -587,9 +598,23 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             } catch {}
           }
         }
+      } else if (user?.role === "pengepul" && isPengepulOnline && !isDriverIdle) {
+        // Also periodically sync standby coordinates to DB so other users see live movement
+        const now = Date.now();
+        if (now - lastGpsBroadcastRef.current >= 3000) {
+          lastGpsBroadcastRef.current = now;
+          updatePengepulOnlineStatusApi({
+            pengepulId: user?.id,
+            isOnline: true,
+            latitude: pos.lat,
+            longitude: pos.lng,
+            heading: pos.heading,
+            kecepatanKmh: pos.speedKmh,
+          }).catch(() => {});
+        }
       }
     },
-    [navigationMode, pengepulMissionStatus, activeRouteReport, user]
+    [navigationMode, pengepulMissionStatus, activeRouteReport, user, isPengepulOnline, isDriverIdle]
   );
 
   const gpsTracker = useGpsTracker({

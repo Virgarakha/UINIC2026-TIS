@@ -272,6 +272,42 @@ class LaporanController extends BaseApiController
     }
 
     /**
+     * Update Pengepul Online / Offline status in database.
+     */
+    public function updateStatusOnline(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'pengepul_id' => 'nullable|integer',
+            'is_online' => 'required|boolean',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'heading' => 'nullable|numeric',
+            'kecepatan_kmh' => 'nullable|numeric',
+        ]);
+
+        $pengepulId = $this->resolvePengepulId($validated['pengepul_id'] ?? null, $request->user());
+        $isOnline = (bool) $validated['is_online'];
+        $latitude = (float) ($validated['latitude'] ?? -7.9826);
+        $longitude = (float) ($validated['longitude'] ?? 112.6308);
+        $heading = (float) ($validated['heading'] ?? 0);
+        $kecepatanKmh = (float) ($validated['kecepatan_kmh'] ?? 0);
+
+        $penjemputan = $this->laporanService->updateStatusOnlinePengepul(
+            $pengepulId,
+            $isOnline,
+            $latitude,
+            $longitude,
+            $heading,
+            $kecepatanKmh
+        );
+
+        return $this->sendResponse(
+            $penjemputan,
+            $isOnline ? 'Status armada berhasil diaktifkan (Online) di database' : 'Status armada berhasil dinonaktifkan (Offline) di database'
+        );
+    }
+
+    /**
      * Cancel / close pickup mission.
      */
     public function batalPenjemputan(Request $request): JsonResponse

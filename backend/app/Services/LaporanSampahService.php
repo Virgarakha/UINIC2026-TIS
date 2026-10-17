@@ -435,7 +435,7 @@ class LaporanSampahService extends BaseService
     }
 
     /**
-     * Get all currently active armada trucks on missions for map display.
+     * Get all currently active armada trucks on missions or standby online for map display.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, PenjemputanSampah>
      */
@@ -443,7 +443,7 @@ class LaporanSampahService extends BaseService
     {
         $tenMinutesAgo = now()->subMinutes(10);
 
-        return PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan'])
+        return PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan', 'siaga_online'])
             ->whereNotNull('current_latitude')
             ->whereNotNull('current_longitude')
             ->where(function ($query) use ($tenMinutesAgo) {
@@ -456,6 +456,78 @@ class LaporanSampahService extends BaseService
             ->with(['pengepul', 'laporan.status', 'laporan.kategori'])
             ->latest('waktu_update_lokasi')
             ->get();
+    }
+
+    /**
+     * Update Pengepul Online / Offline status in database for cross-user live tracking.
+     */
+    public function updateStatusOnlinePengepul(
+        int $pengepulId,
+        bool $isOnline,
+        float $lat,
+        float $lng,
+        float $heading = 0,
+        float $kecepatanKmh = 0
+    ): ?PenjemputanSampah {
+        // If there's an active pickup mission ('menuju_lokasi', 'tahap_pengambilan')
+        $activeMission = PenjemputanSampah::where('pengepul_id', $pengepulId)
+            ->whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan'])
+            ->latest('updated_at')
+            ->first();
+
+        if ($activeMission) {
+            if ($isOnline) {
+                $activeMission->current_latitude = $lat;
+                $activeMission->current_longitude = $lng;
+                $activeMission->heading = $heading;
+                $activeMission->kecepatan_kmh = $kecepatanKmh;
+                $activeMission->waktu_update_lokasi = now();
+                $activeMission->save();
+            } else {
+                $activeMission->current_latitude = null;
+                $activeMission->current_longitude = null;
+                $activeMission->waktu_update_lokasi = null;
+                $activeMission->save();
+            }
+
+            return $activeMission->load(['pengepul', 'laporan']);
+        }
+
+        // Standby record (laporan_id = null or status siaga_online/offline)
+        $standbyRecord = PenjemputanSampah::where('pengepul_id', $pengepulId)
+            ->where(function ($q) {
+                $q->whereNull('laporan_id')
+                    ->orWhere('status_jemput', 'siaga_online')
+                    ->orWhere('status_jemput', 'offline');
+            })
+            ->latest('updated_at')
+            ->first();
+
+        if (! $standbyRecord) {
+            $standbyRecord = new PenjemputanSampah();
+            $standbyRecord->pengepul_id = $pengepulId;
+            $standbyRecord->laporan_id = null;
+        }
+
+        if ($isOnline) {
+            $standbyRecord->status_jemput = 'siaga_online';
+            $standbyRecord->current_latitude = $lat;
+            $standbyRecord->current_longitude = $lng;
+            $standbyRecord->heading = $heading;
+            $standbyRecord->kecepatan_kmh = $kecepatanKmh;
+            $standbyRecord->waktu_update_lokasi = now();
+            $standbyRecord->catatan = 'Armada Online - Siaga Penjemputan Sampah';
+            $standbyRecord->save();
+        } else {
+            $standbyRecord->status_jemput = 'offline';
+            $standbyRecord->current_latitude = null;
+            $standbyRecord->current_longitude = null;
+            $standbyRecord->waktu_update_lokasi = null;
+            $standbyRecord->catatan = 'Armada Offline - Mode Istirahat';
+            $standbyRecord->save();
+        }
+
+        return $standbyRecord->load(['pengepul', 'laporan']);
     }
 
     /**

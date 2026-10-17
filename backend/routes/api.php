@@ -40,6 +40,7 @@ Route::prefix('penjemputan')->name('penjemputan.')->group(function () {
     Route::post('/mulai', [LaporanController::class, 'mulaiPenjemputan'])->name('mulai');
     Route::post('/selesai', [LaporanController::class, 'selesaiPenjemputan'])->name('selesai');
     Route::post('/lokasi', [LaporanController::class, 'updateLokasi'])->name('lokasi');
+    Route::post('/status-online', [LaporanController::class, 'updateStatusOnline'])->name('statusOnline');
     Route::get('/armada-aktif', [LaporanController::class, 'armadaAktif'])->name('armadaAktif');
     Route::post('/batal', [LaporanController::class, 'batalPenjemputan'])->name('batal');
 });
