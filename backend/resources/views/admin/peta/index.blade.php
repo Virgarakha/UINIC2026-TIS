@@ -167,31 +167,38 @@
         reportsData.forEach(rep => {
             if (!rep.latitude || !rep.longitude) return;
 
+            const LUCIDE_SVGS = {
+                trash: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
+                recycle: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"></path><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"></path><path d="m14 16-3 3 3 3"></path><path d="M8.293 13.596 7.196 9.5 3.1 10.598"></path><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"></path><path d="m13.378 9.633 4.096 1.098 1.097-4.096"></path></svg>`,
+                flame: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path></svg>`,
+                alert: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`
+            };
+
             let pinClass = 'pin-primary';
-            let iconText = '📍';
+            let iconSvg = LUCIDE_SVGS.trash;
 
             if (rep.tipe_bahaya || rep.is_resiko_banjir) {
                 pinClass = 'pin-danger';
                 const hazard = (rep.tipe_bahaya || '').toLowerCase();
                 if (hazard.includes('wabah') || hazard.includes('dbd')) {
-                    iconText = '🦟';
+                    iconSvg = LUCIDE_SVGS.alert;
                 } else if (hazard.includes('kebakaran') || hazard.includes('metana')) {
-                    iconText = '🔥';
+                    iconSvg = LUCIDE_SVGS.flame;
                 } else if (hazard.includes('bau') || hazard.includes('pencemaran')) {
-                    iconText = '☣️';
+                    iconSvg = LUCIDE_SVGS.trash;
                 } else if (hazard.includes('longsor')) {
-                    iconText = '⚠️';
+                    iconSvg = LUCIDE_SVGS.alert;
                 } else {
-                    iconText = '🌊';
+                    iconSvg = LUCIDE_SVGS.trash;
                 }
             } else if (rep.status && rep.status.kode === 'siap_diambil_pengepul') {
                 pinClass = 'pin-success';
-                iconText = '♻️';
+                iconSvg = LUCIDE_SVGS.recycle;
             }
 
             const customIcon = L.divIcon({
                 className: 'custom-leaflet-marker',
-                html: `<div class="custom-map-pin ${pinClass}">${iconText}</div>`,
+                html: `<div class="custom-map-pin ${pinClass}" style="display: flex; align-items: center; justify-content: center;">${iconSvg}</div>`,
                 iconSize: [34, 34],
                 iconAnchor: [17, 17]
             });

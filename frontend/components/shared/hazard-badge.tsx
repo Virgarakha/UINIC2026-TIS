@@ -1,6 +1,7 @@
 import * as React from "react";
 import { getHazardInfo } from "@/config/hazards";
 import { cn } from "@/lib/utils";
+import { Trash2, AlertTriangle, Flame, Biohazard, ShieldAlert, AlertOctagon } from "lucide-react";
 
 export interface HazardBadgeProps {
   hazard?: string | null;
@@ -8,8 +9,19 @@ export interface HazardBadgeProps {
   showIcon?: boolean;
 }
 
+const HAZARD_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  banjir: Trash2,
+  wabah: AlertTriangle,
+  kebakaran: Flame,
+  bau: Biohazard,
+  longsor: AlertTriangle,
+  jalan: AlertOctagon,
+  publik: ShieldAlert,
+};
+
 export function HazardBadge({ hazard, className, showIcon = true }: HazardBadgeProps) {
   const info = getHazardInfo(hazard);
+  const IconComp = (hazard && HAZARD_ICON_MAP[hazard.toLowerCase()]) || Trash2;
 
   return (
     <span
@@ -22,7 +34,7 @@ export function HazardBadge({ hazard, className, showIcon = true }: HazardBadgeP
       )}
       title={info.description}
     >
-      {showIcon && <span className="text-xs leading-none">{info.iconText}</span>}
+      {showIcon && <IconComp className="w-3.5 h-3.5 flex-shrink-0" />}
       <span>{info.shortName}</span>
     </span>
   );

@@ -157,10 +157,6 @@ export function PlaceDetailDrawer({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="flex items-center gap-1 font-bold text-amber-500">
-            ★ 4.9 ({report.total_tanggapan || 12} respon)
-          </span>
-          <span className="text-slate-300">•</span>
           <span className="font-semibold text-[#2E6E65]">
             {report.kategori?.nama || "Umum"}
           </span>
@@ -168,6 +164,14 @@ export function PlaceDetailDrawer({
           <span className="text-[#0EB29A] font-bold">
             {report.status?.nama || "Menunggu Analisis"}
           </span>
+          {Number(report.total_tanggapan) > 0 && (
+            <>
+              <span className="text-slate-300">•</span>
+              <span className="font-medium text-slate-500">
+                {report.total_tanggapan} Respon Warga
+              </span>
+            </>
+          )}
         </div>
 
         <p className="text-xs text-slate-500 line-clamp-2">{report.deskripsi}</p>

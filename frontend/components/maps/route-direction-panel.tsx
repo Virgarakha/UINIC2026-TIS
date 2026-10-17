@@ -23,11 +23,14 @@ import {
   CheckCircle,
   Play,
   Camera,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { RouteDirectionData } from "@/lib/routing";
 import { LaporanSampah, User } from "@/types";
 import { getDistanceMeters } from "@/lib/utils";
 import { startPenjemputanApi, updateTruckLocationApi } from "@/lib/api-client";
+import { voiceNavigator } from "@/lib/voice-navigation";
 
 export interface RouteDirectionPanelProps {
   report: LaporanSampah;
@@ -73,6 +76,16 @@ export function RouteDirectionPanel({
   const [showAllSteps, setShowAllSteps] = React.useState(true);
   const [internalStatus, setInternalStatus] = React.useState<"idle" | "otw" | "tahap_pengambilan" | "selesai">(missionStatus);
   const [isSimulatedNear, setIsSimulatedNear] = React.useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = React.useState(voiceNavigator.isMuted);
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsVoiceMuted(voiceNavigator.isMuted);
+    const unsubscribe = voiceNavigator.subscribe((speaking) => {
+      setIsVoiceSpeaking(speaking);
+    });
+    return unsubscribe;
+  }, []);
 
   const activeStatus = missionStatus || internalStatus;
   const updateStatus = (st: "idle" | "otw" | "tahap_pengambilan" | "selesai") => {
@@ -88,6 +101,13 @@ export function RouteDirectionPanel({
   const displayDistance = isSimulatedNear ? 45 : actualDistance;
   const isWithin100Meters = displayDistance <= 100;
 
+  // Auto announce arrival when entering 100 meter radius
+  React.useEffect(() => {
+    if (activeStatus === "otw" && isWithin100Meters && !voiceNavigator.isMuted) {
+      voiceNavigator.announceArrival();
+    }
+  }, [activeStatus, isWithin100Meters]);
+
   const handleStartTask = async () => {
     updateStatus("otw");
     const initLat = currentLat || (routeData?.coordinates?.[0]?.[0] ?? report.latitude);
@@ -95,6 +115,15 @@ export function RouteDirectionPanel({
     const initHeading = routeData?.coordinates && routeData.coordinates.length >= 2
       ? 0
       : 0;
+
+    // Trigger voice navigation greeting
+    if (!voiceNavigator.isMuted) {
+      voiceNavigator.announceDeparture(
+        report.alamat_lokasi,
+        routeData?.formattedDistance || "1.2 km",
+        routeData?.formattedDuration || "5 menit"
+      );
+    }
 
     try {
       if (user) {
@@ -164,12 +193,50 @@ export function RouteDirectionPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          {/* Voice Guidance Toggle & Audio Wave Indicator */}
+          <button
+            type="button"
+            onClick={() => {
+              const muted = voiceNavigator.toggleMute();
+              setIsVoiceMuted(muted);
+              if (!muted) {
+                voiceNavigator.testVoice();
+              }
+            }}
+            className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+              !isVoiceMuted
+                ? "bg-[#0EB29A]/15 border-[#0EB29A]/40 text-[#0EB29A] shadow-xs"
+                : "bg-slate-100 border-slate-200 text-slate-400 hover:text-slate-600"
+            }`}
+            title={!isVoiceMuted ? "Suara Navigasi Aktif (Klik untuk Bisukan)" : "Suara Navigasi Bisu (Klik untuk Aktifkan)"}
+          >
+            {!isVoiceMuted ? (
+              <div className="flex items-center gap-1">
+                <Volume2 className="h-4 w-4" />
+                {isVoiceSpeaking ? (
+                  <span className="flex items-center gap-0.5 px-0.5">
+                    <span className="w-1 h-3 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1 h-2 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1 h-3.5 bg-[#0EB29A] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold hidden sm:inline">Suara</span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <VolumeX className="h-4 w-4" />
+                <span className="text-[10px] font-bold hidden sm:inline">Bisu</span>
+              </div>
+            )}
+          </button>
+
           <button
             onClick={onBackToDetail}
-            className="text-[11px] font-bold text-[#0EB29A] hover:bg-[#0EB29A]/10 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+            className="text-[11px] font-bold text-[#0EB29A] hover:bg-[#0EB29A]/10 px-2 py-1.5 rounded-lg transition-colors cursor-pointer"
           >
-            Detail Tempat
+            Detail
           </button>
           <button
             onClick={onClose}

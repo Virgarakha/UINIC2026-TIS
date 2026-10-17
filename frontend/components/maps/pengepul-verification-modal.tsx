@@ -19,6 +19,7 @@ import { LaporanSampah, User } from "@/types";
 import { analyzeCleanlinessWithGemini, CleanlinessAiResult } from "@/lib/gemini";
 import { completePenjemputanApi } from "@/lib/api-client";
 import { formatRupiah } from "@/lib/utils";
+import { voiceNavigator } from "@/lib/voice-navigation";
 
 export interface PengepulVerificationModalProps {
   isOpen: boolean;
@@ -131,6 +132,10 @@ export function PengepulVerificationModal({
         },
       };
 
+      if (!voiceNavigator.isMuted) {
+        voiceNavigator.announceVerification(aiResult.skor_kebersihan, awardedPoints);
+      }
+
       onVerificationSuccess(updatedReport, awardedPoints, aiResult);
       onClose();
     } catch (err) {
@@ -147,6 +152,9 @@ export function PengepulVerificationModal({
           urutan: 6,
         },
       };
+      if (!voiceNavigator.isMuted) {
+        voiceNavigator.announceVerification(aiResult.skor_kebersihan, awardedPoints);
+      }
       onVerificationSuccess(updatedReport, awardedPoints, aiResult);
       onClose();
     } finally {

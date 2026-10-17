@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, X, Menu, Navigation, User as UserIcon } from "lucide-react";
+import { Search, X, Menu, Navigation, User as UserIcon, Trash2, Recycle, Flame, Biohazard, AlertTriangle, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@/types";
 
@@ -29,12 +29,12 @@ export function SearchFloatingBar({
   isRailVisible = false,
 }: SearchFloatingBarProps) {
   const categories = [
-    { id: "all", label: `Semua (${totalResults})`, icon: "📍" },
-    { id: "banjir", label: "Kritis Banjir", icon: "🌊" },
-    { id: "wabah", label: "Wabah Sanitasi", icon: "🦟" },
-    { id: "kebakaran", label: "Gas Metana & Api", icon: "🔥" },
-    { id: "bau", label: "Bau Toksik", icon: "☣️" },
-    { id: "pengepul", label: "Siap Pengepul", icon: "♻️" },
+    { id: "all", label: `Semua (${totalResults})`, icon: Layers },
+    { id: "banjir", label: "Kritis Banjir", icon: Trash2 },
+    { id: "wabah", label: "Wabah Sanitasi", icon: AlertTriangle },
+    { id: "kebakaran", label: "Gas Metana & Api", icon: Flame },
+    { id: "bau", label: "Bau Toksik", icon: Biohazard },
+    { id: "pengepul", label: "Siap Pengepul", icon: Recycle },
   ];
 
   return (
@@ -111,6 +111,7 @@ export function SearchFloatingBar({
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 pr-4 max-w-full">
         {categories.map((cat) => {
           const isActive = activeCategory === cat.id;
+          const IconComp = cat.icon;
           return (
             <button
               key={cat.id}
@@ -122,7 +123,7 @@ export function SearchFloatingBar({
                   : "bg-white text-[#2B3752] border border-slate-200/90 hover:bg-slate-50 hover:border-[#0EB29A]/40"
               )}
             >
-              <span className="text-xs leading-none">{cat.icon}</span>
+              <IconComp className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-white" : "text-[#0EB29A]")} />
               <span>{cat.label}</span>
             </button>
           );

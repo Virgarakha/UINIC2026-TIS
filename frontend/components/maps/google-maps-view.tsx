@@ -18,6 +18,8 @@ import {
   LayoutDashboard,
   ShieldCheck,
   LogOut,
+  Flame,
+  Check,
 } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Layer as LeafletLayer } from "leaflet";
 import { SearchFloatingBar } from "./search-floating-bar";
@@ -51,6 +53,8 @@ import { getLiveWeather, WeatherData } from "@/lib/weather";
 import { getDistanceMeters, cn } from "@/lib/utils";
 import { getDirections, RouteDirectionData, calculateBearing } from "@/lib/routing";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { voiceNavigator } from "@/lib/voice-navigation";
+import { createHeatLayer } from "@/lib/heatmap";
 import { siteConfig } from "@/config/site";
 import "leaflet/dist/leaflet.css";
 
@@ -289,6 +293,9 @@ export function GoogleMapsView() {
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = React.useState(false);
   const [mapLayer, setMapLayer] = React.useState<"streets" | "satellite">("streets");
+  const [showHeatmap, setShowHeatmap] = React.useState<boolean>(false);
+  const [isLayerMenuOpen, setIsLayerMenuOpen] = React.useState<boolean>(false);
+  const heatmapLayerRef = React.useRef<any>(null);
 
   // Load stored user session and bookmarks on mount
   React.useEffect(() => {
@@ -465,6 +472,66 @@ export function GoogleMapsView() {
     });
   }, [mapLayer, isMapReady]);
 
+  // Synchronize Heatmap Layer (Garbage Density)
+  React.useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (!showHeatmap) {
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
+      }
+      return;
+    }
+
+    import("leaflet").then(async (leafletModule) => {
+      const L = (leafletModule as any).default || leafletModule;
+      if (!mapInstanceRef.current) return;
+
+      // Remove existing heat layer if already present
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
+      }
+
+      // Convert filtered reports into weighted heatmap points [lat, lng, intensity]
+      const heatPoints: [number, number, number][] = filteredReports.map((r) => {
+        const vol = r.analisis_ai?.volume_sampah_m3 || 1.0;
+        const isHazard = Boolean(r.tipe_bahaya || r.is_resiko_banjir);
+        const weight = Math.min(Math.max(vol / 2.5 + (isHazard ? 0.35 : 0.15), 0.4), 1.0);
+        return [r.latitude, r.longitude, weight];
+      });
+
+      const layer = await createHeatLayer(L, heatPoints, {
+        radius: 42,
+        blur: 24,
+        maxZoom: 16,
+        max: 1.0,
+        minOpacity: 0.38,
+        gradient: {
+          0.15: "#0EB29A", // Low Density (Mint Teal)
+          0.4: "#3b82f6",  // Moderate (Blue)
+          0.65: "#eab308", // Elevated (Yellow)
+          0.85: "#f97316", // High (Orange)
+          1.0: "#ef4444",  // Severe Hotspot (Red)
+        },
+      });
+
+      if (layer && mapInstanceRef.current && showHeatmap) {
+        layer.addTo(mapInstanceRef.current);
+        heatmapLayerRef.current = layer;
+      }
+    });
+
+    return () => {
+      if (heatmapLayerRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
+      }
+    };
+  }, [showHeatmap, filteredReports]);
+
   // Synchronize Markers
   React.useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -478,28 +545,37 @@ export function GoogleMapsView() {
       Object.values(markersRef.current).forEach((m) => map.removeLayer(m));
       markersRef.current = {};
 
+      // Lucide React SVG icon templates for attractive waste & status pins
+      const LUCIDE_PIN_ICONS = {
+        trash: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 drop-shadow-xs"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
+        recycle: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 drop-shadow-xs"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"></path><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"></path><path d="m14 16-3 3 3 3"></path><path d="M8.293 13.596 7.196 9.5 3.1 10.598"></path><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"></path><path d="m13.378 9.633 4.096 1.098 1.097-4.096"></path></svg>`,
+        flame: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 drop-shadow-xs"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"></path></svg>`,
+        alert: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 drop-shadow-xs"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`,
+      };
+
       filteredReports.forEach((rep) => {
         const isSelected = selectedReport?.id === rep.id;
         const hazardStr = (rep.tipe_bahaya || "").toLowerCase();
 
-        let iconText = "📍";
-        let pinBg = "bg-red-600";
+        let iconSvg = LUCIDE_PIN_ICONS.trash;
+        let pinBg = "bg-rose-600";
 
-        if (hazardStr.includes("banjir")) {
-          iconText = "🌊";
-          pinBg = "bg-red-600";
-        } else if (hazardStr.includes("wabah") || hazardStr.includes("dbd")) {
-          iconText = "🦟";
-          pinBg = "bg-amber-500";
+        if (rep.status?.kode === "siap_diambil_pengepul") {
+          iconSvg = LUCIDE_PIN_ICONS.recycle;
+          pinBg = "bg-[#0EB29A]";
         } else if (hazardStr.includes("kebakaran") || hazardStr.includes("metana")) {
-          iconText = "🔥";
+          iconSvg = LUCIDE_PIN_ICONS.flame;
           pinBg = "bg-orange-600";
-        } else if (hazardStr.includes("bau")) {
-          iconText = "☣️";
-          pinBg = "bg-emerald-700";
-        } else if (rep.status?.kode === "siap_diambil_pengepul") {
-          iconText = "♻️";
-          pinBg = "bg-emerald-600";
+        } else if (hazardStr.includes("bau") || hazardStr.includes("toksik")) {
+          iconSvg = LUCIDE_PIN_ICONS.trash;
+          pinBg = "bg-[#2E6E65]";
+        } else if (hazardStr.includes("wabah") || hazardStr.includes("dbd")) {
+          iconSvg = LUCIDE_PIN_ICONS.alert;
+          pinBg = "bg-amber-500";
+        } else {
+          // Default / banjir / tumpukan sampah
+          iconSvg = LUCIDE_PIN_ICONS.trash;
+          pinBg = "bg-rose-600";
         }
 
         // Check for neighboring reports within 100 meters
@@ -521,10 +597,10 @@ export function GoogleMapsView() {
                 ? '<div class="absolute -top-1.5 -left-1.5 h-10 w-10 rounded-full bg-[#2E6E65]/40 border border-white -z-10 shadow-md"></div>'
                 : ""
             }
-            <div class="h-10 w-10 rounded-full ${pinBg} text-white font-bold text-base flex items-center justify-center border-2 border-white shadow-xl transition-transform duration-200 group-hover:scale-110 ${
+            <div class="h-10 w-10 rounded-full ${pinBg} text-white font-bold flex items-center justify-center border-2 border-white shadow-xl transition-transform duration-200 group-hover:scale-110 ${
           isSelected ? "scale-115 ring-4 ring-[#0EB29A]/50" : ""
         }">
-              ${iconText}
+              ${iconSvg}
               ${
                 nearbyCount > 0
                   ? `<span class="absolute -top-1.5 -right-2 bg-[#0EB29A] text-white text-[9px] font-black px-1.5 py-0.2 rounded-full border-2 border-white shadow-md flex items-center"><span>+${nearbyCount}</span></span>`
@@ -593,6 +669,7 @@ export function GoogleMapsView() {
         const next = prev + 1;
         if (next >= coords.length) {
           setIsSimulatingDrive(false);
+          voiceNavigator.announceArrival();
           const last = coords[coords.length - 1];
           const prevLast = coords[coords.length - 2] || last;
           const heading = calculateBearing(prevLast[0], prevLast[1], last[0], last[1]);
@@ -640,6 +717,18 @@ export function GoogleMapsView() {
         const currPoint = coords[prev];
         const nextPoint = coords[next];
         const heading = calculateBearing(currPoint[0], currPoint[1], nextPoint[0], nextPoint[1]);
+
+        // Voice guidance for next turn maneuver along the route
+        if (routeData?.steps && routeData.steps.length > 0) {
+          const stepIdx = Math.min(
+            Math.floor((next / coords.length) * routeData.steps.length),
+            routeData.steps.length - 1
+          );
+          const activeStep = routeData.steps[stepIdx];
+          if (activeStep && activeStep.instruction) {
+            voiceNavigator.announceManeuver(activeStep.instruction, activeStep.distanceMeters);
+          }
+        }
 
         setCollectorLocation({
           lat: nextPoint[0],
@@ -1062,6 +1151,7 @@ export function GoogleMapsView() {
         } catch {}
       }
     }
+    voiceNavigator.stop();
     clearRouteLayers();
     setActiveRouteReport(null);
     setRouteData(null);
@@ -1311,29 +1401,173 @@ export function GoogleMapsView() {
         </button>
       </div>
 
-      {/* 5. Google Maps Bottom Left: Layer Switcher */}
+      {/* 5. Google Maps Bottom Left: Layer Switcher & Heatmap Popover */}
       <div
         className={cn(
           "absolute bottom-8 z-20 transition-all duration-300",
           user ? "left-4 sm:left-[84px]" : "left-6"
         )}
       >
+        {/* Layer Popover Menu */}
+        {isLayerMenuOpen && (
+          <div className="mb-2 p-3.5 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 text-[#2B3752] space-y-3 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-black text-[#2B3752]">Lapisan Peta</span>
+              <button
+                type="button"
+                onClick={() => setIsLayerMenuOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* Base Map Options */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                Peta Dasar
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMapLayer("streets")}
+                  className={cn(
+                    "p-2 rounded-xl border flex flex-col items-center gap-1.5 text-center transition-all cursor-pointer relative",
+                    mapLayer === "streets"
+                      ? "border-[#0EB29A] bg-[#0EB29A]/10 text-[#0EB29A] font-bold shadow-xs"
+                      : "border-slate-200 hover:border-slate-300 text-slate-600"
+                  )}
+                >
+                  <div className="h-8 w-full rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                    <Compass className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] leading-tight">Peta Jalan</span>
+                  {mapLayer === "streets" && (
+                    <span className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full bg-[#0EB29A] text-white flex items-center justify-center text-[8px]">
+                      <Check className="h-2.5 w-2.5" />
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMapLayer("satellite")}
+                  className={cn(
+                    "p-2 rounded-xl border flex flex-col items-center gap-1.5 text-center transition-all cursor-pointer relative",
+                    mapLayer === "satellite"
+                      ? "border-[#0EB29A] bg-[#0EB29A]/10 text-[#0EB29A] font-bold shadow-xs"
+                      : "border-slate-200 hover:border-slate-300 text-slate-600"
+                  )}
+                >
+                  <div className="h-8 w-full rounded-lg bg-slate-800 flex items-center justify-center text-slate-200">
+                    <Layers className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] leading-tight">Citra Satelit</span>
+                  {mapLayer === "satellite" && (
+                    <span className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full bg-[#0EB29A] text-white flex items-center justify-center text-[8px]">
+                      <Check className="h-2.5 w-2.5" />
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Overlays / Analysis Layer: Heatmap */}
+            <div className="pt-2 border-t border-slate-100 space-y-1.5">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                Analisis Kepadatan
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowHeatmap(!showHeatmap)}
+                className={cn(
+                  "w-full p-2.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer",
+                  showHeatmap
+                    ? "border-amber-400 bg-amber-500/10 text-amber-900 shadow-xs"
+                    : "border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      "h-7 w-7 rounded-lg flex items-center justify-center shadow-xs",
+                      showHeatmap
+                        ? "bg-gradient-to-tr from-orange-500 to-red-500 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    )}
+                  >
+                    <Flame className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold block leading-tight">Heatmap Sebaran</span>
+                    <span className="text-[10px] text-slate-500">Gradien volume & risiko</span>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    "w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
+                    showHeatmap ? "bg-orange-500" : "bg-slate-200"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out",
+                      showHeatmap ? "translate-x-4" : "translate-x-0"
+                    )}
+                  />
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Trigger Button */}
         <button
-          onClick={() => setMapLayer(mapLayer === "streets" ? "satellite" : "streets")}
+          type="button"
+          onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
           className="flex items-center gap-2 p-1.5 pr-3 rounded-2xl bg-white shadow-xl shadow-slate-200/70 border border-slate-200/90 hover:scale-105 transition-all cursor-pointer"
-          title="Ubah Tampilan Lapisan Peta"
+          title="Ubah Lapisan & Heatmap Peta"
         >
-          <div className="h-10 w-10 rounded-xl overflow-hidden border border-slate-200 bg-[#2B3752] flex items-center justify-center text-white">
+          <div className="h-10 w-10 rounded-xl overflow-hidden border border-slate-200 bg-[#2B3752] flex items-center justify-center text-white relative">
             <Layers className="h-5 w-5" />
+            {showHeatmap && (
+              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-orange-500 border border-white flex items-center justify-center shadow-xs">
+                <Flame className="h-2 w-2 text-white" />
+              </span>
+            )}
           </div>
           <div className="flex flex-col text-left">
             <span className="text-[11px] font-bold text-[#2B3752]">Lapisan</span>
             <span className="text-[10px] text-slate-400 font-medium capitalize">
-              {mapLayer === "streets" ? "Peta Jalan" : "Citra Satelit"}
+              {showHeatmap
+                ? "Peta + Heatmap 🔥"
+                : mapLayer === "streets"
+                ? "Peta Jalan"
+                : "Citra Satelit"}
             </span>
           </div>
         </button>
       </div>
+
+      {/* Heatmap Density Legend (when heatmap is enabled) */}
+      {showHeatmap && (
+        <div className="absolute bottom-8 right-[200px] z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-200/90 text-xs space-y-1.5 animate-in fade-in slide-in-from-bottom-2 hidden sm:block">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-bold text-[#2B3752] flex items-center gap-1.5">
+              <Flame className="h-3.5 w-3.5 text-rose-500" />
+              <span>Kepadatan Sampah</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">AI & Volume</span>
+          </div>
+          <div className="h-2.5 w-44 rounded-full bg-gradient-to-r from-[#0EB29A] via-[#eab308] to-[#ef4444] shadow-inner" />
+          <div className="flex justify-between text-[9px] text-slate-500 font-bold">
+            <span>Rendah</span>
+            <span>Sedang</span>
+            <span className="text-red-600 font-black">Kritis (Hotspot)</span>
+          </div>
+        </div>
+      )}
 
       {/* 6. Google Maps Bottom Right: Zoom & My Location Controls */}
       <div className="absolute right-6 bottom-28 z-20 flex flex-col gap-2">
