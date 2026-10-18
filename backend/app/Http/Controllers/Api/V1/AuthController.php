@@ -26,11 +26,33 @@ class AuthController extends BaseApiController
         $validated = $request->validated();
         $deviceName = $validated['device_name'] ?? 'api-token';
 
+        $role = $validated['role'] ?? 'warga';
+        $validated['role'] = $role;
+
+        if ($role === 'pengepul') {
+            $validated['rating'] = 5.0;
+            $validated['total_ulasan'] = 1;
+            if (empty($validated['foto_profil'])) {
+                $validated['foto_profil'] = 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80';
+            }
+        }
+
         $user = $this->userService->create($validated);
+
+        if ($role === 'pengepul') {
+            \App\Models\PengepulUlasan::create([
+                'pengepul_id' => $user->id,
+                'reviewer_name' => 'Koordinator DLH Kota Malang',
+                'reviewer_role' => 'Dinas Lingkungan Hidup',
+                'rating' => 5,
+                'komentar' => 'Mitra armada resmi terverifikasi program EcoPatrol UINIC08.',
+            ]);
+        }
+
         $token = $user->createToken($deviceName)->plainTextToken;
 
         return $this->sendResponse([
-            'user' => new UserResource($user),
+            'user' => new UserResource($user->load('ulasan')),
             'token' => $token,
             'token_type' => 'Bearer',
         ], 'User registered successfully', 201);
@@ -97,5 +119,22 @@ class AuthController extends BaseApiController
         $user->currentAccessToken()->delete();
 
         return $this->sendResponse(null, 'Successfully logged out');
+    }
+
+    /**
+     * Get verified Pengepul partners with vehicle details, ratings, and reviews for landing page showcase.
+     */
+    public function mitraPengepul(): JsonResponse
+    {
+        $mitra = User::where('role', 'pengepul')
+            ->with(['ulasan' => function ($q) {
+                $q->limit(5);
+            }])
+            ->get();
+
+        return $this->sendResponse(
+            UserResource::collection($mitra),
+            'Daftar mitra pengepul berhasil diambil'
+        );
     }
 }

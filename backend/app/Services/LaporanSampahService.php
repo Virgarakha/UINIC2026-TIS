@@ -6,10 +6,12 @@ use App\Models\AnalisisAi;
 use App\Models\DataLingkungan;
 use App\Models\LaporanSampah;
 use App\Models\MasterJenisSampah;
+use App\Models\MasterTipeTanggapan;
 use App\Models\PenjemputanSampah;
 use App\Models\RiwayatPoin;
 use App\Models\RiwayatStatusLaporan;
 use App\Models\StatusLaporan;
+use App\Models\TanggapanLaporan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -26,7 +28,15 @@ class LaporanSampahService extends BaseService
     public function getQuery(): Builder
     {
         return LaporanSampah::query()
-            ->with(['pelapor', 'kategori', 'status', 'analisisAi.jenisSampahDominan', 'dataLingkungan'])
+            ->with([
+                'pelapor',
+                'kategori',
+                'status',
+                'analisisAi.jenisSampahDominan',
+                'dataLingkungan',
+                'tanggapan.user',
+                'tanggapan.tipeTanggapan',
+            ])
             ->latest('id');
     }
 
@@ -552,6 +562,80 @@ class LaporanSampahService extends BaseService
         }
 
         return false;
+    }
+
+    /**
+     * Add citizen review/response to a waste report.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function addTanggapan(int $laporanId, array $data, ?int $userId = null): TanggapanLaporan
+    {
+        $laporan = LaporanSampah::findOrFail($laporanId);
+
+        // Fallback to active citizen if not specified
+        if (! $userId) {
+            $userId = isset($data['user_id']) ? (int) $data['user_id'] : (User::where('role', 'warga')->first()?->id ?? 3);
+        }
+
+        $tipeId = (int) ($data['tipe_tanggapan_id'] ?? 1);
+        $komentar = (string) ($data['komentar'] ?? '');
+        $fotoUrl = $data['foto_bukti_tambahan_url'] ?? null;
+
+        $tanggapan = TanggapanLaporan::create([
+            'laporan_id' => $laporan->id,
+            'user_id' => $userId,
+            'tipe_tanggapan_id' => $tipeId,
+            'komentar' => $komentar,
+            'foto_bukti_tambahan_url' => $fotoUrl,
+        ]);
+
+        // Increment total_tanggapan
+        $laporan->increment('total_tanggapan');
+
+        if (! empty($fotoUrl)) {
+            $laporan->increment('total_foto_tambahan');
+        }
+
+        // Award reward points for civic participation (+10 poin)
+        $user = User::find($userId);
+        if ($user) {
+            $user->increment('poin_reward', 10);
+
+            RiwayatPoin::create([
+                'user_id' => $userId,
+                'jumlah_poin' => 10,
+                'jenis_transaksi' => 'masuk',
+                'referensi_tipe' => 'tanggapan_laporan',
+                'referensi_id' => $tanggapan->id,
+                'keterangan' => 'Reward partisipasi respon warga pada laporan #' . $laporan->id,
+            ]);
+        }
+
+        return $tanggapan->load(['user', 'tipeTanggapan']);
+    }
+
+    /**
+     * Get all citizen responses for a report.
+     *
+     * @return Collection<int, TanggapanLaporan>
+     */
+    public function getTanggapanByLaporanId(int $laporanId): Collection
+    {
+        return TanggapanLaporan::where('laporan_id', $laporanId)
+            ->with(['user', 'tipeTanggapan'])
+            ->latest('id')
+            ->get();
+    }
+
+    /**
+     * Get all available response types.
+     *
+     * @return Collection<int, MasterTipeTanggapan>
+     */
+    public function getTipeTanggapan(): Collection
+    {
+        return MasterTipeTanggapan::all();
     }
 }
 

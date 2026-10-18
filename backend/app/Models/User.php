@@ -12,7 +12,24 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'role', 'no_telepon', 'foto_profil', 'poin_reward'])]
+#[Fillable([
+    'name',
+    'email',
+    'password',
+    'role',
+    'no_telepon',
+    'foto_profil',
+    'poin_reward',
+    'plat_nomor',
+    'jenis_kendaraan',
+    'kapasitas_muatan_kg',
+    'no_whatsapp',
+    'alamat_posko',
+    'area_operasional',
+    'rating',
+    'total_ulasan',
+    'deskripsi_profil',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,6 +47,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'poin_reward' => 'integer',
+            'rating' => 'float',
+            'total_ulasan' => 'integer',
+            'kapasitas_muatan_kg' => 'integer',
         ];
     }
 
@@ -79,6 +99,14 @@ class User extends Authenticatable
     public function penjemputan(): HasMany
     {
         return $this->hasMany(PenjemputanSampah::class, 'pengepul_id');
+    }
+
+    /**
+     * @return HasMany<PengepulUlasan, $this>
+     */
+    public function ulasan(): HasMany
+    {
+        return $this->hasMany(PengepulUlasan::class, 'pengepul_id')->latest();
     }
 
     public function isWarga(): bool

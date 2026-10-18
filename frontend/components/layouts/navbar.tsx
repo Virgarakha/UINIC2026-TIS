@@ -10,83 +10,168 @@ import {
   X,
   LayoutDashboard,
   ExternalLink,
+  User as UserIcon,
+  LogIn,
+  UserPlus,
+  Truck,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { publicNavItems } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getStoredUser } from "@/lib/auth-storage";
+import { User } from "@/types";
 
 export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [user, setUser] = React.useState<User | null>(null);
+
+  React.useEffect(() => {
+    setUser(getStoredUser());
+  }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 bg-white/95 backdrop-blur-md transition-all shadow-xs">
+    <header className="hidden md:block sticky top-0 z-40 w-full border-b border-[#E7EDE5] bg-[#FBFBF8]/90 backdrop-blur-md transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0EB29A] to-[#2E6E65] text-white shadow-md shadow-[#0EB29A]/20 group-hover:scale-105 transition-transform">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg font-black tracking-tight text-[#2B3752]">
-                  {siteConfig.name}
-                </span>
-                <span className="rounded-md bg-[#0EB29A]/15 px-1.5 py-0.5 text-[10px] font-extrabold text-[#2E6E65]">
-                  AI v2.0
-                </span>
+        <div className="flex h-20 items-center justify-between gap-4">
+          
+          {/* Left: Brand Logo & Reviews Pill Badge */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1E5345] text-emerald-300 font-black text-xl group-hover:rotate-45 transition-transform">
+                ✦
               </div>
-              <span className="text-[11px] font-medium text-slate-500 hidden sm:block">
-                Multi-Hazard Early Warning
+              <span className="text-xl font-black tracking-tight text-[#18231D]">
+                EcoPatrol
+              </span>
+            </Link>
+
+            {/* +120 Reviews Pill Badge matching reference */}
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E2E8DE] shadow-xs">
+              <div className="flex -space-x-2">
+                <img
+                  className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover"
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80"
+                  alt="Reviewer"
+                />
+                <img
+                  className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover"
+                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80"
+                  alt="Reviewer"
+                />
+              </div>
+              <span className="text-xs font-bold text-[#18231D]">
+                +120 ulasan
               </span>
             </div>
-          </Link>
+          </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {publicNavItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "relative px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5",
-                    isActive
-                      ? "text-[#0EB29A] bg-[#0EB29A]/10 font-bold"
-                      : "text-slate-600 hover:text-[#2B3752] hover:bg-slate-100"
-                  )}
-                >
-                  {item.title}
-                  {item.badge && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-500/10 text-red-600 border border-red-500/20">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          {/* Center: Floating Pill Navigation matching reference */}
+          <nav className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#E2E8DE] shadow-xs">
+            <Link
+              href="/"
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold rounded-full transition-all",
+                pathname === "/"
+                  ? "bg-[#1E5345] text-white shadow-xs"
+                  : "text-slate-600 hover:text-[#18231D]"
+              )}
+            >
+              Beranda
+            </Link>
+            <span className="text-slate-300 text-xs">•</span>
+            <Link
+              href="/peta"
+              className={cn(
+                "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
+                pathname === "/peta"
+                  ? "bg-[#1E5345] text-white shadow-xs"
+                  : "text-slate-600 hover:text-[#18231D]"
+              )}
+            >
+              Peta Radar
+            </Link>
+            <span className="text-slate-300 text-xs">•</span>
+            <Link
+              href="/peringatan"
+              className={cn(
+                "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
+                pathname === "/peringatan"
+                  ? "bg-[#1E5345] text-white shadow-xs"
+                  : "text-slate-600 hover:text-[#18231D]"
+              )}
+            >
+              Peringatan Dini
+            </Link>
+            <span className="text-slate-300 text-xs">•</span>
+            <Link
+              href="/rewards"
+              className={cn(
+                "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
+                pathname === "/rewards"
+                  ? "bg-[#1E5345] text-white shadow-xs"
+                  : "text-slate-600 hover:text-[#18231D]"
+              )}
+            >
+              Katalog Rewards
+            </Link>
           </nav>
 
-          {/* Right Action Buttons */}
-          <div className="flex items-center gap-2.5">
-            {/* Quick Report CTA Button */}
-            <Link href="/lapor" className="hidden sm:inline-flex">
-              <Button variant="glow" size="sm" className="gap-1.5">
-                <Camera className="h-4 w-4" />
-                <span>Lapor Sampah</span>
-              </Button>
+          {/* Right: Circular Icon Buttons + Dark Pill Action Button */}
+          <div className="flex items-center gap-2">
+            {/* Globe shortcut */}
+            <Link
+              href="/peta"
+              title="Buka Peta Publik"
+              className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8DE] bg-white text-slate-700 hover:text-[#1E5345] hover:border-[#1E5345] transition-all"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
             </Link>
 
-            {/* Portal Dashboard Button */}
-            <Link href="/dashboard" className="hidden sm:inline-flex">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <LayoutDashboard className="h-3.5 w-3.5" />
-                <span>Dashboard</span>
-              </Button>
+            {/* Eco Leaf shortcut */}
+            <Link
+              href="/edukasi"
+              title="Edukasi Daur Ulang"
+              className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8DE] bg-white text-[#256B52] bg-emerald-50/60 hover:bg-emerald-100/60 transition-all"
+            >
+              <span className="text-sm">🍃</span>
             </Link>
+
+            {/* User Session or Dark Pill Button */}
+            {user ? (
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#18231D] text-white font-bold text-xs shadow-md hover:bg-[#25362D] transition-all"
+                title={`Masuk sebagai ${user.name}`}
+              >
+                <div className="h-5 w-5 rounded-full bg-emerald-400 text-[#18231D] flex items-center justify-center font-black text-[10px]">
+                  {user.name.charAt(0)}
+                </div>
+                <span className="truncate max-w-[100px]">{user.name.split(" ")[0]}</span>
+                {user.role === "pengepul" && <Truck className="h-3 w-3 text-emerald-300" />}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="hidden sm:inline-flex px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:text-[#18231D] transition-colors"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/lapor"
+                  className="px-5 py-2.5 rounded-full bg-[#18231D] hover:bg-[#25362D] text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <Camera className="h-3.5 w-3.5 text-emerald-300" />
+                  <span>Lapor Sampah</span>
+                </Link>
+              </div>
+            )}
 
             {/* Admin Command Center Link */}
             <a
@@ -94,9 +179,9 @@ export function Navbar() {
               target="_blank"
               rel="noreferrer"
               title="Akses Command Center Admin Laravel"
-              className="hidden lg:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-[#2B3752] border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
+              className="hidden xl:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-[#2B3752] border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
             >
-              <span>Admin Panel</span>
+              <span>Admin</span>
               <ExternalLink className="h-3 w-3 opacity-60" />
             </a>
 
@@ -142,6 +227,37 @@ export function Navbar() {
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
+            {!user ? (
+              <div className="grid grid-cols-2 gap-2 mb-1">
+                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button variant="outline" className="w-full text-xs font-bold gap-1.5">
+                    <LogIn className="h-3.5 w-3.5" />
+                    <span>Masuk</span>
+                  </Button>
+                </Link>
+                <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button className="w-full text-xs font-bold gap-1.5 bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white">
+                    <UserPlus className="h-3.5 w-3.5" />
+                    <span>Daftar</span>
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <Link
+                href="/dashboard"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-100 text-[#2B3752]"
+              >
+                <div className="h-8 w-8 rounded-full bg-[#0EB29A] text-white font-bold text-xs flex items-center justify-center">
+                  {user.name.charAt(0)}
+                </div>
+                <div>
+                  <span className="text-xs font-bold block">{user.name}</span>
+                  <span className="text-[10px] text-slate-500 uppercase">{user.role} • {user.poin || user.poin_reward || 0} Poin</span>
+                </div>
+              </Link>
+            )}
+
             <Link href="/lapor" onClick={() => setIsMobileMenuOpen(false)}>
               <Button variant="glow" className="w-full gap-2">
                 <Camera className="h-4 w-4" />

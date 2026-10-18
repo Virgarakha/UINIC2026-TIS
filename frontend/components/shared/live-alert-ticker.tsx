@@ -30,7 +30,7 @@ export function LiveAlertTicker() {
       : "bg-yellow-400 text-slate-900";
 
   return (
-    <div className="relative z-40 bg-white text-[#2B3752] text-xs border-b border-slate-200 shadow-xs">
+    <div className="hidden md:block relative z-40 bg-white text-[#2B3752] text-xs border-b border-slate-200 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
         {/* Left Indicator */}
         <div className="flex items-center gap-2 flex-shrink-0">

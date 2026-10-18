@@ -1,4 +1,12 @@
-import { LaporanSampah, PeringatanDini, KatalogHadiah, User, MetadataForensik } from "@/types";
+import {
+  LaporanSampah,
+  PeringatanDini,
+  KatalogHadiah,
+  User,
+  MetadataForensik,
+  MasterTipeTanggapan,
+  TanggapanLaporan,
+} from "@/types";
 
 export const getApiBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -272,14 +280,7 @@ export async function createLaporanApi(payload: CreateLaporanPayload): Promise<L
 }
 
 export interface LoginResponse {
-  user: {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    no_telepon?: string;
-    poin_reward?: number;
-  };
+  user: User;
   token: string;
   token_type: string;
 }
@@ -314,7 +315,9 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
           name: "Budi Santoso",
           email: "budi@ecocitizen.id",
           role: "warga",
+          poin: 240,
           poin_reward: 240,
+          no_telepon: "081298765432",
         },
         token: "demo-sanctum-token-budi-santoso-2026",
         token_type: "Bearer",
@@ -327,7 +330,17 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
           name: "Pak Slamet (Mitra Pengepul)",
           email: "pengepul@ecocitizen.id",
           role: "pengepul",
+          poin: 350,
           poin_reward: 350,
+          no_telepon: "081234567890",
+          no_whatsapp: "6281234567890",
+          foto_profil: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=400&q=80",
+          plat_nomor: "N 8472 AB",
+          jenis_kendaraan: "Truk Bak Hidrolik Mini DLH",
+          kapasitas_muatan_kg: 850,
+          area_operasional: "Klojen & Lowokwaru (Malang)",
+          rating: 4.95,
+          total_ulasan: 48,
         },
         token: "demo-sanctum-token-pengepul-2026",
         token_type: "Bearer",
@@ -340,6 +353,7 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
           name: "Admin UINIC",
           email: "admin@uinic.com",
           role: "admin",
+          poin: 500,
           poin_reward: 500,
         },
         token: "demo-sanctum-token-admin-uinic-2026",
@@ -348,6 +362,52 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
     }
     throw err;
   }
+}
+
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  role: "warga" | "pengepul";
+  no_telepon?: string;
+  no_whatsapp?: string;
+  foto_profil?: string;
+  // Specific Pengepul fleet details
+  plat_nomor?: string;
+  jenis_kendaraan?: string;
+  kapasitas_muatan_kg?: number;
+  alamat_posko?: string;
+  area_operasional?: string;
+  deskripsi_profil?: string;
+}
+
+export async function registerApi(payload: RegisterPayload): Promise<LoginResponse> {
+  const res = await fetch(`${getApiBaseUrl()}/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ ...payload, device_name: "web-portal" }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Pendaftaran gagal" }));
+    const firstErr = err.errors ? Object.values(err.errors)[0] : null;
+    const msg = Array.isArray(firstErr) ? firstErr[0] : (err.message || "Pendaftaran gagal.");
+    throw new Error(msg);
+  }
+
+  const json = await res.json();
+  return json.data as LoginResponse;
+}
+
+/**
+ * Fetch verified Pengepul partners with vehicle details, ratings, and reviews.
+ */
+export async function fetchMitraPengepulApi(): Promise<User[]> {
+  return safeFetch<User[]>("/auth/mitra-pengepul", []);
 }
 
 /**
@@ -635,5 +695,96 @@ export async function updateUserProfileApi(payload: UpdateUserProfilePayload): P
     updated_at: data.updated_at,
   };
 }
+
+/**
+ * Fetch list of master response types (konfirmasi masih ada, update foto, konfirmasi bersih).
+ */
+export async function fetchMasterTipeTanggapanApi(): Promise<MasterTipeTanggapan[]> {
+  return safeFetch<MasterTipeTanggapan[]>("/tipe-tanggapan", [
+    { id: 1, kode: "konfirmasi_ada", nama: "Konfirmasi Masih Ada", icon: "bi-check-circle" },
+    { id: 2, kode: "foto_tambahan", nama: "Update Foto Perkembangan", icon: "bi-camera" },
+    { id: 3, kode: "tanggapan_bersih", nama: "Konfirmasi Sudah Bersih", icon: "bi-shield-check" },
+  ]);
+}
+
+/**
+ * Fetch citizen reviews and updates for a specific report.
+ */
+export async function fetchTanggapanApi(laporanId: number): Promise<TanggapanLaporan[]> {
+  return safeFetch<TanggapanLaporan[]>(`/laporan/${laporanId}/tanggapan`, []);
+}
+
+export interface SendTanggapanPayload {
+  tipe_tanggapan_id: number;
+  komentar: string;
+  foto_bukti_tambahan_url?: string;
+  user_id?: number;
+}
+
+/**
+ * Submit a new citizen review / response for a report.
+ */
+export async function sendTanggapanApi(
+  laporanId: number,
+  payload: SendTanggapanPayload
+): Promise<TanggapanLaporan> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("uinic_auth_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${getApiBaseUrl()}/laporan/${laporanId}/tanggapan`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Gagal mengirimkan respon warga");
+  }
+
+  return json.data;
+}
+
+/**
+ * Request pickup mission dispatch for a recyclable waste report.
+ */
+export async function dispatchPenjemputanApi(
+  laporanId: number,
+  pengepulId?: number,
+  catatan?: string
+): Promise<any> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("uinic_auth_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${getApiBaseUrl()}/penjemputan/mulai`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      laporan_id: laporanId,
+      pengepul_id: pengepulId || 30,
+      catatan: catatan || "Permintaan penjemputan via peta publik",
+    }),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Gagal mengirim permintaan penjemputan");
+  }
+
+  return json.data;
+}
+
 
 

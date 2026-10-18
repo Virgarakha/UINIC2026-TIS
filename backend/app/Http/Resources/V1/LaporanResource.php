@@ -90,6 +90,32 @@ class LaporanResource extends JsonResource
             'total_foto_tambahan' => (int) $this->total_foto_tambahan,
             'analisis_ai' => $aiData,
             'data_lingkungan' => $this->dataLingkungan,
+            'tanggapan' => $this->relationLoaded('tanggapan') ? $this->tanggapan->map(function ($t) {
+                return [
+                    'id' => $t->id,
+                    'laporan_id' => $t->laporan_id,
+                    'user_id' => $t->user_id,
+                    'user' => $t->user ? [
+                        'id' => $t->user->id,
+                        'name' => $t->user->name,
+                        'email' => $t->user->email,
+                        'role' => $t->user->role,
+                        'poin' => (int) ($t->user->poin_reward ?? $t->user->poin ?? 0),
+                        'foto_profil' => $t->user->foto_profil ?? $t->user->avatar_url ?? null,
+                    ] : null,
+                    'tipe_tanggapan_id' => $t->tipe_tanggapan_id,
+                    'tipe_tanggapan' => $t->tipeTanggapan ? [
+                        'id' => $t->tipeTanggapan->id,
+                        'nama' => $t->tipeTanggapan->nama,
+                        'kode' => $t->tipeTanggapan->kode,
+                        'icon' => $t->tipeTanggapan->icon,
+                        'deskripsi' => $t->tipeTanggapan->deskripsi,
+                    ] : null,
+                    'komentar' => $t->komentar,
+                    'foto_bukti_url' => $t->foto_bukti_tambahan_url,
+                    'created_at' => $t->created_at?->toISOString(),
+                ];
+            }) : [],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
