@@ -35,6 +35,7 @@ import { RailDrawerPanel } from "./rail-drawer-panel";
 import { LoginModal } from "./login-modal";
 import { PengepulVerificationModal } from "./pengepul-verification-modal";
 import { EditProfileModal } from "./edit-profile-modal";
+import { CitizenReportTrackerModal } from "@/components/shared/citizen-report-tracker-modal";
 import { MobileNav } from "@/components/layouts/mobile-nav";
 import { User, LaporanSampah, PeringatanDini } from "@/types";
 import {
@@ -45,6 +46,7 @@ import {
   MOCK_PERINGATAN_DINI,
   ActiveArmadaTruck,
   fetchActiveArmadaApi,
+  fetchDispatchedReportIdsApi,
   updateTruckLocationApi,
   cancelPenjemputanApi,
   updatePengepulOnlineStatusApi,
@@ -56,6 +58,7 @@ import {
   clearStoredSession,
   getBookmarkedIds,
   toggleBookmarkedId,
+  getDispatchedReportIds,
 } from "@/lib/auth-storage";
 import { getLiveWeather, WeatherData } from "@/lib/weather";
 import { getDistanceMeters, cn } from "@/lib/utils";
@@ -307,6 +310,12 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   const [selectedReport, setSelectedReport] = React.useState<LaporanSampah | null>(null);
   const [isMapReady, setIsMapReady] = React.useState(false);
   const [currentWeather, setCurrentWeather] = React.useState<WeatherData | null>(null);
+
+  // Role Mode State (Warga vs Driver Pengepul)
+  const [roleViewMode, setRoleViewMode] = React.useState<"warga" | "pengepul">("warga");
+  const [trackingReport, setTrackingReport] = React.useState<LaporanSampah | null>(null);
+  const [isTrackerModalOpen, setIsTrackerModalOpen] = React.useState<boolean>(false);
+  const [dispatchedReportIds, setDispatchedReportIds] = React.useState<number[]>([]);
 
   // Realtime Collector Truck State
   const [collectorLocation, setCollectorLocation] = React.useState<{
@@ -693,8 +702,13 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
   // Load stored user session and bookmarks on mount
   React.useEffect(() => {
-    setUser(getStoredUser());
+    const stored = getStoredUser();
+    setUser(stored);
+    if (stored?.role === "pengepul") {
+      setRoleViewMode("pengepul");
+    }
     setBookmarkedIds(getBookmarkedIds());
+    setDispatchedReportIds(getDispatchedReportIds());
   }, []);
 
   // Fetch reports from database on initial load
@@ -703,6 +717,19 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     fetchLaporanListApi().then((data) => {
       if (isMounted && data && data.length > 0) {
         setReports(data);
+        const serverDispatched = data
+          .filter((r) => r.is_dispatched || r.status?.kode === "siap_diambil_pengepul")
+          .map((r) => r.id);
+        if (serverDispatched.length > 0) {
+          setDispatchedReportIds((prev) => [...new Set([...prev, ...serverDispatched])]);
+        }
+      }
+    });
+
+    // Also fetch cross-device dispatched pickup report IDs
+    fetchDispatchedReportIdsApi().then((ids) => {
+      if (isMounted && ids && ids.length > 0) {
+        setDispatchedReportIds((prev) => [...new Set([...prev, ...ids])]);
       }
     });
 
@@ -1167,6 +1194,14 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             getDistanceMeters(rep.latitude, rep.longitude, other.latitude, other.longitude) <= 100
         ).length;
 
+        const isDispatched =
+          dispatchedReportIds.includes(rep.id) ||
+          Boolean(rep.is_dispatched) ||
+          activeArmadaList.some((t) => t.laporan_id === rep.id) ||
+          rep.status?.kode === "siap_diambil_pengepul";
+        const isPengepulRole = user?.role === "pengepul" || roleViewMode === "pengepul";
+        const showShockwave = isDispatched && isPengepulRole;
+
         // Precision Map Pin: 40px wide, 48px tall, sharp needle tip anchored precisely at [20, 48]
         const markerHtml = `
           <div class="relative flex flex-col items-center cursor-pointer group select-none">
@@ -1188,17 +1223,68 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                 : ""
             }
 
+            ${
+              showShockwave
+                ? `
+                <style>
+                  @keyframes shockwave-ring {
+                    0% {
+                      transform: translate(-50%, -50%) scale(0.2);
+                      opacity: 0.95;
+                    }
+                    50% {
+                      opacity: 0.45;
+                    }
+                    100% {
+                      transform: translate(-50%, -50%) scale(3.5);
+                      opacity: 0;
+                    }
+                  }
+                  .shockwave-ring-1 {
+                    animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite !important;
+                    transform-origin: center center;
+                  }
+                  .shockwave-ring-2 {
+                    animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite 0.8s !important;
+                    transform-origin: center center;
+                  }
+                  .shockwave-ring-3 {
+                    animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite 1.6s !important;
+                    transform-origin: center center;
+                  }
+                </style>
+
+                <!-- Green Transparent Shockwave (Gelombang Kejut Hijau Transparan Pengepul) -->
+                <div class="absolute bottom-0 left-1/2 pointer-events-none z-0">
+                  <div class="shockwave-ring-1 absolute top-0 left-0 w-28 h-28 rounded-full border-2 border-emerald-400/90 bg-emerald-500/25 shadow-[0_0_30px_rgba(16,185,129,0.7)]"></div>
+                  <div class="shockwave-ring-2 absolute top-0 left-0 w-44 h-44 rounded-full border-2 border-emerald-400/70 bg-emerald-400/15 shadow-[0_0_45px_rgba(52,211,153,0.5)]"></div>
+                  <div class="shockwave-ring-3 absolute top-0 left-0 w-60 h-60 rounded-full border border-emerald-300/50 bg-emerald-300/10 shadow-[0_0_60px_rgba(110,231,183,0.35)]"></div>
+                  <div class="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-emerald-400/60 blur-xs animate-pulse"></div>
+                </div>
+
+                <!-- High-Priority Order Dispatch Tag Above the Pin -->
+                <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-[#0EB29A] text-white text-[9.5px] font-black uppercase tracking-wider shadow-xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap animate-bounce z-20">
+                  <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                  <span>⚡ PERMINTAAN JEMPUT</span>
+                </div>
+              `
+                : ""
+            }
+
             <!-- Precision SVG Pin: Pointy tip at exact [20, 47.5] bottom center -->
             <div class="relative transition-transform duration-200 group-hover:scale-110 ${
               isSelected ? "scale-115" : ""
             }">
               <svg width="40" height="48" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="filter drop-shadow-md">
-                <path d="M20 47.5 C19.2 47.5 4 31 4 19.5 C4 10.4 11.2 3 20 3 C28.8 3 36 10.4 36 19.5 C36 31 20.8 47.5 20 47.5 Z" fill="${pinBgColor}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M20 47.5 C19.2 47.5 4 31 4 19.5 C4 10.4 11.2 3 20 3 C28.8 3 36 10.4 36 19.5 C36 31 20.8 47.5 20 47.5 Z" fill="${showShockwave ? "#059669" : pinBgColor}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
               </svg>
 
               <!-- Centered White Icon inside the Pin Bulb -->
               <div class="absolute top-[8px] left-1/2 -translate-x-1/2 text-white flex items-center justify-center pointer-events-none">
-                ${iconSvg}
+                ${showShockwave ? LUCIDE_PIN_ICONS.recycle : iconSvg}
               </div>
 
               ${
@@ -1231,7 +1317,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         markersRef.current[rep.id] = marker;
       });
     });
-  }, [filteredReports, selectedReport, isMapReady]);
+  }, [filteredReports, selectedReport, isMapReady, dispatchedReportIds, user?.role, roleViewMode, activeArmadaList]);
 
   // Invalidate map size when drawers toggle to ensure tiles remain seamless
   React.useEffect(() => {
@@ -1393,7 +1479,11 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       if (typeof navigator !== "undefined" && !navigator.onLine) return;
 
       try {
-        const data = await fetchActiveArmadaApi();
+        const [data, serverDispatchedIds] = await Promise.all([
+          fetchActiveArmadaApi(),
+          fetchDispatchedReportIdsApi(),
+        ]);
+
         if (isMounted && Array.isArray(data)) {
           const now = Date.now();
           const activeOnly = data.filter((t) => {
@@ -1402,6 +1492,21 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             const time = new Date(updateStr).getTime();
             return isNaN(time) || now - time < ARMADA_IDLE_TIMEOUT_MS;
           });
+
+          // Cross-device sync: combine backend dispatched IDs + active armada missions
+          const activeMissionReportIds = activeOnly
+            .map((t) => t.laporan_id)
+            .filter((id): id is number => typeof id === "number" && id > 0);
+          const combinedDispatched = [...new Set([...(serverDispatchedIds || []), ...activeMissionReportIds])];
+          if (combinedDispatched.length > 0) {
+            setDispatchedReportIds((prev) => {
+              const merged = [...new Set([...prev, ...combinedDispatched])];
+              if (merged.length !== prev.length) {
+                return merged;
+              }
+              return prev;
+            });
+          }
 
           // 3. Deep Fingerprint Guard: Avoid React state mutation if coordinates & status are identical
           const fingerprint = activeOnly
@@ -1477,6 +1582,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             });
           } else if (msg.type === "TRUCK_MISSION_FINISHED" || msg.type === "TRUCK_MISSION_CANCELLED") {
             setActiveArmadaList((prev) => prev.filter((t) => t.laporan_id !== msg.laporan_id));
+            setDispatchedReportIds((prev) => prev.filter((id) => id !== msg.laporan_id));
+          } else if (msg.type === "CITIZEN_PICKUP_REQUESTED" && msg.reportId) {
+            setDispatchedReportIds((prev) => {
+              if (!prev.includes(msg.reportId)) {
+                return [...prev, msg.reportId];
+              }
+              return prev;
+            });
+            if (msg.latitude && msg.longitude && mapInstanceRef.current && (user?.role === "pengepul" || roleViewMode === "pengepul")) {
+              mapInstanceRef.current.flyTo([msg.latitude, msg.longitude], 16, { duration: 1.2 });
+            }
           }
         };
       } catch {}
@@ -1925,6 +2041,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     const token = getStoredToken();
     clearStoredSession();
     setUser(null);
+    setRoleViewMode("warga");
     setActiveRailPanel(null);
     if (token) {
       try {
@@ -2007,12 +2124,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           user={user}
           onOpenLogin={() => setIsLoginModalOpen(true)}
           isRailVisible={Boolean(user)}
+          roleViewMode={roleViewMode}
+          onOpenTrackerModal={() => {
+            setTrackingReport(reports[0] || null);
+            setIsTrackerModalOpen(true);
+          }}
         />
       )}
 
       {/* 2c. Pengepul Online / Offline Floating Switch Pill */}
       {user?.role === "pengepul" && !activeRouteReport && (
-        <div className="absolute top-[118px] right-3 sm:top-4 sm:right-6 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="absolute top-[138px] right-3 sm:top-4 sm:right-6 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
           <button
             type="button"
             onClick={() => handleTogglePengepulOnline()}
@@ -2227,6 +2349,11 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           allReports={reports}
           weather={currentWeather}
           user={user}
+          roleViewMode={roleViewMode}
+          onOpenTracker={(rep) => {
+            setTrackingReport(rep);
+            setIsTrackerModalOpen(true);
+          }}
           onSelectReport={(rep) => {
             setSelectedReport(rep);
             if (mapInstanceRef.current) {
@@ -2238,6 +2365,9 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             setReports((prev) =>
               prev.map((r) => (r.id === updatedRep.id ? updatedRep : r))
             );
+          }}
+          onReportDispatched={(repId) => {
+            setDispatchedReportIds((prev) => [...new Set([...prev, repId])]);
           }}
           onClose={() => {
             setSelectedReport(null);
@@ -2850,6 +2980,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         onClose={() => setIsLoginModalOpen(false)}
         onSuccess={(loggedInUser) => {
           setUser(loggedInUser);
+          setRoleViewMode(loggedInUser.role === "pengepul" ? "pengepul" : "warga");
         }}
       />
 
@@ -2940,6 +3071,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       {showMobileNav && !activeRouteReport && (
         <MobileNav />
       )}
+
+      {/* 13. Citizen Live Delivery Tracker Modal */}
+      <CitizenReportTrackerModal
+        isOpen={isTrackerModalOpen}
+        onClose={() => setIsTrackerModalOpen(false)}
+        report={trackingReport || selectedReport || reports[0] || null}
+        onViewOnMap={(rep) => {
+          setSelectedReport(rep);
+          handleRecenterOnTruck();
+        }}
+      />
     </div>
   );
 }

@@ -646,9 +646,12 @@ export async function cancelPenjemputanApi(laporanId: number, pengepulId?: numbe
 
 export interface UpdateUserProfilePayload {
   userId?: number;
+  user_id?: number;
   name: string;
   noTelepon?: string;
+  no_telepon?: string;
   fotoProfil?: string;
+  foto_profil?: string;
 }
 
 /**
@@ -668,10 +671,10 @@ export async function updateUserProfileApi(payload: UpdateUserProfilePayload): P
     method: "POST",
     headers,
     body: JSON.stringify({
-      user_id: payload.userId,
+      user_id: payload.userId ?? payload.user_id,
       name: payload.name,
-      no_telepon: payload.noTelepon,
-      foto_profil: payload.fotoProfil,
+      no_telepon: payload.noTelepon ?? payload.no_telepon,
+      foto_profil: payload.fotoProfil ?? payload.foto_profil,
     }),
   });
 
@@ -781,6 +784,195 @@ export async function dispatchPenjemputanApi(
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json.message || "Gagal mengirim permintaan penjemputan");
+  }
+
+  return json.data;
+}
+
+/**
+ * Fetch all report IDs that currently have active pickup missions across all devices.
+ */
+export async function fetchDispatchedReportIdsApi(): Promise<number[]> {
+  try {
+    const res = await safeFetch<number[]>("/penjemputan/dispatched-ids", []);
+    return Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch list of active rewards from backend.
+ */
+export async function fetchKatalogHadiahApi(): Promise<KatalogHadiah[]> {
+  return safeFetch<KatalogHadiah[]>("/katalog-hadiah", MOCK_HADIAH);
+}
+
+export interface TukarHadiahPayload {
+  hadiah_id: number;
+  user_id?: number;
+  alamat_pengiriman?: {
+    penerima?: string;
+    telepon?: string;
+    alamat?: string;
+  };
+}
+
+export interface TukarHadiahResponse {
+  penukaran: any;
+  hadiah: KatalogHadiah;
+  kode_voucher: string;
+  sisa_poin: number;
+  tanggal_kedaluwarsa: string;
+}
+
+/**
+ * Redeem rewards from points on Laravel backend.
+ */
+export async function tukarHadiahApi(payload: TukarHadiahPayload): Promise<TukarHadiahResponse> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("uinic_auth_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${getApiBaseUrl()}/hadiah/tukar`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Gagal menukar hadiah");
+  }
+
+  return json.data;
+}
+
+/**
+ * Fetch user's point transaction ledger from PostgreSQL.
+ */
+export async function fetchUserRiwayatPoinApi(userId?: number): Promise<any[]> {
+  try {
+    const query = userId ? `?user_id=${userId}` : "";
+    const res = await fetch(`${getApiBaseUrl()}/user/riwayat-poin${query}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch user's redeemed vouchers from backend.
+ */
+export async function fetchUserPenukaranHadiahApi(userId?: number): Promise<any[]> {
+  try {
+    const query = userId ? `?user_id=${userId}` : "";
+    const res = await fetch(`${getApiBaseUrl()}/hadiah/penukaran${query}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch reviews and ratings for a driver / pengepul.
+ */
+export async function fetchPengepulUlasanApi(pengepulId: number): Promise<any> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/pengepul/${pengepulId}/ulasan`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}
+
+export interface SendPengepulUlasanPayload {
+  rating: number;
+  komentar: string;
+  reviewer_name?: string;
+  reviewer_role?: string;
+  warga_id?: number;
+}
+
+/**
+ * Submit a citizen review and star rating for a collector / driver.
+ */
+export async function sendPengepulUlasanApi(
+  pengepulId: number,
+  payload: SendPengepulUlasanPayload
+): Promise<any> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("uinic_auth_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${getApiBaseUrl()}/pengepul/${pengepulId}/ulasan`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Gagal mengirim ulasan mitra");
+  }
+
+  return json.data;
+}
+
+export interface CreatePeringatanDiniPayload {
+  tipe_bahaya: string;
+  level_peringatan: "WASPADA" | "SIAGA" | "AWAS";
+  radius_terdampak_meter: number;
+  pesan_broadcast: string;
+  laporan_id?: number;
+}
+
+/**
+ * Create a new early warning broadcast.
+ */
+export async function createPeringatanDiniApi(
+  payload: CreatePeringatanDiniPayload
+): Promise<PeringatanDini> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("uinic_auth_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${getApiBaseUrl()}/peringatan-dini`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Gagal merilis broadcast peringatan dini");
   }
 
   return json.data;

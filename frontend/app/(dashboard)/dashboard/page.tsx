@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
 import {
@@ -8,73 +10,160 @@ import {
   TrendingUp,
   Clock,
   ArrowUpRight,
+  Truck,
+  CheckCircle2,
+  Sparkles,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HazardBadge } from "@/components/shared/hazard-badge";
 import { StatCard } from "@/components/shared/stat-card";
-import { MOCK_LAPORAN_SAMPAH, MOCK_PERINGATAN_DINI } from "@/lib/api-client";
+import { MOCK_LAPORAN_SAMPAH, MOCK_PERINGATAN_DINI, fetchLaporanListApi } from "@/lib/api-client";
+import { getStoredUser, getStoredUserReports, getStoredUserVouchers } from "@/lib/auth-storage";
 import { formatDate } from "@/lib/utils";
+import { LaporanSampah, User } from "@/types";
 
 export default function DashboardPage() {
+  const [user, setUser] = React.useState<User | null>(null);
+  const [reports, setReports] = React.useState<LaporanSampah[]>(MOCK_LAPORAN_SAMPAH);
+  const [userReportCount, setUserReportCount] = React.useState<number>(8);
+  const [verifiedCount, setVerifiedCount] = React.useState<number>(6);
+  const [totalKg, setTotalKg] = React.useState<number>(185);
+
+  React.useEffect(() => {
+    const stored = getStoredUser();
+    setUser(stored);
+
+    const storedUserReports = getStoredUserReports();
+    fetchLaporanListApi().then((apiReports) => {
+      if (apiReports && apiReports.length > 0) {
+        setReports(apiReports);
+      }
+    });
+
+    if (storedUserReports.length > 0) {
+      setUserReportCount(6 + storedUserReports.length);
+      const additionalKg = storedUserReports.reduce(
+        (acc: number, r: any) => acc + (r.analisis_ai?.estimasi_berat_kg || 25),
+        0
+      );
+      setTotalKg(185 + Math.round(additionalKg));
+    }
+  }, []);
+
+  const isPengepul = user?.role === "pengepul";
+  const userPoints = user?.poin ?? 240;
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white shadow-lg shadow-[#0EB29A]/15">
         <div>
           <span className="text-xs font-semibold text-emerald-100 uppercase tracking-wider">
-            Portal Warga & Relawan Lingkungan
+            {isPengepul ? "🚛 Portal Mitra Driver Pengepul" : "🌱 Portal Warga & Relawan Lingkungan"}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-black mt-1">Selamat Datang, Budi Santoso! 👋</h1>
+          <h1 className="text-2xl sm:text-3xl font-black mt-1">
+            Selamat Datang, {user?.name || (isPengepul ? "Pak Joko" : "Budi Santoso")}! 👋
+          </h1>
           <p className="text-xs sm:text-sm text-emerald-50 mt-1 max-w-xl">
-            Anda telah berkontribusi memitigasi 3 titik rawan sumbatan saluran air di Malang. Saldo poin Anda siap ditukarkan hadiah.
+            {isPengepul
+              ? "Pantau radar penjemputan sampah daur ulang, aktifkan mode navigasi armada, dan konfirmasi timbangan riil."
+              : "Anda telah berkontribusi memitigasi titik rawan sumbatan saluran air di Malang. Saldo poin Anda siap ditukarkan hadiah."}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/lapor">
-            <Button className="bg-white text-[#2E6E65] hover:bg-slate-50 font-bold gap-2 text-xs shadow-md">
-              <Camera className="h-4 w-4 text-[#0EB29A]" />
-              <span>Lapor Sampah Baru</span>
-            </Button>
-          </Link>
+          {isPengepul ? (
+            <Link href="/peta">
+              <Button className="bg-white text-[#2E6E65] hover:bg-slate-50 font-bold gap-2 text-xs shadow-md">
+                <Truck className="h-4 w-4 text-[#0EB29A]" />
+                <span>Buka Radar Jemput Armada</span>
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/lapor">
+              <Button className="bg-white text-[#2E6E65] hover:bg-slate-50 font-bold gap-2 text-xs shadow-md">
+                <Camera className="h-4 w-4 text-[#0EB29A]" />
+                <span>Lapor Sampah Baru</span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
       {/* 4 Stat Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Laporan Anda"
-          value="8 Titik"
-          subtitle="6 terverifikasi, 2 ditangani"
-          icon={<Trash2 className="h-4 w-4" />}
-          accentColor="blue"
-          trend={{ value: "+2", isPositive: true }}
-        />
-        <StatCard
-          title="Saldo Poin Aktif"
-          value="240 Poin"
-          subtitle="Bisa ditukar voucher PLN"
-          icon={<Coins className="h-4 w-4" />}
-          accentColor="amber"
-          trend={{ value: "+50", isPositive: true }}
-        />
-        <StatCard
-          title="Estimasi Sampah Terpilah"
-          value="185 kg"
-          subtitle="Terkumpul oleh mitra pengepul"
-          icon={<TrendingUp className="h-4 w-4" />}
-          accentColor="emerald"
-          trend={{ value: "42 kg", isPositive: true }}
-        />
-        <StatCard
-          title="Status Siaga Wilayah Anda"
-          value="1 Peringatan"
-          subtitle="Sungai Brantas Klojen"
-          icon={<ShieldAlert className="h-4 w-4" />}
-          accentColor="red"
-        />
+        {isPengepul ? (
+          <>
+            <StatCard
+              title="Total Misi Selesai"
+              value="134 Misi"
+              subtitle="Tingkat kepuasan warga 99.2%"
+              icon={<Truck className="h-4 w-4" />}
+              accentColor="blue"
+              trend={{ value: "+4 hari ini", isPositive: true }}
+            />
+            <StatCard
+              title="Saldo Cuan & Reward"
+              value={`Rp 480.000`}
+              subtitle={`${userPoints} Poin Insentif`}
+              icon={<Coins className="h-4 w-4" />}
+              accentColor="amber"
+              trend={{ value: "+Rp 65rb", isPositive: true }}
+            />
+            <StatCard
+              title="Total Berat Terangkut"
+              value="1.240 kg"
+              subtitle="Kardus, Logam, & Plastik PET"
+              icon={<TrendingUp className="h-4 w-4" />}
+              accentColor="emerald"
+              trend={{ value: "180 kg", isPositive: true }}
+            />
+            <StatCard
+              title="Status Armada Aktif"
+              value="Online Siaga"
+              subtitle="Area Klojen & Dinoyo"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              accentColor="emerald"
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Total Laporan Anda"
+              value={`${userReportCount} Titik`}
+              subtitle={`${verifiedCount} terverifikasi, 2 ditangani`}
+              icon={<Trash2 className="h-4 w-4" />}
+              accentColor="blue"
+              trend={{ value: "+2", isPositive: true }}
+            />
+            <StatCard
+              title="Saldo Poin Aktif"
+              value={`${userPoints} Poin`}
+              subtitle="Bisa ditukar voucher PLN & pulsa"
+              icon={<Coins className="h-4 w-4" />}
+              accentColor="amber"
+              trend={{ value: "+50", isPositive: true }}
+            />
+            <StatCard
+              title="Estimasi Sampah Terpilah"
+              value={`${totalKg} kg`}
+              subtitle="Terkumpul oleh mitra pengepul"
+              icon={<TrendingUp className="h-4 w-4" />}
+              accentColor="emerald"
+              trend={{ value: "42 kg", isPositive: true }}
+            />
+            <StatCard
+              title="Status Siaga Wilayah Anda"
+              value="1 Peringatan"
+              subtitle="Sungai Brantas Klojen"
+              icon={<ShieldAlert className="h-4 w-4" />}
+              accentColor="red"
+            />
+          </>
+        )}
       </div>
 
       {/* Grid 2 Columns: Recent Reports & Active Warnings */}
@@ -94,7 +183,7 @@ export default function DashboardPage() {
             </CardHeader>
 
             <CardContent className="p-0 divide-y divide-slate-100">
-              {MOCK_LAPORAN_SAMPAH.map((lap) => (
+              {reports.slice(0, 5).map((lap) => (
                 <div key={lap.id} className="p-4 flex items-start gap-3.5 hover:bg-slate-50/70 transition-colors">
                   <img
                     src={lap.foto_url}
@@ -182,7 +271,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex-1">
                 <h4 className="text-sm font-bold text-[#2B3752]">
-                  Tukar 240 Poin Anda Sekarang
+                  Tukar {userPoints} Poin Anda Sekarang
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Tersedia voucher PLN Rp 50.000 atau saldo e-wallet GoPay/OVO untuk diklaim langsung.

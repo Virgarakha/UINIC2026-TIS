@@ -3,8 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Camera, Compass, Gift, Home, ShieldAlert } from "lucide-react";
+import { Camera, Compass, Gift, Home, ShieldAlert, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getStoredUser } from "@/lib/auth-storage";
+import { User } from "@/types";
 
 export interface MobileNavProps {
   onLaporClick?: () => void;
@@ -13,12 +15,21 @@ export interface MobileNavProps {
 
 export function MobileNav({ onLaporClick, className }: MobileNavProps = {}) {
   const pathname = usePathname();
+  const [user, setUser] = React.useState<User | null>(null);
+
+  React.useEffect(() => {
+    setUser(getStoredUser());
+  }, [pathname]);
+
+  const isWarga = user?.role === "warga";
 
   const navItems = [
     { title: "Beranda", href: "/", icon: Home },
     { title: "Radar", href: "/peta", icon: Compass },
     { title: "Lapor", href: "/lapor", icon: Camera, isAction: true },
-    { title: "Siaga", href: "/peringatan", icon: ShieldAlert },
+    isWarga
+      ? { title: "Laporan Saya", href: "/laporan-saya", icon: ClipboardList }
+      : { title: "Siaga", href: "/peringatan", icon: ShieldAlert },
     { title: "Rewards", href: "/rewards", icon: Gift },
   ];
 
@@ -31,7 +42,7 @@ export function MobileNav({ onLaporClick, className }: MobileNavProps = {}) {
     >
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href === "/laporan-saya" && pathname.startsWith("/laporan-saya"));
           const Icon = item.icon;
 
           if (item.isAction) {

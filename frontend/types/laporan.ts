@@ -76,6 +76,7 @@ export interface LaporanSampah {
   alamat_lokasi: string;
   is_resiko_banjir: boolean;
   tipe_bahaya?: string | null;
+  is_dispatched?: boolean;
   total_tanggapan?: number;
   total_foto_tambahan?: number;
   analisis_ai?: AnalisisAi | null;

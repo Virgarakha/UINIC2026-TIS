@@ -93,17 +93,31 @@ export function Navbar() {
               Peta Radar
             </Link>
             <span className="text-slate-300 text-xs">•</span>
-            <Link
-              href="/peringatan"
-              className={cn(
-                "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
-                pathname === "/peringatan"
-                  ? "bg-[#1E5345] text-white shadow-xs"
-                  : "text-slate-600 hover:text-[#18231D]"
-              )}
-            >
-              Peringatan Dini
-            </Link>
+            {user?.role === "warga" ? (
+              <Link
+                href="/laporan-saya"
+                className={cn(
+                  "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
+                  pathname.startsWith("/laporan-saya")
+                    ? "bg-[#1E5345] text-white shadow-xs"
+                    : "text-slate-600 hover:text-[#18231D]"
+                )}
+              >
+                Laporan Saya
+              </Link>
+            ) : (
+              <Link
+                href="/peringatan"
+                className={cn(
+                  "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
+                  pathname === "/peringatan"
+                    ? "bg-[#1E5345] text-white shadow-xs"
+                    : "text-slate-600 hover:text-[#18231D]"
+                )}
+              >
+                Peringatan Dini
+              </Link>
+            )}
             <span className="text-slate-300 text-xs">•</span>
             <Link
               href="/rewards"
@@ -145,7 +159,7 @@ export function Navbar() {
             {/* User Session or Dark Pill Button */}
             {user ? (
               <Link
-                href="/dashboard"
+                href="/profil"
                 className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#18231D] text-white font-bold text-xs shadow-md hover:bg-[#25362D] transition-all"
                 title={`Masuk sebagai ${user.name}`}
               >
@@ -244,7 +258,7 @@ export function Navbar() {
               </div>
             ) : (
               <Link
-                href="/dashboard"
+                href="/profil"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-100 text-[#2B3752]"
               >

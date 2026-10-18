@@ -9,7 +9,9 @@ use App\Http\Resources\V1\LaporanResource;
 use App\Models\KatalogHadiah;
 use App\Models\KategoriSampah;
 use App\Models\LaporanSampah;
+use App\Models\PenukaranHadiah;
 use App\Models\PeringatanDini;
+use App\Models\RiwayatPoin;
 use App\Models\User;
 use App\Services\LaporanSampahService;
 use Illuminate\Http\JsonResponse;
@@ -93,9 +95,147 @@ class LaporanController extends BaseApiController
      */
     public function katalogHadiah(): JsonResponse
     {
-        $hadiah = KatalogHadiah::where('is_tersedia', true)->with('kategori')->get();
+        $hadiah = KatalogHadiah::where('is_aktif', true)->with('kategori')->get();
 
         return $this->sendResponse($hadiah, 'Daftar katalog hadiah berhasil diambil');
+    }
+
+    /**
+     * Redeem a reward voucher from points.
+     */
+    public function tukarHadiah(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'hadiah_id' => 'required|integer|exists:katalog_hadiah,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'alamat_pengiriman' => 'nullable|array',
+        ]);
+
+        $hadiah = KatalogHadiah::with('kategori')->findOrFail($validated['hadiah_id']);
+
+        $userId = $request->user()?->id ?? $validated['user_id'] ?? 2;
+        $user = User::find($userId);
+        if (! $user) {
+            $user = User::firstOrCreate(
+                ['email' => 'budi@ecocitizen.id'],
+                [
+                    'name' => 'Budi Santoso',
+                    'password' => Hash::make('password'),
+                    'role' => 'warga',
+                    'poin_reward' => 240,
+                    'no_telepon' => '0812-3456-789',
+                ]
+            );
+        }
+
+        $userPoints = (int) ($user->poin_reward ?? 0);
+        if ($userPoints < $hadiah->poin_dibutuhkan) {
+            return $this->sendError('Saldo poin Anda tidak mencukupi untuk menukar hadiah ini', [
+                'current_points' => $userPoints,
+                'required_points' => $hadiah->poin_dibutuhkan,
+            ], 422);
+        }
+
+        // Deduct points
+        $newPoints = $userPoints - $hadiah->poin_dibutuhkan;
+        $user->update(['poin_reward' => $newPoints]);
+
+        // Generate voucher code
+        $prefix = match ($hadiah->kategori_id) {
+            1 => 'ECO-PULSA',
+            2 => 'ECO-PLN',
+            3 => 'ECO-BELANJA',
+            4 => 'ECO-MERCH',
+            default => 'ECO-VOUCHER',
+        };
+        $code = $prefix.'-'.rand(10000, 99999);
+
+        // Create redemption record
+        $penukaran = PenukaranHadiah::create([
+            'user_id' => $user->id,
+            'hadiah_id' => $hadiah->id,
+            'poin_digunakan' => $hadiah->poin_dibutuhkan,
+            'status_pengiriman' => $hadiah->kategori_id === 4 ? 'diproses' : 'selesai',
+            'no_resi' => $code,
+            'alamat_pengiriman_snapshot' => $validated['alamat_pengiriman'] ?? null,
+        ]);
+
+        // Record in point ledger
+        RiwayatPoin::create([
+            'user_id' => $user->id,
+            'jumlah_poin' => -$hadiah->poin_dibutuhkan,
+            'jenis_transaksi' => 'debit',
+            'referensi_tipe' => 'penukaran_hadiah',
+            'referensi_id' => $penukaran->id,
+            'keterangan' => 'Penukaran Hadiah: '.$hadiah->nama_hadiah,
+        ]);
+
+        return $this->sendResponse([
+            'penukaran' => $penukaran,
+            'hadiah' => $hadiah,
+            'kode_voucher' => $code,
+            'sisa_poin' => $newPoints,
+            'tanggal_kedaluwarsa' => now()->addDays(30)->toISOString(),
+        ], 'Hadiah berhasil ditukarkan!');
+    }
+
+    /**
+     * Get user's redeemed rewards.
+     */
+    public function riwayatPenukaranHadiah(Request $request): JsonResponse
+    {
+        $userId = $request->user()?->id ?? $request->input('user_id') ?? 2;
+        $list = PenukaranHadiah::where('user_id', $userId)
+            ->with(['hadiah.kategori'])
+            ->latest()
+            ->get();
+
+        return $this->sendResponse($list, 'Daftar penukaran hadiah berhasil diambil');
+    }
+
+    /**
+     * Get user's point transaction ledger.
+     */
+    public function riwayatPoin(Request $request): JsonResponse
+    {
+        $userId = $request->user()?->id ?? $request->input('user_id') ?? 2;
+        $list = RiwayatPoin::where('user_id', $userId)
+            ->latest()
+            ->get();
+
+        return $this->sendResponse($list, 'Riwayat mutasi poin berhasil diambil');
+    }
+
+    /**
+     * Store early warning hazard broadcast.
+     */
+    public function storePeringatanDini(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'tipe_bahaya' => 'required|string|max:60',
+            'level_peringatan' => 'required|string|in:WASPADA,SIAGA,AWAS',
+            'radius_terdampak_meter' => 'required|integer|min:50|max:5000',
+            'pesan_broadcast' => 'required|string|max:1000',
+            'laporan_id' => 'nullable|integer|exists:laporan_sampah,id',
+        ]);
+
+        $laporanId = $validated['laporan_id']
+            ?? LaporanSampah::where('is_resiko_banjir', true)->value('id')
+            ?? LaporanSampah::value('id')
+            ?? 1;
+
+        $warning = PeringatanDini::create([
+            'laporan_id' => $laporanId,
+            'tipe_bahaya' => $validated['tipe_bahaya'],
+            'level_peringatan' => $validated['level_peringatan'],
+            'radius_terdampak_meter' => $validated['radius_terdampak_meter'],
+            'pesan_broadcast' => $validated['pesan_broadcast'],
+            'status_aktif' => true,
+            'waktu_broadcast' => now(),
+            'waktu_kedaluwarsa' => now()->addHours(6),
+        ]);
+
+        return $this->sendResponse($warning, 'Broadcast peringatan dini darurat berhasil dirilis!', 201);
     }
 
     /**
@@ -269,6 +409,20 @@ class LaporanController extends BaseApiController
         });
 
         return $this->sendResponse($data, 'Daftar armada aktif berhasil diambil');
+    }
+
+    /**
+     * Get list of all report IDs that currently have active pickup missions across all devices.
+     */
+    public function dispatchedIds(): JsonResponse
+    {
+        $ids = \App\Models\PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan', 'siaga_online'])
+            ->pluck('laporan_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $this->sendResponse($ids, 'Daftar ID laporan aktif penjemputan berhasil diambil');
     }
 
     /**

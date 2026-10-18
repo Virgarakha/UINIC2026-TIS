@@ -129,4 +129,32 @@ body {
   color: #ffffff !important;
 }
 
+/* Green Transparent Shockwave Radar Animation (Gelombang Kejut Hijau Pengepul) */
+@keyframes shockwave-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3.5);
+    opacity: 0;
+  }
+}
+
+.shockwave-ring-1 {
+  animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite;
+}
+
+.shockwave-ring-2 {
+  animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite 0.8s;
+}
+
+.shockwave-ring-3 {
+  animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite 1.6s;
+}
+
+
 
