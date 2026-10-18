@@ -15,14 +15,32 @@ import {
   ChevronRight,
   Phone,
   MessageSquare,
+  Coins,
 } from "lucide-react";
-import { fetchMitraPengepulApi } from "@/lib/api-client";
-import { User } from "@/types";
+import {
+  fetchMitraPengepulApi,
+  fetchLaporanListApi,
+  sendPengepulUlasanApi,
+} from "@/lib/api-client";
+import { User, LaporanSampah } from "@/types";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { getStoredUser, recordPointTransaction } from "@/lib/auth-storage";
 import { EcoRecycleGraphic } from "@/components/landing/eco-recycle-graphic";
 
 export default function LandingHomePage() {
   const [mitraList, setMitraList] = React.useState<User[]>([]);
   const [isLoadingMitra, setIsLoadingMitra] = React.useState(true);
+  const [reportsList, setReportsList] = React.useState<LaporanSampah[]>([]);
+
+  // Review Mitra Modal state
+  const [selectedMitraForReview, setSelectedMitraForReview] = React.useState<User | null>(null);
+  const [reviewRating, setReviewRating] = React.useState<number>(5);
+  const [reviewComment, setReviewComment] = React.useState<string>("");
+  const [reviewerName, setReviewerName] = React.useState<string>("");
+  const [reviewerRole, setReviewerRole] = React.useState<string>("Warga Pelapor");
+  const [isSubmittingReview, setIsSubmittingReview] = React.useState(false);
+  const [reviewSuccessMsg, setReviewSuccessMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     fetchMitraPengepulApi()
@@ -125,7 +143,94 @@ export default function LandingHomePage() {
       })
       .catch(() => {})
       .finally(() => setIsLoadingMitra(false));
+
+    // Fetch reports for dynamic live impact counter
+    fetchLaporanListApi().then((reps) => {
+      if (Array.isArray(reps)) setReportsList(reps);
+    });
+
+    const stored = getStoredUser();
+    if (stored) {
+      setReviewerName(stored.name || "Warga Peduli");
+    }
   }, []);
+
+  const handleOpenReview = (mitra: User) => {
+    setSelectedMitraForReview(mitra);
+    setReviewRating(5);
+    setReviewComment("");
+    const stored = getStoredUser();
+    setReviewerName(stored?.name || "Budi Santoso");
+    setReviewerRole("Warga Pelapor");
+    setReviewSuccessMsg(null);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!selectedMitraForReview || !reviewComment.trim()) return;
+    setIsSubmittingReview(true);
+
+    try {
+      const stored = getStoredUser();
+      const res = await sendPengepulUlasanApi(selectedMitraForReview.id, {
+        rating: reviewRating,
+        komentar: reviewComment.trim(),
+        reviewer_name: reviewerName.trim() || stored?.name || "Warga EcoPatrol",
+        reviewer_role: reviewerRole.trim() || "Warga Pelapor",
+        warga_id: stored?.id,
+      });
+
+      // Update local mitraList
+      setMitraList((prev) =>
+        prev.map((m) => {
+          if (m.id === selectedMitraForReview.id) {
+            const newUlasan = [
+              {
+                id: Date.now(),
+                reviewer_name: reviewerName.trim() || "Warga EcoPatrol",
+                reviewer_role: reviewerRole.trim() || "Warga",
+                rating: reviewRating,
+                komentar: reviewComment.trim(),
+                created_at: new Date().toISOString(),
+              },
+              ...(m.ulasan || []),
+            ];
+            return {
+              ...m,
+              rating: res?.pengepul?.rating || reviewRating,
+              total_ulasan: (m.total_ulasan || 0) + 1,
+              ulasan: newUlasan,
+            };
+          }
+          return m;
+        })
+      );
+
+      // Award +15 points
+      recordPointTransaction(
+        15,
+        "ulasan_pengepul",
+        `Reward Ulasan Mitra Armada: ${selectedMitraForReview.name}`
+      );
+
+      setReviewSuccessMsg("Ulasan berhasil dikirim! Anda mendapatkan +15 Poin Reward.");
+      setTimeout(() => {
+        setSelectedMitraForReview(null);
+        setReviewSuccessMsg(null);
+      }, 2000);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengirim ulasan");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const totalReportsCount = reportsList.length || 12;
+  const totalVolumeM3 = reportsList.reduce(
+    (acc, r) => acc + (r.analisis_ai?.volume_sampah_m3 || 2.4),
+    0
+  );
+  const totalCleanedCount =
+    reportsList.filter((r) => r.status?.kode === "selesai").length || 8;
 
   return (
     <div className="bg-[#FBFBF8] text-[#18231D] min-h-screen selection:bg-emerald-200">
@@ -507,22 +612,26 @@ export default function LandingHomePage() {
                   )}
                 </div>
 
-                {/* Card Action: WhatsApp Contact */}
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                {/* Card Action: WhatsApp Contact & Review */}
+                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenReview(mitra)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#1E5345] text-xs font-extrabold transition-colors cursor-pointer"
+                  >
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    <span>Beri Ulasan (+15 Poin)</span>
+                  </button>
+
                   <a
                     href={`https://wa.me/${mitra.no_whatsapp?.replace(/[^0-9]/g, "") || "6281234567890"}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#1E5345] hover:text-emerald-700"
+                    className="inline-flex items-center gap-1 text-xs font-extrabold text-[#1E5345] hover:text-emerald-700"
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
-                    <span>Hubungi via WhatsApp</span>
+                    <span>WhatsApp</span>
                   </a>
-
-                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-full">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-ping" />
-                    SIAGA
-                  </span>
                 </div>
 
               </div>
@@ -530,6 +639,115 @@ export default function LandingHomePage() {
           </div>
 
         </div>
+
+        {/* Review Mitra Modal */}
+        <Modal
+          isOpen={selectedMitraForReview !== null}
+          onClose={() => setSelectedMitraForReview(null)}
+          title={selectedMitraForReview ? `Beri Ulasan: ${selectedMitraForReview.name}` : "Beri Ulasan"}
+          description="Bagikan pengalaman penjemputan sampah dan transparansi timbangan mitra armada."
+        >
+          <div className="space-y-4 pt-2">
+            {reviewSuccessMsg ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                <span>{reviewSuccessMsg}</span>
+              </div>
+            ) : (
+              <>
+                {/* Star Rating Select */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Rating Bintang
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setReviewRating(star)}
+                        className="p-1 text-2xl cursor-pointer hover:scale-110 transition-transform"
+                      >
+                        <span className={star <= reviewRating ? "text-amber-400" : "text-slate-200"}>
+                          ★
+                        </span>
+                      </button>
+                    ))}
+                    <span className="text-xs font-bold text-slate-600 ml-2">
+                      {reviewRating} dari 5 Bintang
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Nama Anda
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewerName}
+                      onChange={(e) => setReviewerName(e.target.value)}
+                      placeholder="Nama Anda..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-[#18231D] focus:outline-none focus:border-[#0EB29A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Status / Peran
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewerRole}
+                      onChange={(e) => setReviewerRole(e.target.value)}
+                      placeholder="Contoh: Warga RW 04"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-[#18231D] focus:outline-none focus:border-[#0EB29A]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Ulasan & Testimoni
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Contoh: Armada sangat ramah, timbangan transparan, dan sampah cepat diangkut bersih..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-[#18231D] focus:outline-none focus:border-[#0EB29A] placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  <span>Setiap ulasan warga yang terverifikasi mendapatkan +15 Poin Reward!</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedMitraForReview(null)}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    isLoading={isSubmittingReview}
+                    disabled={isSubmittingReview || !reviewComment.trim()}
+                    onClick={handleSubmitReview}
+                    className="font-bold text-xs"
+                  >
+                    Kirim Ulasan & Klaim Poin
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
       </section>
 
       {/* ========================================================

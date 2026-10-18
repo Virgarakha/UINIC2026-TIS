@@ -219,8 +219,28 @@
             `;
 
             marker.bindPopup(popupContent);
+            if (rep.id) {
+                markerMap[rep.id] = marker;
+            }
         });
+
+        // Check URL parameters for auto-focus (e.g. from Laporan Sampah page)
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetLat = parseFloat(urlParams.get('lat'));
+        const targetLng = parseFloat(urlParams.get('lng'));
+        const targetId = urlParams.get('id');
+
+        if (!isNaN(targetLat) && !isNaN(targetLng)) {
+            map.flyTo([targetLat, targetLng], 16, { duration: 1.2 });
+            if (targetId && markerMap[targetId]) {
+                setTimeout(() => {
+                    markerMap[targetId].openPopup();
+                }, 500);
+            }
+        }
     });
+
+    const markerMap = {};
 
     function panToReport(lat, lng, address) {
         if (!map) return;

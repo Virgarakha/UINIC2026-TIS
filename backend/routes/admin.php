@@ -36,6 +36,7 @@ Route::controller(LaporanController::class)->prefix('laporan')->name('laporan.')
     Route::get('/', 'index')->name('index');
     Route::get('/{laporan}', 'show')->name('show');
     Route::put('/{laporan}', 'update')->name('update');
+    Route::delete('/{laporan}', 'destroy')->name('destroy');
 });
 
 Route::get('/tanggapan', [TanggapanController::class, 'index'])->name('tanggapan.index');

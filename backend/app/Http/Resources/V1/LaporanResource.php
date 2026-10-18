@@ -83,6 +83,10 @@ class LaporanResource extends JsonResource
             'alamat_lokasi' => $this->alamat_lokasi ?? '',
             'is_resiko_banjir' => (bool) $this->is_resiko_banjir,
             'tipe_bahaya' => $this->tipe_bahaya,
+            'is_dispatched' => (bool) (
+                $this->status?->kode === 'siap_diambil_pengepul' ||
+                $this->penjemputan()->whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan', 'siaga_online'])->exists()
+            ),
             'is_geotag_verified' => (bool) ($metaForensik['is_geotag_verified'] ?? false),
             'metadata_forensik' => $metaForensik,
             'poin_diberikan' => (int) $this->poin_diberikan,

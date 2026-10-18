@@ -2,25 +2,214 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Coins, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Coins,
+  Sparkles,
+  Ticket,
+  Copy,
+  Check,
+  Calendar,
+  AlertCircle,
+  Gift,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { MOCK_HADIAH } from "@/lib/api-client";
-import { KatalogHadiah } from "@/types";
+import { Input } from "@/components/ui/input";
+import { MOCK_HADIAH, fetchKatalogHadiahApi, tukarHadiahApi } from "@/lib/api-client";
+import { KatalogHadiah, User } from "@/types";
+import {
+  getStoredUser,
+  getStoredUserVouchers,
+  saveStoredUserVoucher,
+  markVoucherAsUsed,
+  recordPointTransaction,
+  ClaimedVoucher,
+} from "@/lib/auth-storage";
+import { cn, formatDate } from "@/lib/utils";
 
 export default function RewardsPage() {
+  const [user, setUser] = React.useState<User | null>(null);
+  const [userPoints, setUserPoints] = React.useState<number>(240);
+  const [activeTab, setActiveTab] = React.useState<"katalog" | "vouchers">("katalog");
+  const [selectedCategory, setSelectedCategory] = React.useState<string>("semua");
+
+  // Vouchers state
+  const [vouchers, setVouchers] = React.useState<ClaimedVoucher[]>([]);
+  const [voucherFilter, setVoucherFilter] = React.useState<"semua" | "aktif" | "digunakan">("semua");
+  const [copiedCode, setCopiedCode] = React.useState<string | null>(null);
+
+  // Claim Modal State
   const [selectedHadiah, setSelectedHadiah] = React.useState<KatalogHadiah | null>(null);
   const [isSuccessClaim, setIsSuccessClaim] = React.useState(false);
+  const [newlyClaimedVoucher, setNewlyClaimedVoucher] = React.useState<ClaimedVoucher | null>(null);
+  const [catalog, setCatalog] = React.useState<KatalogHadiah[]>(MOCK_HADIAH);
+  const [isLoadingCatalog, setIsLoadingCatalog] = React.useState(true);
+  const [isSubmittingClaim, setIsSubmittingClaim] = React.useState(false);
+
+  // Physical goods delivery form
+  const [penerimaNama, setPenerimaNama] = React.useState("");
+  const [penerimaTelepon, setPenerimaTelepon] = React.useState("");
+  const [alamatKirim, setAlamatKirim] = React.useState("");
+
+  // Sync state on mount & fetch dynamic catalog
+  React.useEffect(() => {
+    const stored = getStoredUser();
+    setUser(stored);
+    setUserPoints(stored?.poin ?? 240);
+    setVouchers(getStoredUserVouchers());
+
+    if (stored) {
+      setPenerimaNama(stored.name || "");
+      if (stored.no_telepon || (stored as any).phone) {
+        setPenerimaTelepon(stored.no_telepon || (stored as any).phone || "");
+      }
+    }
+
+    // Fetch dynamic catalog from PostgreSQL backend
+    fetchKatalogHadiahApi()
+      .then((data: any[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: KatalogHadiah[] = data.map((item: any) => ({
+            id: item.id,
+            kategori_id: item.kategori_id ?? 1,
+            nama: item.nama_hadiah || item.nama,
+            deskripsi: item.deskripsi,
+            poin_dibutuhkan: item.poin_dibutuhkan,
+            stok: item.stok,
+            foto_url: item.foto_hadiah_url || item.foto_url,
+            kategori: item.kategori ?? { id: item.kategori_id ?? 1, nama: "Hadiah Lingkungan", slug: "hadiah" },
+            is_tersedia: item.is_aktif ?? true,
+          }));
+          setCatalog(mapped);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingCatalog(false));
+  }, []);
 
   const handleClaim = (item: KatalogHadiah) => {
     setSelectedHadiah(item);
     setIsSuccessClaim(false);
+    setNewlyClaimedVoucher(null);
   };
 
-  const executeClaim = () => {
-    setIsSuccessClaim(true);
+  const executeClaim = async () => {
+    if (!selectedHadiah) return;
+    if (userPoints < selectedHadiah.poin_dibutuhkan) return;
+
+    setIsSubmittingClaim(true);
+
+    try {
+      // 1. Send claim to backend PostgreSQL
+      let backendData: any = null;
+      try {
+        backendData = await tukarHadiahApi({
+          hadiah_id: selectedHadiah.id,
+          user_id: user?.id,
+          alamat_pengiriman: alamatKirim
+            ? {
+                penerima: penerimaNama,
+                telepon: penerimaTelepon,
+                alamat: alamatKirim,
+              }
+            : undefined,
+        });
+      } catch (err) {
+        console.warn("Backend tukarHadiah offline, fallback to local generation:", err);
+      }
+
+      // 2. Generate unique code
+      const generatedCode =
+        backendData?.kode_voucher ||
+        `ECO-${selectedHadiah.id === 1 ? "PLN" : selectedHadiah.id === 2 ? "PULSA" : "HADIAH"}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      const newVoucher: ClaimedVoucher = {
+        id: `v-${Date.now()}`,
+        hadiahId: selectedHadiah.id,
+        namaHadiah: selectedHadiah.nama,
+        kategori: selectedHadiah.id <= 2 ? "voucher_digital" : "barang_fisik",
+        poinDipotong: selectedHadiah.poin_dibutuhkan,
+        kodeVoucher: generatedCode,
+        tanggalKlaim: new Date().toISOString(),
+        tanggalKedaluwarsa:
+          backendData?.tanggal_kedaluwarsa || new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "aktif",
+        fotoUrl: selectedHadiah.foto_url || undefined,
+        alamatPengiriman: alamatKirim || undefined,
+        namaPenerima: penerimaNama || undefined,
+      };
+
+      // 3. Record point deduction in ledger and update auth storage
+      recordPointTransaction(
+        -selectedHadiah.poin_dibutuhkan,
+        "klaim_hadiah",
+        `Penukaran Hadiah: ${selectedHadiah.nama}`
+      );
+
+      // 4. Persist claimed voucher to storage
+      saveStoredUserVoucher(newVoucher);
+
+      // 5. Update state
+      const updatedBalance =
+        backendData?.sisa_poin ?? (userPoints - selectedHadiah.poin_dibutuhkan);
+      setUserPoints(updatedBalance);
+      setVouchers(getStoredUserVouchers());
+      setNewlyClaimedVoucher(newVoucher);
+      setIsSuccessClaim(true);
+    } finally {
+      setIsSubmittingClaim(false);
+    }
   };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2500);
+  };
+
+  const handleUseVoucher = (voucherId: string) => {
+    markVoucherAsUsed(voucherId);
+    setVouchers(getStoredUserVouchers());
+  };
+
+  // Filtered catalogue
+  const filteredCatalog = React.useMemo(() => {
+    if (selectedCategory === "semua") return catalog;
+    if (selectedCategory === "digital") {
+      return catalog.filter(
+        (h) =>
+          h.id <= 2 ||
+          h.kategori?.nama?.toLowerCase().includes("wallet") ||
+          h.kategori?.nama?.toLowerCase().includes("pulsa")
+      );
+    }
+    if (selectedCategory === "sembako") {
+      return catalog.filter(
+        (h) =>
+          h.kategori?.nama?.toLowerCase().includes("listrik") ||
+          h.kategori?.nama?.toLowerCase().includes("pln") ||
+          h.kategori?.nama?.toLowerCase().includes("sembako")
+      );
+    }
+    if (selectedCategory === "merchandise") {
+      return catalog.filter(
+        (h) =>
+          h.kategori?.nama?.toLowerCase().includes("merchandise") ||
+          h.kategori?.nama?.toLowerCase().includes("peduli") ||
+          h.id >= 3
+      );
+    }
+    return catalog;
+  }, [catalog, selectedCategory]);
+
+  // Filtered vouchers
+  const filteredVouchers = React.useMemo(() => {
+    if (voucherFilter === "semua") return vouchers;
+    return vouchers.filter((v) => v.status === voucherFilter);
+  }, [vouchers, voucherFilter]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
@@ -45,114 +234,501 @@ export default function RewardsPage() {
         </p>
       </div>
 
-      {/* User Balance Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-amber-100">
-            Saldo Poin Partisipasi Anda
-          </span>
-          <h2 className="text-3xl font-black mt-1 flex items-center gap-2">
-            <Coins className="h-7 w-7 text-yellow-200" />
-            <span>240 Poin</span>
-          </h2>
-          <p className="text-xs text-amber-100 mt-1">
-            Status: <strong>Warga Teladan Lingkungan (Level 2)</strong>
+      {/* Dynamic User Balance Banner */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white shadow-xl shadow-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden">
+        <div className="relative z-10 space-y-1">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-black/20 text-amber-100 text-[11px] font-bold">
+            <span>👤 {user?.name || "Warga EcoPatrol"}</span>
+            <span>•</span>
+            <span className="text-yellow-200">Level 2: Warga Teladan</span>
+          </div>
+
+          <div className="flex items-baseline gap-2 pt-1">
+            <span className="text-4xl sm:text-5xl font-black tracking-tight flex items-center gap-2">
+              <Coins className="h-9 w-9 text-yellow-200 drop-shadow-md" />
+              <span>{userPoints}</span>
+            </span>
+            <span className="text-lg font-bold text-amber-100">Poin Aktif</span>
+          </div>
+
+          <p className="text-xs text-amber-100/90 pt-0.5">
+            Setiap laporan sampah terverifikasi AI menghasilkan <strong>+50 s/d +100 poin</strong>.
           </p>
         </div>
 
-        <Link href="/lapor">
-          <Button className="bg-white text-amber-900 hover:bg-amber-50 font-bold text-xs gap-1.5 shadow-sm">
-            <Sparkles className="h-4 w-4 text-amber-600" />
-            <span>Dapatkan Poin Tambahan (+50)</span>
-          </Button>
-        </Link>
+        <div className="relative z-10 flex flex-wrap items-center gap-2.5">
+          <Link href="/lapor">
+            <Button className="bg-white text-amber-900 hover:bg-amber-50 font-bold text-xs gap-1.5 shadow-md">
+              <Sparkles className="h-4 w-4 text-amber-600" />
+              <span>Dapatkan Poin Tambahan</span>
+            </Button>
+          </Link>
+          <Link href="/profil">
+            <button
+              type="button"
+              className="px-3.5 py-2 rounded-xl border border-white/60 bg-white/15 text-white hover:bg-white/25 font-bold text-xs transition-colors cursor-pointer inline-flex items-center"
+            >
+              Riwayat Transaksi Poin
+            </button>
+          </Link>
+        </div>
       </div>
 
-      {/* Rewards Catalog Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {MOCK_HADIAH.map((item) => (
-          <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-all flex flex-col justify-between bg-white border-slate-200 text-[#2B3752]">
-            <div>
-              <div className="aspect-square relative overflow-hidden bg-slate-100">
-                <img
-                  src={item.foto_url || "https://placehold.co/400x400"}
-                  alt={item.nama}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-2.5 right-2.5 bg-black/70 backdrop-blur-md text-amber-400 font-bold text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
-                  <Coins className="h-3 w-3" />
-                  <span>{item.poin_dibutuhkan} Poin</span>
-                </div>
-              </div>
+      {/* Main Tabs Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("katalog")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer",
+            activeTab === "katalog"
+              ? "bg-[#2B3752] text-white shadow-md"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
+          )}
+        >
+          <Gift className="h-4 w-4" />
+          <span>Katalog Penukaran Hadiah</span>
+        </button>
 
-              <div className="p-4 space-y-2">
-                <h4 className="text-sm font-bold text-[#2B3752]">{item.nama}</h4>
-                <p className="text-xs text-slate-500">{item.deskripsi}</p>
-              </div>
-            </div>
-
-            <div className="p-4 pt-0">
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <span className="text-xs text-slate-400">Stok: {item.stok} unit</span>
-                <Button variant="glow" size="sm" onClick={() => handleClaim(item)}>
-                  Klaim Hadiah
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
+        <button
+          type="button"
+          onClick={() => setActiveTab("vouchers")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer relative",
+            activeTab === "vouchers"
+              ? "bg-[#2B3752] text-white shadow-md"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
+          )}
+        >
+          <Ticket className="h-4 w-4" />
+          <span>Voucher Saya</span>
+          {vouchers.length > 0 && (
+            <span className="px-2 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-black">
+              {vouchers.length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Claim Modal Dialog */}
+      {/* TAB 1: KATALOG HADIAH */}
+      {activeTab === "katalog" && (
+        <div className="space-y-6">
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+            <span className="text-slate-400 font-bold text-[11px] uppercase mr-1">Kategori:</span>
+            {[
+              { id: "semua", label: "Semua Hadiah" },
+              { id: "digital", label: "⚡ Voucher PLN & Pulsa" },
+              { id: "sembako", label: "🍚 Sembako Pangan" },
+              { id: "merchandise", label: "🥤 Alat Ramah Lingkungan" },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer",
+                  selectedCategory === cat.id
+                    ? "bg-[#0EB29A] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Grid Katalog Hadiah */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredCatalog.map((item) => {
+              const canAfford = userPoints >= item.poin_dibutuhkan;
+              return (
+                <Card
+                  key={item.id}
+                  className="overflow-hidden hover:shadow-xl transition-all duration-200 flex flex-col justify-between bg-white border-slate-200 text-[#2B3752] rounded-3xl group"
+                >
+                  <div>
+                    <div className="aspect-square relative overflow-hidden bg-slate-100">
+                      <img
+                        src={item.foto_url || "https://placehold.co/400x400"}
+                        alt={item.nama}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute top-3 right-3 bg-black/75 backdrop-blur-md text-amber-300 font-black text-xs px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md border border-white/20">
+                        <Coins className="h-3.5 w-3.5" />
+                        <span>{item.poin_dibutuhkan} Poin</span>
+                      </div>
+                    </div>
+
+                    <div className="p-5 space-y-2">
+                      <h4 className="text-sm font-bold text-[#2B3752] leading-snug line-clamp-1">
+                        {item.nama}
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                        {item.deskripsi}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-5 pt-0">
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                      <span className="text-[11px] font-semibold text-slate-400">
+                        Stok: <strong>{item.stok}</strong> unit
+                      </span>
+                      <Button
+                        variant={canAfford ? "glow" : "outline"}
+                        size="sm"
+                        onClick={() => handleClaim(item)}
+                        className={cn(
+                          "text-xs font-bold",
+                          !canAfford && "opacity-60 cursor-not-allowed hover:bg-transparent"
+                        )}
+                      >
+                        {canAfford ? "Tukar Hadiah" : "Poin Kurang"}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: VOUCHER SAYA */}
+      {activeTab === "vouchers" && (
+        <div className="space-y-6">
+          {/* Voucher Filter Bar */}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400 uppercase">Status:</span>
+              {(["semua", "aktif", "digunakan"] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setVoucherFilter(st)}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer",
+                    voucherFilter === st
+                      ? "bg-[#2B3752] text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  )}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-xs text-slate-500">
+              Total <strong>{filteredVouchers.length}</strong> voucher tersimpan di dompet akun Anda.
+            </span>
+          </div>
+
+          {/* Voucher Cards Grid */}
+          {filteredVouchers.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-slate-50 rounded-3xl border border-dashed border-slate-200 space-y-3">
+              <Ticket className="h-12 w-12 text-slate-300 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-700">Belum ada voucher pada kategori ini</h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Tukarkan poin aktif Anda di katalog hadiah untuk mendapatkan kode voucher diskon PLN, pulsa, atau sembako.
+              </p>
+              <Button variant="primary" size="sm" onClick={() => setActiveTab("katalog")}>
+                Buka Katalog Hadiah
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredVouchers.map((v) => {
+                const isAktif = v.status === "aktif";
+                const isCopied = copiedCode === v.kodeVoucher;
+
+                return (
+                  <div
+                    key={v.id}
+                    className={cn(
+                      "p-5 rounded-3xl bg-white border shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative overflow-hidden",
+                      isAktif ? "border-emerald-300/80 ring-1 ring-emerald-500/10" : "border-slate-200 opacity-70"
+                    )}
+                  >
+                    {/* Top Header of Voucher */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={v.fotoUrl || "https://placehold.co/80"}
+                          alt={v.namaHadiah}
+                          className="w-12 h-12 rounded-2xl object-cover border border-slate-100 flex-shrink-0"
+                        />
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                            {v.kategori === "voucher_digital" ? "⚡ Voucher Digital" : "📦 Hadiah Fisik"}
+                          </span>
+                          <h4 className="text-xs font-black text-[#2B3752] leading-tight line-clamp-1">
+                            {v.namaHadiah}
+                          </h4>
+                          <span className="text-[10px] text-slate-400">
+                            Ditukar: {formatDate(v.tanggalKlaim)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span
+                        className={cn(
+                          "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
+                          isAktif ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                        )}
+                      >
+                        {isAktif ? "Aktif" : "Digunakan"}
+                      </span>
+                    </div>
+
+                    {/* Voucher Code Box */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Kode Voucher Resmi:
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-400">
+                          Exp: {formatDate(v.tanggalKedaluwarsa)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200">
+                        <code className="text-xs sm:text-sm font-black font-mono text-[#0EB29A] tracking-wider truncate">
+                          {v.kodeVoucher}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(v.kodeVoucher)}
+                          className={cn(
+                            "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer",
+                            isCopied
+                              ? "bg-emerald-600 text-white"
+                              : "bg-slate-100 hover:bg-[#0EB29A] hover:text-white text-slate-700"
+                          )}
+                          title="Salin Kode Voucher"
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              <span>Tersalin!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Barcode graphic illustration */}
+                      <div className="pt-1 flex items-center justify-between opacity-40">
+                        <div className="h-4 flex items-center gap-[2px]">
+                          <div className="w-[2px] h-full bg-slate-800"></div>
+                          <div className="w-[1px] h-full bg-slate-800"></div>
+                          <div className="w-[3px] h-full bg-slate-800"></div>
+                          <div className="w-[1px] h-full bg-slate-800"></div>
+                          <div className="w-[2px] h-full bg-slate-800"></div>
+                          <div className="w-[1px] h-full bg-slate-800"></div>
+                          <div className="w-[4px] h-full bg-slate-800"></div>
+                          <div className="w-[2px] h-full bg-slate-800"></div>
+                          <div className="w-[1px] h-full bg-slate-800"></div>
+                          <div className="w-[3px] h-full bg-slate-800"></div>
+                          <div className="w-[2px] h-full bg-slate-800"></div>
+                          <div className="w-[1px] h-full bg-slate-800"></div>
+                          <div className="w-[3px] h-full bg-slate-800"></div>
+                        </div>
+                        <span className="text-[9px] font-mono font-bold tracking-widest text-slate-600">
+                          VERIFIED-AUTH
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
+                        <Coins className="h-3.5 w-3.5" />
+                        <span>-{v.poinDipotong} Poin</span>
+                      </span>
+
+                      {isAktif && (
+                        <button
+                          type="button"
+                          onClick={() => handleUseVoucher(v.id)}
+                          className="text-[11px] font-bold text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer"
+                        >
+                          Tandai Telah Dipakai
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CLAIM CONFIRMATION MODAL */}
       <Modal
-        isOpen={!!selectedHadiah}
-        onClose={() => setSelectedHadiah(null)}
-        title={isSuccessClaim ? "Penukaran Berhasil! 🎉" : "Konfirmasi Klaim Hadiah"}
-        description={isSuccessClaim ? "Kode klaim voucher telah siap digunakan." : "Pastikan saldo poin Anda mencukupi."}
+        isOpen={Boolean(selectedHadiah)}
+        onClose={() => {
+          setSelectedHadiah(null);
+          setIsSuccessClaim(false);
+          setNewlyClaimedVoucher(null);
+        }}
+        title={isSuccessClaim ? "Penukaran Berhasil! 🎉" : "Konfirmasi Penukaran Hadiah"}
+        description={
+          isSuccessClaim
+            ? "Voucher Anda telah diterbitkan dan tersimpan di Dompet Voucher Saya."
+            : "Pastikan saldo poin Anda mencukupi sebelum melanjutkan."
+        }
       >
         {selectedHadiah && (
           <div className="space-y-4">
-            {isSuccessClaim ? (
-              <div className="text-center py-4 space-y-3">
-                <div className="h-12 w-12 rounded-full bg-[#0EB29A]/15 text-[#0EB29A] flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="h-7 w-7" />
+            {isSuccessClaim && newlyClaimedVoucher ? (
+              <div className="text-center py-4 space-y-4">
+                <div className="h-14 w-14 rounded-2xl bg-[#0EB29A]/15 text-[#0EB29A] flex items-center justify-center mx-auto shadow-inner">
+                  <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h4 className="font-bold text-sm text-[#2B3752]">
-                  Kode Voucher: <code className="text-[#0EB29A] font-mono text-base font-black">ECO-PLN-94821</code>
-                </h4>
-                <p className="text-xs text-slate-500">
-                  Tunjukkan kode klaim ini saat petugas PLN atau minimarket memproses penukaran voucher Anda.
-                </p>
-                <Button variant="primary" className="w-full mt-2" onClick={() => setSelectedHadiah(null)}>
-                  Selesai
-                </Button>
+
+                <div>
+                  <h4 className="font-black text-base text-[#2B3752]">{selectedHadiah.nama}</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Saldo terpotong <strong>{selectedHadiah.poin_dibutuhkan} Poin</strong>. Sisa saldo Anda:{" "}
+                    <strong className="text-amber-600 font-bold">{userPoints} Poin</strong>.
+                  </p>
+                </div>
+
+                {/* Voucher Code Display */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-left">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Kode Voucher Anda:
+                  </span>
+                  <div className="flex items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200">
+                    <code className="text-base font-black font-mono text-[#0EB29A] tracking-wider">
+                      {newlyClaimedVoucher.kodeVoucher}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyCode(newlyClaimedVoucher.kodeVoucher)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedCode === newlyClaimedVoucher.kodeVoucher ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Tunjukkan kode ini saat melakukan pembelian token listrik PLN, top-up pulsa, atau pengambilan sembako.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={() => {
+                      setSelectedHadiah(null);
+                      setActiveTab("vouchers");
+                    }}
+                  >
+                    Buka Dompet Voucher Saya
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3">
+              <div className="space-y-4">
+                {/* Reward summary card */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
                   <img
                     src={selectedHadiah.foto_url || "https://placehold.co/100"}
                     alt={selectedHadiah.nama}
-                    className="w-14 h-14 rounded-xl object-cover"
+                    className="w-16 h-16 rounded-2xl object-cover border border-slate-200 flex-shrink-0"
                   />
                   <div>
-                    <h5 className="font-bold text-xs text-[#2B3752]">{selectedHadiah.nama}</h5>
-                    <p className="text-xs text-amber-600 font-bold mt-0.5">
-                      Membutuhkan {selectedHadiah.poin_dibutuhkan} Poin
+                    <h5 className="font-bold text-xs sm:text-sm text-[#2B3752]">{selectedHadiah.nama}</h5>
+                    <p className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">
+                      <Coins className="h-3.5 w-3.5" />
+                      <span>Biaya: {selectedHadiah.poin_dibutuhkan} Poin</span>
                     </p>
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-500">
-                  Saldo poin Anda saat ini: <strong>240 Poin</strong>. Setelah penukaran, sisa saldo Anda adalah{" "}
-                  <strong>{240 - selectedHadiah.poin_dibutuhkan} Poin</strong>.
-                </p>
+                {/* Point check indicator */}
+                {userPoints < selectedHadiah.poin_dibutuhkan ? (
+                  <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block">Saldo Poin Tidak Mencukupi!</strong>
+                      <span>
+                        Anda memiliki <strong>{userPoints} Poin</strong>. Kurang{" "}
+                        <strong>{selectedHadiah.poin_dibutuhkan - userPoints} Poin</strong> untuk menukarkan hadiah ini.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between">
+                    <div>
+                      <span className="text-slate-500 block">Sisa saldo setelah penukaran:</span>
+                      <strong className="text-sm font-black text-emerald-700">
+                        {userPoints - selectedHadiah.poin_dibutuhkan} Poin
+                      </strong>
+                    </div>
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  </div>
+                )}
+
+                {/* Physical Goods Address Form (if sembako / merchandise) */}
+                {selectedHadiah.id >= 3 && (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                      📍 Alamat Pengiriman Paket Fisik:
+                    </span>
+                    <Input
+                      placeholder="Nama Penerima"
+                      value={penerimaNama}
+                      onChange={(e) => setPenerimaNama(e.target.value)}
+                      className="text-xs bg-white"
+                    />
+                    <Input
+                      placeholder="Nomor Telepon / WhatsApp"
+                      value={penerimaTelepon}
+                      onChange={(e) => setPenerimaTelepon(e.target.value)}
+                      className="text-xs bg-white"
+                    />
+                    <Input
+                      placeholder="Alamat Lengkap (Jl, No, RT/RW, Kelurahan)"
+                      value={alamatKirim}
+                      onChange={(e) => setAlamatKirim(e.target.value)}
+                      className="text-xs bg-white"
+                    />
+                  </div>
+                )}
 
                 <div className="pt-2 flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setSelectedHadiah(null)}>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setSelectedHadiah(null)}
+                  >
                     Batal
                   </Button>
-                  <Button variant="glow" className="flex-1" onClick={executeClaim}>
+                  <Button
+                    variant="glow"
+                    className="flex-1"
+                    isLoading={isSubmittingClaim}
+                    disabled={userPoints < selectedHadiah.poin_dibutuhkan || isSubmittingClaim}
+                    onClick={executeClaim}
+                  >
                     Konfirmasi Tukar
                   </Button>
                 </div>

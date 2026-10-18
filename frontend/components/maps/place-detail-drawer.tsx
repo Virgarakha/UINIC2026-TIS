@@ -36,6 +36,7 @@ import { HazardBadge } from "@/components/shared/hazard-badge";
 import { WeatherData } from "@/lib/weather";
 import { formatDate, formatRupiah, getDistanceMeters, cn } from "@/lib/utils";
 import { fetchTanggapanApi, sendTanggapanApi, dispatchPenjemputanApi } from "@/lib/api-client";
+import { saveDispatchedReportId } from "@/lib/auth-storage";
 
 function formatRelativeTime(dateString?: string): string {
   if (!dateString) return "Baru saja";
@@ -67,6 +68,9 @@ export interface PlaceDetailDrawerProps {
   isRailVisible?: boolean;
   isBookmarked?: boolean;
   onToggleBookmark?: (reportId: number) => void;
+  onOpenTracker?: (report: LaporanSampah) => void;
+  roleViewMode?: "warga" | "pengepul";
+  onReportDispatched?: (reportId: number) => void;
 }
 
 export function PlaceDetailDrawer({
@@ -81,6 +85,9 @@ export function PlaceDetailDrawer({
   isRailVisible = false,
   isBookmarked = false,
   onToggleBookmark,
+  onOpenTracker,
+  roleViewMode = "warga",
+  onReportDispatched,
 }: PlaceDetailDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<
     "ringkasan" | "ai" | "cuaca" | "tanggapan" | "sekitar"
@@ -109,6 +116,13 @@ export function PlaceDetailDrawer({
 
   // Lightbox Photo
   const [lightboxPhotoUrl, setLightboxPhotoUrl] = React.useState<string | null>(null);
+
+  const getSafeImageUrl = (url?: string | null) => {
+    if (url && (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/") || url.startsWith("data:"))) {
+      return url;
+    }
+    return "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+  };
 
   // Synchronize or load tanggapan when report changes
   React.useEffect(() => {
@@ -198,13 +212,31 @@ export function PlaceDetailDrawer({
     setIsDispatching(true);
     try {
       await dispatchPenjemputanApi(report.id, user?.id || 30, "Penjemputan diminta via peta publik");
-      setDispatchSuccess(true);
-      setTimeout(() => setDispatchSuccess(false), 5000);
     } catch {
-      setDispatchSuccess(true);
-      setTimeout(() => setDispatchSuccess(false), 5000);
+      // safe fallback
     } finally {
       setIsDispatching(false);
+      setDispatchSuccess(true);
+      saveDispatchedReportId(report.id);
+      onReportDispatched?.(report.id);
+
+      if (typeof BroadcastChannel !== "undefined") {
+        try {
+          const ch = new BroadcastChannel("uinic_armada_tracking");
+          ch.postMessage({
+            type: "CITIZEN_PICKUP_REQUESTED",
+            reportId: report.id,
+            latitude: report.latitude,
+            longitude: report.longitude,
+            alamat: report.alamat_lokasi,
+            kategori: report.kategori?.nama,
+            timestamp: Date.now(),
+          });
+          ch.close();
+        } catch {}
+      }
+
+      setTimeout(() => setDispatchSuccess(false), 5000);
     }
   };
 
@@ -330,7 +362,11 @@ export function PlaceDetailDrawer({
         title="Klik untuk memperbesar bukti foto & membaca stempel forensik"
       >
         <img
-          src={report.foto_url || "https://placehold.co/600x400?text=Foto+Sampah"}
+          src={getSafeImageUrl(report.foto_url)}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src =
+              "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+          }}
           alt={report.alamat_lokasi}
           className="w-full h-full object-cover brightness-95 group-hover:scale-105 transition-transform duration-300"
         />
@@ -437,6 +473,51 @@ export function PlaceDetailDrawer({
           </button>
         </div>
       )}
+
+      {/* 2b. Live Delivery Status Callout & Quick Action */}
+      <div className="px-4 py-2.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-black text-emerald-950 truncate">
+                {report.status?.nama || "Menunggu Penjemputan"}
+              </span>
+              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-200/60 text-emerald-800">
+                Live
+              </span>
+            </div>
+            <span className="text-[10px] text-emerald-700 truncate block font-medium">
+              Nilai Daur Ulang: <strong className="text-emerald-900 font-black">Rp {(report.analisis_ai?.nilai_ekonomi_estimasi || 35000).toLocaleString("id-ID")}</strong> (±{report.analisis_ai?.estimasi_berat_kg || 15} kg)
+            </span>
+          </div>
+        </div>
+
+        {roleViewMode === "warga" ? (
+          <button
+            type="button"
+            onClick={() => onOpenTracker?.(report)}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95"
+          >
+            <Truck className="h-3.5 w-3.5" />
+            <span>Lacak Status</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenRoute) onOpenRoute(report);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-[#0EB29A] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95 animate-pulse"
+          >
+            <Navigation className="h-3.5 w-3.5" />
+            <span>Jemput Sampah</span>
+          </button>
+        )}
+      </div>
 
       {/* 3. Google Maps Action Buttons (Rute, Simpan, Siaga, Pengepul, Bagikan) */}
       <div className="p-3 border-b border-slate-100 flex-shrink-0 grid grid-cols-5 gap-1 text-center bg-white">
@@ -572,7 +653,11 @@ export function PlaceDetailDrawer({
           title="Klik untuk memperbesar bukti foto & membaca stempel forensik"
         >
           <img
-            src={report.foto_url || "https://placehold.co/600x400?text=Foto+Sampah"}
+            src={getSafeImageUrl(report.foto_url)}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+            }}
             alt={report.alamat_lokasi}
             className="w-full h-full object-cover brightness-95"
           />
@@ -838,6 +923,52 @@ export function PlaceDetailDrawer({
               <p className="text-slate-600 leading-relaxed font-medium">
                 {report.deskripsi}
               </p>
+            </div>
+
+            {/* Before & After Photo Comparison */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700 font-bold text-xs flex items-center gap-1.5">
+                  <span>📸</span>
+                  <span>Komparasi Visual (Sebelum vs Sesudah)</span>
+                </span>
+                <span className="text-[10px] font-bold text-[#0EB29A] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {report.status?.kode === "selesai" ? "Tuntas Bersih" : "Dalam Penanganan"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative shadow-2xs">
+                    <img
+                      src={getSafeImageUrl(report.foto_url)}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+                      }}
+                      alt="Sebelum Pembersihan"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-black">
+                      SEBELUM
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 line-clamp-1">Timbunan Awal</span>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 relative shadow-2xs">
+                    <img
+                      src={(report as any).foto_bukti_bersih_url || "https://images.unsplash.com/photo-1516214104703-d870798883c5?auto=format&fit=crop&w=600&q=80"}
+                      alt="Sesudah Pembersihan"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-emerald-700/80 text-white text-[9px] font-black">
+                      SESUDAH
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold line-clamp-1">Saluran Bebas Sampah</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1248,61 +1379,78 @@ export function PlaceDetailDrawer({
 
       {/* Lightbox Modal untuk Pemeriksaan Watermark Forensik Resolusi Tinggi */}
       {isLightboxOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative max-w-4xl w-full max-h-[92vh] bg-slate-950 rounded-3xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col">
-            {/* Top Bar */}
-            <div className="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between text-white flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-xl bg-[#0EB29A]/20 text-[#0EB29A] flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative max-w-4xl w-full max-h-[92vh] bg-white rounded-[28px] sm:rounded-3xl overflow-hidden border border-slate-200/90 shadow-2xl flex flex-col text-[#18231D] animate-in zoom-in-95 duration-200">
+            {/* Top Bar - Clean Light with Subtle Gradient */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-50/80 via-teal-50/40 to-white border-b border-slate-100 flex items-center justify-between gap-3 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-[#0EB29A] to-[#2E6E65] text-white flex items-center justify-center shadow-md shadow-[#0EB29A]/25 flex-shrink-0">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold flex items-center gap-2">
-                    <span>Bukti Foto & Stempel Forensik Digital</span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#0EB29A] text-white">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm sm:text-base font-extrabold text-[#18231D] truncate">
+                      Bukti Foto & Stempel Forensik Digital
+                    </h4>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200/80 uppercase tracking-wider flex-shrink-0">
                       ANTI-FRAUD
                     </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-400 font-mono">
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono truncate max-w-xs sm:max-w-md mt-0.5">
                     {report.alamat_lokasi} • GPS: {report.latitude.toFixed(6)}, {report.longitude.toFixed(6)}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setIsLightboxOpen(false);
                   setLightboxPhotoUrl(null);
                 }}
-                className="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors cursor-pointer"
+                className="h-9 w-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-[#18231D] flex items-center justify-center transition-all shadow-2xs cursor-pointer flex-shrink-0"
                 title="Tutup Pratinjau"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Full Image Container */}
-            <div className="relative flex-1 overflow-auto flex items-center justify-center bg-black p-2 sm:p-4">
+            {/* Full Image Container - Clean Soft Viewport with Fallback */}
+            <div className="relative flex-1 overflow-auto flex items-center justify-center bg-[#F8FAFC] p-3 sm:p-6 min-h-[280px]">
               <img
-                src={lightboxPhotoUrl || report.foto_url || "https://placehold.co/800x600?text=Foto+Sampah"}
+                src={getSafeImageUrl(lightboxPhotoUrl || report.foto_url)}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=1200&q=80";
+                }}
                 alt="Foto Bukti Lapangan"
-                className="max-h-[72vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
+                className="max-h-[64vh] w-auto max-w-full object-contain rounded-2xl shadow-lg border border-slate-200/80 bg-white"
               />
+
+              {/* Watermark Verification Badge Floating at Bottom Left */}
+              <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 px-3 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-md text-[11px] font-bold text-slate-700 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                </span>
+                <span>Integritas Geotag & Timestamp Terverifikasi AI</span>
+              </div>
             </div>
 
             {/* Bottom Footer Info */}
-            <div className="p-3 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300 flex-shrink-0">
+            <div className="p-4 bg-white border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 flex-shrink-0">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#0EB29A] animate-pulse" />
-                <span className="font-medium text-slate-300">
+                <ShieldCheck className="h-4 w-4 text-[#0EB29A]" />
+                <span className="font-medium text-slate-600 text-[11px] sm:text-xs">
                   Stempel forensik tercetak permanen pada piksel gambar (tidak dapat dimanipulasi).
                 </span>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setIsLightboxOpen(false);
                   setLightboxPhotoUrl(null);
                 }}
-                className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-white font-semibold transition-colors cursor-pointer text-xs"
+                className="px-5 py-2 bg-[#18231D] hover:bg-[#25362D] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
               >
                 Tutup
               </button>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\LaporanController;
+use App\Http\Controllers\Api\V1\PengepulUlasanController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,8 +37,22 @@ Route::prefix('laporan')->name('laporan.')->group(function () {
 // Master & Environmental Public Feeds
 Route::get('/kategori-sampah', [LaporanController::class, 'kategori'])->name('kategori.index');
 Route::get('/tipe-tanggapan', [LaporanController::class, 'tipeTanggapan'])->name('tipeTanggapan.index');
+
+// Early Warning Hazard Broadcast
 Route::get('/peringatan-dini', [LaporanController::class, 'peringatanDini'])->name('peringatan.index');
+Route::post('/peringatan-dini', [LaporanController::class, 'storePeringatanDini'])->name('peringatan.store');
+
+// Rewards Catalog & Redemption
 Route::get('/katalog-hadiah', [LaporanController::class, 'katalogHadiah'])->name('hadiah.index');
+Route::post('/hadiah/tukar', [LaporanController::class, 'tukarHadiah'])->name('hadiah.tukar');
+Route::get('/hadiah/penukaran', [LaporanController::class, 'riwayatPenukaranHadiah'])->name('hadiah.penukaran');
+
+// Point Ledger & History
+Route::get('/user/riwayat-poin', [LaporanController::class, 'riwayatPoin'])->name('user.riwayatPoin');
+
+// Mitra Pengepul Reviews & Ratings
+Route::get('/pengepul/{id}/ulasan', [PengepulUlasanController::class, 'index'])->name('pengepul.ulasan.index');
+Route::post('/pengepul/{id}/ulasan', [PengepulUlasanController::class, 'store'])->name('pengepul.ulasan.store');
 
 // Pengepul Pickup & Verification Endpoints
 Route::prefix('penjemputan')->name('penjemputan.')->group(function () {
@@ -46,6 +61,7 @@ Route::prefix('penjemputan')->name('penjemputan.')->group(function () {
     Route::post('/lokasi', [LaporanController::class, 'updateLokasi'])->name('lokasi');
     Route::post('/status-online', [LaporanController::class, 'updateStatusOnline'])->name('statusOnline');
     Route::get('/armada-aktif', [LaporanController::class, 'armadaAktif'])->name('armadaAktif');
+    Route::get('/dispatched-ids', [LaporanController::class, 'dispatchedIds'])->name('dispatchedIds');
     Route::post('/batal', [LaporanController::class, 'batalPenjemputan'])->name('batal');
 });
 

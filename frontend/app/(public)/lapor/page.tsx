@@ -18,7 +18,11 @@ import {
   CloudRain,
   Image as ImageIcon,
   Check,
+  Coins,
+  Truck,
+  Gift,
 } from "lucide-react";
+import { CitizenReportTrackerModal } from "@/components/shared/citizen-report-tracker-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGeolocation } from "@/hooks/use-geolocation";
@@ -26,6 +30,7 @@ import { getLiveWeather, WeatherData } from "@/lib/weather";
 import { analyzeWasteWithGemini, AnalisisAiResult } from "@/lib/gemini";
 import { createLaporanApi } from "@/lib/api-client";
 import { burnForensicWatermark, MetadataForensik } from "@/lib/image-watermark";
+import { saveStoredUserReport, recordPointTransaction } from "@/lib/auth-storage";
 import { LaporanSampah } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +66,8 @@ export default function LaporCameraPage() {
   const [title, setTitle] = React.useState("");
   const [kategoriId, setKategoriId] = React.useState("1");
   const [description, setDescription] = React.useState("");
+  const [citizenActionOption, setCitizenActionOption] = React.useState<"jual" | "sedekah">("jual");
+  const [isTrackerOpen, setIsTrackerOpen] = React.useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = React.useState(false);
 
   // Pipeline submission state
@@ -315,7 +322,7 @@ export default function LaporCameraPage() {
         latitude: lat,
         longitude: lng,
         alamat_lokasi: title,
-        deskripsi: description || "Laporan timbunan sampah oleh warga melalui kamera live.",
+        deskripsi: `${description ? description + " • " : ""}[Opsi Warga: ${citizenActionOption === "jual" ? "Jual ke Mitra Pengepul (Tunai)" : "Sedekah Lingkungan (+100 Poin)"}]`,
         kategori_id: parseInt(kategoriId, 10),
         is_resiko_banjir: aiResult.persentase_sumbatan_aliran > 50,
         tipe_bahaya: aiResult.potensi_bahaya,
@@ -355,7 +362,17 @@ export default function LaporCameraPage() {
         } catch {}
       }
 
+      saveStoredUserReport(newReport);
       setCreatedReport(newReport);
+
+      // Award points to user and record in ledger
+      const pointReward = citizenActionOption === "sedekah" ? 100 : 50;
+      recordPointTransaction(
+        pointReward,
+        citizenActionOption === "sedekah" ? "sedekah_sampah" : "lapor_sampah",
+        `Reward Laporan AI: ${newReport.alamat_lokasi} (${citizenActionOption === "sedekah" ? "Sedekah Lingkungan" : "Validasi AI"})`
+      );
+
       setIsSuccess(true);
     } catch (err: any) {
       console.error("Submission failed:", err);
@@ -640,21 +657,54 @@ export default function LaporCameraPage() {
                 </p>
               </div>
 
-              {/* Point Award Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
-                <span>🌟 Anda Memperoleh <strong>+50 Poin Warga</strong></span>
+              {/* Point Award Badge & Citizen Choice Summary */}
+              <div className="flex flex-col gap-1.5 max-w-sm mx-auto">
+                <div className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
+                  <span>
+                    🌟 Anda Memperoleh{" "}
+                    <strong className="text-amber-900 font-black">
+                      +{citizenActionOption === "sedekah" ? "100" : "50"} Poin Warga
+                    </strong>
+                  </span>
+                </div>
+                <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                  <span>
+                    {citizenActionOption === "jual"
+                      ? "💵 Opsi: Jual ke Mitra Pengepul (Tunai)"
+                      : "🎁 Opsi: Sedekah Lingkungan (+100 Poin)"}
+                  </span>
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+              {/* Action Buttons: Live Tracking & Radar Peta & Rewards */}
+              <div className="pt-2 flex flex-col gap-2 max-w-sm mx-auto">
                 <Button
                   type="button"
                   variant="glow"
-                  onClick={() => router.push(`/?id=${createdReport.id}`)}
-                  className="rounded-xl"
+                  onClick={() => setIsTrackerOpen(true)}
+                  className="w-full rounded-xl text-xs font-black gap-2 h-11 cursor-pointer"
                 >
-                  Lihat di Radar Peta
+                  <Truck className="h-4 w-4" />
+                  <span>Lacak Status Penjemputan Realtime</span>
                 </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push(`/peta?id=${createdReport.id}`)}
+                    className="flex-1 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Lihat di Radar Peta
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/rewards")}
+                    className="flex-1 rounded-xl text-xs font-bold text-amber-700 hover:text-amber-800 border-amber-200 hover:bg-amber-50 cursor-pointer"
+                  >
+                    Tukar Hadiah (+Voucher)
+                  </Button>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -666,9 +716,9 @@ export default function LaporCameraPage() {
                     setPreviewImage(null);
                     startCamera(cameraFacing);
                   }}
-                  className="rounded-xl"
+                  className="w-full rounded-xl text-xs font-bold cursor-pointer"
                 >
-                  Kirim Laporan Lain
+                  Lapor Sampah Lainnya
                 </Button>
               </div>
             </div>
@@ -723,6 +773,65 @@ export default function LaporCameraPage() {
                       </span>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* 2b. Waste Value Estimator & Citizen Choice (Jual Tunai vs Sedekah Poin) */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-teal-50/60 border border-emerald-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900">
+                    <Coins className="h-4 w-4 text-emerald-600" />
+                    <span>Estimasi Potensi Nilai Daur Ulang</span>
+                  </div>
+                  <span className="text-[11px] font-black text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                    {kategoriId === "2"
+                      ? "Rp 25.000 - Rp 60.000"
+                      : kategoriId === "1"
+                      ? "Rp 15.000 - Rp 35.000"
+                      : "Pembersihan Lingkungan"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-snug">
+                  Pilih bagaimana Anda ingin memanfaatkan sampah ini saat armada tiba:
+                </p>
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setCitizenActionOption("jual")}
+                    className={cn(
+                      "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between",
+                      citizenActionOption === "jual"
+                        ? "border-[#0EB29A] bg-white text-[#0EB29A] font-bold shadow-xs ring-2 ring-[#0EB29A]/20"
+                        : "border-emerald-200/60 bg-white/60 text-slate-600 hover:bg-white"
+                    )}
+                  >
+                    <div className="flex items-center gap-1 text-xs">
+                      <span>💵</span>
+                      <span className="font-black text-[11px]">Jual ke Pengepul</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1 leading-tight">
+                      Uang tunai saat armada menimbang
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCitizenActionOption("sedekah")}
+                    className={cn(
+                      "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between",
+                      citizenActionOption === "sedekah"
+                        ? "border-amber-500 bg-white text-amber-700 font-bold shadow-xs ring-2 ring-amber-500/20"
+                        : "border-emerald-200/60 bg-white/60 text-slate-600 hover:bg-white"
+                    )}
+                  >
+                    <div className="flex items-center gap-1 text-xs">
+                      <span>🎁</span>
+                      <span className="font-black text-[11px]">Sedekah / Poin</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1 leading-tight">
+                      Dapatkan +100 Poin Rewards
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -790,6 +899,14 @@ export default function LaporCameraPage() {
           )}
         </div>
       </div>
+
+      {/* Citizen Live Delivery Tracker Modal */}
+      <CitizenReportTrackerModal
+        isOpen={isTrackerOpen}
+        onClose={() => setIsTrackerOpen(false)}
+        report={createdReport}
+        onViewOnMap={(rep) => router.push(`/peta?id=${rep.id}`)}
+      />
     </div>
   );
 }

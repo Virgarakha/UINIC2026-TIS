@@ -97,47 +97,44 @@
     </div>
 </div>
 
-<!-- Middle Section: Analytics Charts (Synto Style) -->
+<!-- Middle Section: Analytics Charts (Grafik Sampah Per Bulan) -->
 <div class="row g-3 mb-4">
-    <!-- Bar Chart: API Traffic Overview (Sales Over View in Synto) -->
+    <!-- Bar Chart: Grafik Sampah Bulanan (Sudah Dibersihkan vs Belum Dibersihkan) -->
     <div class="col-12 col-lg-8">
-        <div class="synto-card h-100">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div class="synto-card h-100 p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                 <div>
-                    <h6 class="fw-bold text-dark mb-1">API Traffic Overview</h6>
-                    <small class="text-secondary">Monthly volume and response times breakdown</small>
+                    <h6 class="fw-bold text-dark mb-1">Grafik Laporan Sampah Per Bulan</h6>
+                    <small class="text-secondary">Statistik penanganan titik sampah: Sudah Dibersihkan (Biru) vs Belum Dibersihkan (Merah)</small>
                 </div>
                 <div class="d-flex align-items-center gap-3">
-                    <span class="d-inline-flex align-items-center gap-1" style="font-size: 12px; color: #4f46e5; font-weight: 600;">
-                        <span class="rounded-circle" style="width: 8px; height: 8px; background-color: #4f46e5;"></span>
-                        Requests (k)
+                    <span class="d-inline-flex align-items-center gap-1.5" style="font-size: 12.5px; color: #2563eb; font-weight: 700;">
+                        <span class="rounded-circle" style="width: 10px; height: 10px; background-color: #2563eb;"></span>
+                        Sudah Dibersihkan
                     </span>
-                    <span class="d-inline-flex align-items-center gap-1" style="font-size: 12px; color: #06b6d4; font-weight: 600;">
-                        <span class="rounded-circle" style="width: 8px; height: 8px; background-color: #06b6d4;"></span>
-                        Latency (ms)
+                    <span class="d-inline-flex align-items-center gap-1.5" style="font-size: 12.5px; color: #ef4444; font-weight: 700;">
+                        <span class="rounded-circle" style="width: 10px; height: 10px; background-color: #ef4444;"></span>
+                        Belum Dibersihkan
                     </span>
                 </div>
             </div>
 
             <!-- ApexCharts Bar Chart Container -->
-            <div id="trafficOverviewChart" style="min-height: 300px;"></div>
+            <div id="trafficOverviewChart" style="min-height: 310px;"></div>
         </div>
     </div>
 
-    <!-- Donut/Radial Chart: API Success Rate (Sale Value in Synto) -->
+    <!-- Donut/Radial Chart: Efisiensi Penanganan Sampah (Cleanliness Rate) -->
     <div class="col-12 col-lg-4">
-        <div class="synto-card h-100 d-flex flex-column justify-content-between">
+        <div class="synto-card h-100 d-flex flex-column justify-content-between p-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="fw-bold text-dark mb-0">API Performance</h6>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-three-dots-vertical"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                        <li><a class="dropdown-item" href="#">Today</a></li>
-                        <li><a class="dropdown-item" href="#">This Week</a></li>
-                    </ul>
+                <div>
+                    <h6 class="fw-bold text-dark mb-0">Efisiensi Penanganan Sampah</h6>
+                    <small class="text-muted" style="font-size: 11px;">Rasio penyelesaian dinas & mitra</small>
                 </div>
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5" style="font-size: 10px;">
+                    Optimal
+                </span>
             </div>
 
             <!-- Radial Gauge Chart -->
@@ -146,14 +143,14 @@
             <!-- Breakdown Metrics Under Chart -->
             <div class="row text-center pt-3 border-top g-2">
                 <div class="col-6 border-end">
-                    <small class="text-secondary d-block" style="font-size: 11px;">Success Rate</small>
-                    <span class="fw-bold text-dark fs-6">99.4%</span>
-                    <span class="d-block text-success" style="font-size: 10px;">+0.23% uptime</span>
+                    <small class="text-secondary d-block" style="font-size: 11px;">Rasio Tuntas</small>
+                    <span class="fw-bold text-dark fs-6">{{ $chartData['clean_rate'] }}%</span>
+                    <span class="d-block text-success" style="font-size: 10px;">+4.8% efisien</span>
                 </div>
                 <div class="col-6">
-                    <small class="text-secondary d-block" style="font-size: 11px;">Avg Latency</small>
-                    <span class="fw-bold text-dark fs-6">38ms</span>
-                    <span class="d-block text-success" style="font-size: 10px;">-5ms faster</span>
+                    <small class="text-secondary d-block" style="font-size: 11px;">Rata-rata Respon</small>
+                    <span class="fw-bold text-dark fs-6">2.4 Jam</span>
+                    <span class="d-block text-success" style="font-size: 10px;">-35m respon cepat</span>
                 </div>
             </div>
         </div>
@@ -246,14 +243,18 @@
 @push('scripts')
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        // 1. Synto Bar Chart (API Traffic Overview)
+        // 1. Grafik Laporan Sampah Bulanan (Sudah Dibersihkan [Biru] vs Belum Dibersihkan [Merah])
+        const chartCategories = @json($chartData['categories']);
+        const sudahDibersihkan = @json($chartData['sudah_dibersihkan']);
+        const belumDibersihkan = @json($chartData['belum_dibersihkan']);
+
         const trafficOptions = {
             series: [{
-                name: 'API Requests (k)',
-                data: [44, 55, 57, 56, 61, 58, 63, 60, 66, 75, 82, 95]
+                name: 'Sudah Dibersihkan',
+                data: sudahDibersihkan
             }, {
-                name: 'Latency (ms)',
-                data: [76, 85, 101, 98, 87, 105, 91, 114, 94, 88, 70, 52]
+                name: 'Belum Dibersihkan',
+                data: belumDibersihkan
             }],
             chart: {
                 type: 'bar',
@@ -264,7 +265,7 @@
             plotOptions: {
                 bar: {
                     horizontal: false,
-                    columnWidth: '45%',
+                    columnWidth: '42%',
                     borderRadius: 4
                 },
             },
@@ -274,12 +275,16 @@
                 width: 2,
                 colors: ['transparent']
             },
-            colors: ['#4f46e5', '#06b6d4'],
+            colors: ['#2563eb', '#ef4444'], // Biru (#2563eb) untuk Sudah Dibersihkan, Merah (#ef4444) untuk Belum Dibersihkan
             xaxis: {
-                categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                categories: chartCategories,
                 labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
             },
             yaxis: {
+                title: {
+                    text: 'Jumlah Titik Sampah',
+                    style: { color: '#94a3b8', fontSize: '11px', fontWeight: 500 }
+                },
                 labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
             },
             fill: { opacity: 1 },
@@ -291,7 +296,7 @@
             tooltip: {
                 y: {
                     formatter: function (val) {
-                        return val;
+                        return val + " Titik";
                     }
                 }
             }
@@ -300,9 +305,10 @@
         const trafficChart = new ApexCharts(document.querySelector("#trafficOverviewChart"), trafficOptions);
         trafficChart.render();
 
-        // 2. Synto Radial Gauge Chart (API Performance)
+        // 2. Synto Radial Gauge Chart (Efisiensi Penanganan Sampah)
+        const cleanRate = {{ $chartData['clean_rate'] }};
         const radialOptions = {
-            series: [75],
+            series: [cleanRate],
             chart: {
                 height: 240,
                 type: 'radialBar',
@@ -337,8 +343,8 @@
                     }
                 }
             },
-            colors: ['#4f46e5'],
-            labels: ['Uptime'],
+            colors: ['#2563eb'],
+            labels: ['Tingkat Bersih'],
         };
 
         const radialChart = new ApexCharts(document.querySelector("#performanceRadialChart"), radialOptions);
