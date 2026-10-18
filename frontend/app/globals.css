@@ -65,8 +65,14 @@ body {
   background: #64748b;
 }
 
-/* Custom Leaflet DivIcon styling */
-.custom-truck-marker-icon,
+/* Custom Leaflet DivIcon styling with Hardware-Accelerated Smooth Movement (Uber/Google Maps pattern) */
+.custom-truck-marker-icon {
+  background: transparent !important;
+  border: none !important;
+  transition: transform 0.65s linear, opacity 0.3s ease !important;
+  will-change: transform;
+}
+
 .custom-gmap-pin,
 .gmaps-origin-beacon {
   background: transparent !important;

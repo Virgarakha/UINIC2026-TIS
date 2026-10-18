@@ -324,6 +324,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   const [mapRotation, setMapRotation] = React.useState<number>(0);
   const autoCenterGpsRef = React.useRef<boolean>(true);
   const lastGpsBroadcastRef = React.useRef<number>(0);
+  const lastArmadaFingerprintRef = React.useRef<string>("");
+  const lastBackendLocationUpdateRef = React.useRef<number>(0);
 
   React.useEffect(() => {
     autoCenterGpsRef.current = autoCenterGps;
@@ -452,7 +454,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
     if (mapInstanceRef.current) {
       const currentZoom = mapInstanceRef.current.getZoom();
-      const targetZoom = Math.max(currentZoom, 17);
+      const targetZoom = Math.max(currentZoom, 16);
       mapInstanceRef.current.flyTo([targetLat, targetLng], targetZoom, {
         duration: 0.8,
         easeLinearity: 0.25,
@@ -857,6 +859,16 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     };
   }, []);
 
+  // Recalculate map dimensions whenever navigation mode toggles to prevent clipping
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [activeRouteReport]);
+
   // Update map tile layer (streets vs satellite)
   React.useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -1128,24 +1140,24 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         const hazardStr = (rep.tipe_bahaya || "").toLowerCase();
 
         let iconSvg = LUCIDE_PIN_ICONS.trash;
-        let pinBg = "bg-rose-600";
+        let pinBgColor = "#e11d48"; // rose-600
 
         if (rep.status?.kode === "siap_diambil_pengepul") {
           iconSvg = LUCIDE_PIN_ICONS.recycle;
-          pinBg = "bg-[#0EB29A]";
+          pinBgColor = "#0EB29A";
         } else if (hazardStr.includes("kebakaran") || hazardStr.includes("metana")) {
           iconSvg = LUCIDE_PIN_ICONS.flame;
-          pinBg = "bg-orange-600";
+          pinBgColor = "#ea580c"; // orange-600
         } else if (hazardStr.includes("bau") || hazardStr.includes("toksik")) {
           iconSvg = LUCIDE_PIN_ICONS.trash;
-          pinBg = "bg-[#2E6E65]";
+          pinBgColor = "#2E6E65";
         } else if (hazardStr.includes("wabah") || hazardStr.includes("dbd")) {
           iconSvg = LUCIDE_PIN_ICONS.alert;
-          pinBg = "bg-amber-500";
+          pinBgColor = "#f59e0b"; // amber-500
         } else {
           // Default / banjir / tumpukan sampah
           iconSvg = LUCIDE_PIN_ICONS.trash;
-          pinBg = "bg-rose-600";
+          pinBgColor = "#e11d48";
         }
 
         // Check for neighboring reports within 100 meters
@@ -1155,45 +1167,54 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             getDistanceMeters(rep.latitude, rep.longitude, other.latitude, other.longitude) <= 100
         ).length;
 
+        // Precision Map Pin: 40px wide, 48px tall, sharp needle tip anchored precisely at [20, 48]
         const markerHtml = `
-          <div class="relative flex flex-col items-center cursor-pointer group" style="transform: translate(-50%, -100%);">
-            ${
-              isSelected
-                ? '<span class="animate-ping absolute -top-1 inline-flex h-10 w-10 rounded-full bg-red-400 opacity-60"></span>'
-                : ""
-            }
+          <div class="relative flex flex-col items-center cursor-pointer group select-none">
+            <!-- Floating Address Pill above the pin head -->
+            <div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#2B3752]/95 backdrop-blur-xs text-white text-[10px] font-bold whitespace-nowrap shadow-md max-w-[150px] truncate border border-slate-700/50 pointer-events-auto transition-transform group-hover:scale-105">
+              ${rep.alamat_lokasi}
+            </div>
+
             ${
               nearbyCount > 0
-                ? '<div class="absolute -top-1.5 -left-1.5 h-10 w-10 rounded-full bg-[#2E6E65]/40 border border-white -z-10 shadow-md"></div>'
+                ? `<div class="absolute -top-12 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full bg-[#0EB29A] text-white text-[8px] font-bold shadow-xs whitespace-nowrap border border-white/60">${nearbyCount + 1} titik berdekatan</div>`
                 : ""
             }
-            <div class="h-10 w-10 rounded-full ${pinBg} text-white font-bold flex items-center justify-center border-2 border-white shadow-xl transition-transform duration-200 group-hover:scale-110 ${
-          isSelected ? "scale-115 ring-4 ring-[#0EB29A]/50" : ""
-        }">
-              ${iconSvg}
+
+            <!-- Selection Ring / Ping -->
+            ${
+              isSelected
+                ? '<span class="animate-ping absolute top-0 left-1/2 -translate-x-1/2 inline-flex h-9 w-9 rounded-full bg-red-400 opacity-60 pointer-events-none"></span>'
+                : ""
+            }
+
+            <!-- Precision SVG Pin: Pointy tip at exact [20, 47.5] bottom center -->
+            <div class="relative transition-transform duration-200 group-hover:scale-110 ${
+              isSelected ? "scale-115" : ""
+            }">
+              <svg width="40" height="48" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="filter drop-shadow-md">
+                <path d="M20 47.5 C19.2 47.5 4 31 4 19.5 C4 10.4 11.2 3 20 3 C28.8 3 36 10.4 36 19.5 C36 31 20.8 47.5 20 47.5 Z" fill="${pinBgColor}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+              </svg>
+
+              <!-- Centered White Icon inside the Pin Bulb -->
+              <div class="absolute top-[8px] left-1/2 -translate-x-1/2 text-white flex items-center justify-center pointer-events-none">
+                ${iconSvg}
+              </div>
+
               ${
                 nearbyCount > 0
-                  ? `<span class="absolute -top-1.5 -right-2 bg-[#0EB29A] text-white text-[9px] font-black px-1.5 py-0.2 rounded-full border-2 border-white shadow-md flex items-center"><span>+${nearbyCount}</span></span>`
+                  ? `<span class="absolute -top-1 -right-1 bg-[#0EB29A] text-white text-[9px] font-black px-1.5 py-0.2 rounded-full border-2 border-white shadow-md flex items-center"><span>+${nearbyCount}</span></span>`
                   : ""
               }
             </div>
-            <div class="w-2.5 h-2.5 ${pinBg} rotate-45 -mt-1.5 border-r border-b border-white"></div>
-            <div class="mt-1 px-2 py-0.5 rounded-full bg-[#2B3752] text-white text-[10px] font-bold whitespace-nowrap shadow-md max-w-[130px] truncate">
-              ${rep.alamat_lokasi}
-            </div>
-            ${
-              nearbyCount > 0
-                ? `<div class="mt-0.5 px-1.5 py-0.2 rounded-full bg-[#0EB29A] text-white text-[8px] font-bold shadow-xs whitespace-nowrap">${nearbyCount + 1} titik berdekatan</div>`
-                : ""
-            }
           </div>
         `;
 
         const customIcon = L.divIcon({
           className: "custom-gmap-pin",
           html: markerHtml,
-          iconSize: [40, 50],
-          iconAnchor: [20, 50],
+          iconSize: [40, 48],
+          iconAnchor: [20, 48],
         });
 
         const marker = L.marker([rep.latitude, rep.longitude], { icon: customIcon });
@@ -1309,17 +1330,21 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           heading,
         });
 
-        // Broadcast moving truck location to backend and other browsers
+        // Broadcast moving truck location to backend (throttled to 3.5s) and other local tabs via BroadcastChannel
         if (activeRouteReport) {
-          updateTruckLocationApi({
-            laporanId: activeRouteReport.id,
-            pengepulId: user?.id || 30,
-            latitude: nextPoint[0],
-            longitude: nextPoint[1],
-            heading,
-            kecepatanKmh: 35,
-            statusJemput: "menuju_lokasi",
-          });
+          const now = Date.now();
+          if (now - lastBackendLocationUpdateRef.current >= 3500 || next >= routeData.coordinates.length - 1) {
+            lastBackendLocationUpdateRef.current = now;
+            updateTruckLocationApi({
+              laporanId: activeRouteReport.id,
+              pengepulId: user?.id || 30,
+              latitude: nextPoint[0],
+              longitude: nextPoint[1],
+              heading,
+              kecepatanKmh: 35,
+              statusJemput: "menuju_lokasi",
+            });
+          }
           if (typeof BroadcastChannel !== "undefined") {
             try {
               const ch = new BroadcastChannel("uinic_armada_tracking");
@@ -1356,11 +1381,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     return () => clearInterval(interval);
   }, [isSimulatingDrive, pengepulMissionStatus, routeData, activeRouteReport, user]);
 
-  // Synchronize Active Armada Trucks across all clients, tabs, and devices
+  // Synchronize Active Armada Trucks across all clients, tabs, and devices (Optimized Realtime Pattern)
   React.useEffect(() => {
     let isMounted = true;
+    let pollInterval: NodeJS.Timeout | null = null;
 
     const loadActiveArmada = async () => {
+      // 1. Skip network request if browser tab is hidden or minimized (Page Visibility API)
+      if (typeof document !== "undefined" && document.hidden) return;
+      // 2. Skip if device is currently offline
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
       try {
         const data = await fetchActiveArmadaApi();
         if (isMounted && Array.isArray(data)) {
@@ -1371,15 +1402,41 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             const time = new Date(updateStr).getTime();
             return isNaN(time) || now - time < ARMADA_IDLE_TIMEOUT_MS;
           });
-          setActiveArmadaList(activeOnly);
+
+          // 3. Deep Fingerprint Guard: Avoid React state mutation if coordinates & status are identical
+          const fingerprint = activeOnly
+            .map(
+              (t) =>
+                `${t.id}_${t.latitude.toFixed(5)}_${t.longitude.toFixed(5)}_${Math.round(t.heading || 0)}_${t.status_jemput}`
+            )
+            .join("|");
+
+          if (fingerprint !== lastArmadaFingerprintRef.current) {
+            lastArmadaFingerprintRef.current = fingerprint;
+            setActiveArmadaList(activeOnly);
+          }
         }
       } catch {
         // silent fallback
       }
     };
 
+    // Initial fetch
     loadActiveArmada();
-    const pollInterval = setInterval(loadActiveArmada, 1500);
+
+    // Adaptive interval: 4500ms (reduces HTTP polling by 70%)
+    pollInterval = setInterval(loadActiveArmada, 4500);
+
+    // Visibility change handler: pause when backgrounded, immediately sync once when foregrounded
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        loadActiveArmada();
+      }
+    };
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
 
     let channel: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
@@ -1404,6 +1461,14 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             setActiveArmadaList((prev) => {
               const idx = prev.findIndex((t) => t.laporan_id === incoming.laporan_id);
               if (idx >= 0) {
+                // If position difference is negligible, avoid re-rendering
+                const current = prev[idx];
+                const dLat = Math.abs(current.latitude - incoming.latitude);
+                const dLng = Math.abs(current.longitude - incoming.longitude);
+                const dHead = Math.abs((current.heading || 0) - (incoming.heading || 0));
+                if (dLat < 0.00002 && dLng < 0.00002 && dHead < 2 && current.status_jemput === incoming.status_jemput) {
+                  return prev;
+                }
                 const updated = [...prev];
                 updated[idx] = { ...updated[idx], ...incoming };
                 return updated;
@@ -1419,7 +1484,10 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
     return () => {
       isMounted = false;
-      clearInterval(pollInterval);
+      if (pollInterval) clearInterval(pollInterval);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
       if (channel) {
         channel.close();
       }
@@ -1496,9 +1564,26 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
         const existingMarker = armadaMarkersRef.current.get(truckKey);
         if (existingMarker) {
+          // High performance: setLatLng uses CSS translate3d directly
           existingMarker.setLatLng([truck.latitude, truck.longitude]);
-          existingMarker.setIcon(truckIcon);
-          existingMarker.setPopupContent(popupHtml);
+
+          const prevHeading = (existingMarker as any)._lastHeading;
+          const prevStatus = (existingMarker as any)._lastStatus;
+          const prevZoom = (existingMarker as any)._lastZoom;
+
+          // Only recreate DOM element if rotation heading, status, or zoom level changed
+          if (
+            prevHeading === undefined ||
+            Math.abs(prevHeading - heading) > 2 ||
+            prevStatus !== truck.status_jemput ||
+            prevZoom !== mapZoom
+          ) {
+            existingMarker.setIcon(truckIcon);
+            existingMarker.setPopupContent(popupHtml);
+            (existingMarker as any)._lastHeading = heading;
+            (existingMarker as any)._lastStatus = truck.status_jemput;
+            (existingMarker as any)._lastZoom = mapZoom;
+          }
         } else {
           const marker = L.marker([truck.latitude, truck.longitude], {
             icon: truckIcon,
@@ -1506,6 +1591,9 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           }).addTo(mapInstanceRef.current);
 
           marker.bindPopup(popupHtml, popupOptions);
+          (marker as any)._lastHeading = heading;
+          (marker as any)._lastStatus = truck.status_jemput;
+          (marker as any)._lastZoom = mapZoom;
 
           armadaMarkersRef.current.set(truckKey, marker);
         }
@@ -1571,31 +1659,6 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       const currentStatus =
         pengepulMissionStatus === "idle" ? "siaga_online" : pengepulMissionStatus;
 
-      const truckIcon = createTruckDivIcon(
-        L,
-        {
-          driverName,
-          status: currentStatus,
-          heading,
-        },
-        mapZoom,
-        isHeadingUpMode
-      );
-
-      const localPopupHtml = createTruckPopupHtml({
-        driverName,
-        status: currentStatus,
-        avatarUrl:
-          user?.avatar_url ||
-          user?.foto_profil ||
-          "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80",
-        rating: 4.9,
-        platNomor: "N 8472 AB",
-        jenisKendaraan: "Truk Bak Hidrolik Mini DLH",
-        telepon: user?.no_telepon || (user as any)?.phone || "0812-3456-7890",
-        alamat: activeRouteReport?.alamat_lokasi,
-      });
-
       const popupOptions = {
         offset: [0, -26] as [number, number],
         className: "custom-truck-leaflet-popup",
@@ -1604,18 +1667,88 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       };
 
       if (!collectorTruckMarkerRef.current) {
+        const truckIcon = createTruckDivIcon(
+          L,
+          {
+            driverName,
+            status: currentStatus,
+            heading,
+          },
+          mapZoom,
+          isHeadingUpMode
+        );
+
+        const localPopupHtml = createTruckPopupHtml({
+          driverName,
+          status: currentStatus,
+          avatarUrl:
+            user?.avatar_url ||
+            user?.foto_profil ||
+            "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80",
+          rating: 4.9,
+          platNomor: "N 8472 AB",
+          jenisKendaraan: "Truk Bak Hidrolik Mini DLH",
+          telepon: user?.no_telepon || (user as any)?.phone || "0812-3456-7890",
+          alamat: activeRouteReport?.alamat_lokasi,
+        });
+
         const marker = L.marker([currentLat, currentLng], {
           icon: truckIcon,
           zIndexOffset: 1200,
         }).addTo(mapInstanceRef.current);
 
         marker.bindPopup(localPopupHtml, popupOptions);
+        (marker as any)._lastHeading = heading;
+        (marker as any)._lastStatus = currentStatus;
+        (marker as any)._lastZoom = mapZoom;
 
         collectorTruckMarkerRef.current = marker;
       } else {
+        // High performance: setLatLng uses CSS translate3d without recreating DOM elements
         collectorTruckMarkerRef.current.setLatLng([currentLat, currentLng]);
-        collectorTruckMarkerRef.current.setIcon(truckIcon);
-        collectorTruckMarkerRef.current.setPopupContent(localPopupHtml);
+
+        const prevHeading = (collectorTruckMarkerRef.current as any)._lastHeading;
+        const prevStatus = (collectorTruckMarkerRef.current as any)._lastStatus;
+        const prevZoom = (collectorTruckMarkerRef.current as any)._lastZoom;
+
+        // Only recreate DOM element if rotation heading (>2 deg), status, or zoom level changed
+        if (
+          prevHeading === undefined ||
+          Math.abs(prevHeading - heading) > 2 ||
+          prevStatus !== currentStatus ||
+          prevZoom !== mapZoom
+        ) {
+          const truckIcon = createTruckDivIcon(
+            L,
+            {
+              driverName,
+              status: currentStatus,
+              heading,
+            },
+            mapZoom,
+            isHeadingUpMode
+          );
+
+          const localPopupHtml = createTruckPopupHtml({
+            driverName,
+            status: currentStatus,
+            avatarUrl:
+              user?.avatar_url ||
+              user?.foto_profil ||
+              "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80",
+            rating: 4.9,
+            platNomor: "N 8472 AB",
+            jenisKendaraan: "Truk Bak Hidrolik Mini DLH",
+            telepon: user?.no_telepon || (user as any)?.phone || "0812-3456-7890",
+            alamat: activeRouteReport?.alamat_lokasi,
+          });
+
+          collectorTruckMarkerRef.current.setIcon(truckIcon);
+          collectorTruckMarkerRef.current.setPopupContent(localPopupHtml);
+          (collectorTruckMarkerRef.current as any)._lastHeading = heading;
+          (collectorTruckMarkerRef.current as any)._lastStatus = currentStatus;
+          (collectorTruckMarkerRef.current as any)._lastZoom = mapZoom;
+        }
       }
     };
 
@@ -1700,7 +1833,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
           // 3. Origin Beacon Marker (Blue pulsating Google Maps My Location dot)
           const originBeaconHtml = `
-            <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
+            <div class="relative w-6 h-6 flex items-center justify-center">
               <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-500 opacity-60"></span>
               <div class="h-6 w-6 rounded-full bg-blue-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-[11px] font-black">
                 📍
@@ -1803,7 +1936,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-100 select-none">
+    <div className="relative w-full h-full overflow-hidden bg-slate-100 select-none">
       {/* 1. Leaflet Fullscreen Map Container */}
       <div
         ref={mapContainerRef}
@@ -1993,7 +2126,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               }
               // Immediately center camera on truck at driving zoom
               if (mapInstanceRef.current) {
-                mapInstanceRef.current.flyTo([truckLat, truckLng], 17, {
+                mapInstanceRef.current.invalidateSize();
+                mapInstanceRef.current.flyTo([truckLat, truckLng], 16, {
                   duration: 0.9,
                   easeLinearity: 0.25,
                 });
@@ -2092,11 +2226,18 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           report={selectedReport}
           allReports={reports}
           weather={currentWeather}
+          user={user}
           onSelectReport={(rep) => {
             setSelectedReport(rep);
             if (mapInstanceRef.current) {
               mapInstanceRef.current.flyTo([rep.latitude, rep.longitude], 16, { duration: 0.8 });
             }
+          }}
+          onReportUpdated={(updatedRep) => {
+            setSelectedReport(updatedRep);
+            setReports((prev) =>
+              prev.map((r) => (r.id === updatedRep.id ? updatedRep : r))
+            );
           }}
           onClose={() => {
             setSelectedReport(null);
@@ -2114,14 +2255,14 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         />
       ) : null}
 
-      {/* 3b. Floating Recenter on Truck Button (Google Maps Style) */}
-      {activeRouteReport && (
-        <div className="fixed bottom-[140px] left-4 sm:bottom-8 sm:left-[440px] z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
+      {/* 3b. Floating Recenter on Truck Button (Google Maps Style - only shown when panned away) */}
+      {activeRouteReport && isMapPannedAway && (
+        <div className="fixed bottom-[125px] left-4 sm:bottom-8 sm:left-[440px] z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <button
             type="button"
             onClick={handleRecenterOnTruck}
             className={cn(
-              "flex items-center gap-2.5 px-4 py-2.5 rounded-full shadow-2xl transition-all duration-200 cursor-pointer text-xs font-black select-none",
+              "flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer text-xs font-black select-none",
               isMapPannedAway
                 ? "bg-white text-[#0EB29A] border-2 border-[#0EB29A] scale-105 shadow-[#0EB29A]/30 hover:bg-[#0EB29A]/10 animate-pulse"
                 : "bg-white/95 text-[#2B3752] border border-slate-200 hover:border-[#0EB29A] hover:bg-white backdrop-blur-md"
@@ -2166,10 +2307,10 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               }
             }}
             className={cn(
-              "flex items-center gap-2.5 px-3 py-2 rounded-2xl shadow-xl transition-all duration-300 cursor-pointer backdrop-blur-md border select-none",
+              "flex items-center gap-2.5 px-3 py-2 rounded-2xl shadow-xl transition-all duration-300 cursor-pointer backdrop-blur-md select-none",
               isHeadingUpMode
-                ? "bg-white/95 border-[#0EB29A] text-[#2B3752] hover:bg-white shadow-[#0EB29A]/20"
-                : "bg-white/90 border-slate-200 text-slate-600 hover:bg-white"
+                ? "shadow-[#0EB29A]/20"
+                : ""
             )}
             title={
               isHeadingUpMode
@@ -2178,7 +2319,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             }
           >
             {/* Rotating Compass Dial */}
-            <div className="relative w-7 h-7 rounded-full bg-slate-100 border border-slate-300/80 flex items-center justify-center shadow-inner flex-shrink-0">
+            <div className="relative w-7 h-7 rounded-full  border border-slate-300/80 flex items-center justify-center shadow-inner flex-shrink-0">
               {/* Compass Needle (Rotates to always point towards magnetic North) */}
               <div
                 className="w-full h-full flex items-center justify-center transition-transform duration-500 ease-out"
@@ -2199,19 +2340,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             </div>
 
             {/* Direction & Degree Label */}
-            <div className="flex flex-col text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-[#2B3752] leading-tight">
-                  {cardinal.label}
-                </span>
-                <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-[#0EB29A]/15 text-[#0EB29A]">
-                  {Math.round(((effectiveHeading % 360) + 360) % 360)}°
-                </span>
-              </div>
-              <span className="text-[9px] font-semibold text-slate-400 leading-none">
-                {isHeadingUpMode ? "Arah Kemudi" : "Kunci Utara"}
-              </span>
-            </div>
+          
           </button>
         </div>
       )}

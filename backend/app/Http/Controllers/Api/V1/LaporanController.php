@@ -323,5 +323,98 @@ class LaporanController extends BaseApiController
 
         return $this->sendResponse(['success' => $success], 'Misi penjemputan ditutup/dibatalkan');
     }
+
+    /**
+     * Get list of citizen responses / reviews for a report.
+     */
+    public function tanggapan(int $id): JsonResponse
+    {
+        $id = $this->resolveLaporanId($id);
+        $tanggapan = $this->laporanService->getTanggapanByLaporanId($id);
+
+        $data = $tanggapan->map(function ($t) {
+            return [
+                'id' => $t->id,
+                'laporan_id' => $t->laporan_id,
+                'user_id' => $t->user_id,
+                'user' => $t->user ? [
+                    'id' => $t->user->id,
+                    'name' => $t->user->name,
+                    'email' => $t->user->email,
+                    'role' => $t->user->role,
+                    'poin' => (int) ($t->user->poin_reward ?? $t->user->poin ?? 0),
+                    'foto_profil' => $t->user->foto_profil ?? $t->user->avatar_url ?? null,
+                ] : null,
+                'tipe_tanggapan_id' => $t->tipe_tanggapan_id,
+                'tipe_tanggapan' => $t->tipeTanggapan ? [
+                    'id' => $t->tipeTanggapan->id,
+                    'nama' => $t->tipeTanggapan->nama,
+                    'kode' => $t->tipeTanggapan->kode,
+                    'icon' => $t->tipeTanggapan->icon,
+                    'deskripsi' => $t->tipeTanggapan->deskripsi,
+                ] : null,
+                'komentar' => $t->komentar,
+                'foto_bukti_url' => $t->foto_bukti_tambahan_url,
+                'created_at' => $t->created_at?->toISOString(),
+            ];
+        });
+
+        return $this->sendResponse($data, 'Daftar ulasan warga berhasil diambil');
+    }
+
+    /**
+     * Store a citizen review / response for a report.
+     */
+    public function storeTanggapan(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'tipe_tanggapan_id' => 'required|integer|exists:master_tipe_tanggapan,id',
+            'komentar' => 'required|string|min:3|max:1000',
+            'foto_bukti_tambahan_url' => 'nullable|string',
+            'user_id' => 'nullable|integer',
+        ]);
+
+        $id = $this->resolveLaporanId($id);
+        $userId = $request->user()?->id ?? ($validated['user_id'] ?? null);
+
+        $tanggapan = $this->laporanService->addTanggapan($id, $validated, $userId);
+
+        $data = [
+            'id' => $tanggapan->id,
+            'laporan_id' => $tanggapan->laporan_id,
+            'user_id' => $tanggapan->user_id,
+            'user' => $tanggapan->user ? [
+                'id' => $tanggapan->user->id,
+                'name' => $tanggapan->user->name,
+                'email' => $tanggapan->user->email,
+                'role' => $tanggapan->user->role,
+                'poin' => (int) ($tanggapan->user->poin_reward ?? $tanggapan->user->poin ?? 0),
+                'foto_profil' => $tanggapan->user->foto_profil ?? $tanggapan->user->avatar_url ?? null,
+            ] : null,
+            'tipe_tanggapan_id' => $tanggapan->tipe_tanggapan_id,
+            'tipe_tanggapan' => $tanggapan->tipeTanggapan ? [
+                'id' => $tanggapan->tipeTanggapan->id,
+                'nama' => $tanggapan->tipeTanggapan->nama,
+                'kode' => $tanggapan->tipeTanggapan->kode,
+                'icon' => $tanggapan->tipeTanggapan->icon,
+                'deskripsi' => $tanggapan->tipeTanggapan->deskripsi,
+            ] : null,
+            'komentar' => $tanggapan->komentar,
+            'foto_bukti_url' => $tanggapan->foto_bukti_tambahan_url,
+            'created_at' => $tanggapan->created_at?->toISOString(),
+        ];
+
+        return $this->sendResponse($data, 'Respon warga berhasil dikirim! Anda mendapatkan +10 Poin Reward.', 201);
+    }
+
+    /**
+     * Get list of response types.
+     */
+    public function tipeTanggapan(): JsonResponse
+    {
+        $types = $this->laporanService->getTipeTanggapan();
+
+        return $this->sendResponse($types, 'Daftar tipe tanggapan berhasil diambil');
+    }
 }
 

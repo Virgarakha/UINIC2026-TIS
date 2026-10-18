@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->name('auth.')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('register');
     Route::post('/login', [AuthController::class, 'login'])->name('login');
+    Route::get('/mitra-pengepul', [AuthController::class, 'mitraPengepul'])->name('mitraPengepul');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me'])->name('me');
@@ -28,10 +29,13 @@ Route::prefix('laporan')->name('laporan.')->group(function () {
     Route::get('/', [LaporanController::class, 'index'])->name('index');
     Route::get('/{id}', [LaporanController::class, 'show'])->name('show');
     Route::post('/', [LaporanController::class, 'store'])->name('store');
+    Route::get('/{id}/tanggapan', [LaporanController::class, 'tanggapan'])->name('tanggapan.index');
+    Route::post('/{id}/tanggapan', [LaporanController::class, 'storeTanggapan'])->name('tanggapan.store');
 });
 
 // Master & Environmental Public Feeds
 Route::get('/kategori-sampah', [LaporanController::class, 'kategori'])->name('kategori.index');
+Route::get('/tipe-tanggapan', [LaporanController::class, 'tipeTanggapan'])->name('tipeTanggapan.index');
 Route::get('/peringatan-dini', [LaporanController::class, 'peringatanDini'])->name('peringatan.index');
 Route::get('/katalog-hadiah', [LaporanController::class, 'katalogHadiah'])->name('hadiah.index');
 

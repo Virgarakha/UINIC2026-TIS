@@ -79,8 +79,17 @@ export interface LaporanSampah {
   total_tanggapan?: number;
   total_foto_tambahan?: number;
   analisis_ai?: AnalisisAi | null;
+  tanggapan?: TanggapanLaporan[];
   created_at: string;
   updated_at?: string;
+}
+
+export interface MasterTipeTanggapan {
+  id: number;
+  kode: string;
+  nama: string;
+  icon: string;
+  deskripsi?: string | null;
 }
 
 export interface TanggapanLaporan {
@@ -90,11 +99,6 @@ export interface TanggapanLaporan {
   user?: User | null;
   komentar: string;
   foto_bukti_url?: string | null;
-  tipe_tanggapan?: {
-    id: number;
-    nama: string;
-    kode: string;
-    icon: string;
-  } | null;
+  tipe_tanggapan?: MasterTipeTanggapan | null;
   created_at: string;
 }
