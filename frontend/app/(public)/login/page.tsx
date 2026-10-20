@@ -115,18 +115,17 @@ export default function LoginPage() {
         <div className="lg:col-span-6 flex flex-col justify-center max-w-md mx-auto w-full">
           
           {/* Brand Logo matching Innovasis placement */}
-          <div className="flex items-center gap-2.5 mb-8 sm:mb-12">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1E5345] text-emerald-300 font-black text-lg">
-              ✦
-            </div>
-            <span className="text-xl font-black tracking-tight text-[#18231D]">
-              EcoPatrol
-            </span>
-          </div>
+          <Link href="/" className="inline-block mb-8 sm:mb-12" title="Kembali ke Beranda">
+            <img
+              src="/images/logo-text.png"
+              alt="TRINFO - Trash Information System"
+              className="h-11 w-auto object-contain"
+            />
+          </Link>
 
           {/* Heading */}
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#18231D] tracking-tight mb-8">
-            Start journey<br />with EcoPatrol
+            Start journey<br />with TRINFO
           </h1>
 
           {/* Alert Notices */}

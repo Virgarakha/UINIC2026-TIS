@@ -1,12 +1,12 @@
 <aside class="synto-sidebar d-flex flex-column flex-shrink-0">
-    <!-- Brand / Logo (Sistem Sampah) -->
+    <!-- Brand / Logo (TRINFO) -->
     <a href="{{ route('admin.dashboard') }}" class="synto-brand text-decoration-none">
-        <div class="synto-brand-logo">
-            <i class="bi bi-water"></i>
+        <div class="synto-brand-logo p-1 d-flex align-items-center justify-content-center" style="background: rgba(14, 178, 154, 0.15); border-radius: 10px;">
+            <img src="{{ asset('images/logo.png') }}" alt="TRINFO" style="height: 28px; width: auto; object-fit: contain;">
         </div>
         <div class="d-flex flex-column">
-            <span class="fs-5 fw-bold text-white tracking-wide lh-1">Sistem Sampah</span>
-            <small class="text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">MONITORING & AI EARLY WARNING</small>
+            <span class="fs-5 fw-bold text-white tracking-wide lh-1">TRINFO</span>
+            <small class="text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">TRASH INFORMATION SYSTEM</small>
         </div>
     </a>
 
@@ -78,14 +78,15 @@
 
         <!-- Section: API & INTEGRATION -->
         <div class="synto-menu-header">API & INTEGRATION</div>
+        <a href="{{ route('admin.api-docs.index') }}" class="synto-nav-link {{ request()->routeIs('admin.api-docs.*') ? 'active' : '' }}">
+            <i class="bi bi-file-earmark-code-fill"></i>
+            <span>Dokumentasi & Paket API</span>
+            <span class="badge bg-primary-subtle text-primary ms-auto fw-bold" style="font-size: 10px;">Berbayar</span>
+        </a>
         <a href="{{ url('/api/v1/users') }}" target="_blank" class="synto-nav-link">
             <i class="bi bi-terminal-fill"></i>
-            <span>REST API (v1)</span>
+            <span>Endpoint Live (v1)</span>
             <i class="bi bi-arrow-up-right ms-auto fs-6 opacity-50"></i>
-        </a>
-        <a href="#" class="synto-nav-link" data-bs-toggle="modal" data-bs-target="#apiDocsModal">
-            <i class="bi bi-file-earmark-code-fill"></i>
-            <span>API Specs & Schema</span>
         </a>
     </div>
 

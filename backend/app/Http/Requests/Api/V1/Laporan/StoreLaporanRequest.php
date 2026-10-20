@@ -32,6 +32,7 @@ class StoreLaporanRequest extends FormRequest
             'status_id' => ['nullable', 'integer', 'exists:status_laporan,id'],
             'is_resiko_banjir' => ['nullable', 'boolean'],
             'tipe_bahaya' => ['nullable', 'string', 'max:60'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'analisis_ai' => ['nullable', 'array'],
             'data_lingkungan' => ['nullable', 'array'],
             'weather' => ['nullable', 'array'],

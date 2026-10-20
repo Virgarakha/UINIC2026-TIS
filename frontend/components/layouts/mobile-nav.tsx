@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Camera, Compass, Gift, Home, ShieldAlert, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStoredUser } from "@/lib/auth-storage";
+import { getStoredUser, isGuestUser } from "@/lib/auth-storage";
 import { User } from "@/types";
 
 export interface MobileNavProps {
@@ -22,12 +22,15 @@ export function MobileNav({ onLaporClick, className }: MobileNavProps = {}) {
   }, [pathname]);
 
   const isWarga = user?.role === "warga";
+  const isGuest = isGuestUser(user);
 
   const navItems = [
     { title: "Beranda", href: "/", icon: Home },
     { title: "Radar", href: "/peta", icon: Compass },
     { title: "Lapor", href: "/lapor", icon: Camera, isAction: true },
-    isWarga
+    isGuest
+      ? { title: "Laporan Warga", href: "/laporan-saya", icon: ClipboardList }
+      : isWarga
       ? { title: "Laporan Saya", href: "/laporan-saya", icon: ClipboardList }
       : { title: "Siaga", href: "/peringatan", icon: ShieldAlert },
     { title: "Rewards", href: "/rewards", icon: Gift },

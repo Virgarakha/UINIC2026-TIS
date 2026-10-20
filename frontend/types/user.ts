@@ -20,6 +20,7 @@ export interface User {
   role: UserRole;
   poin: number;
   poin_reward?: number;
+  is_guest?: boolean;
   foto_profil?: string | null;
   avatar_url?: string | null;
   // Specific Pengepul fleet details

@@ -24,6 +24,7 @@ import {
   Radio,
   BellRing,
   Truck,
+  User as UserIcon,
 } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Layer as LeafletLayer } from "leaflet";
 import { SearchFloatingBar } from "./search-floating-bar";
@@ -59,6 +60,10 @@ import {
   getBookmarkedIds,
   toggleBookmarkedId,
   getDispatchedReportIds,
+  removeDispatchedReportId,
+  updateStoredUserReportStatus,
+  saveStoredUserReport,
+  getStoredUserReports,
 } from "@/lib/auth-storage";
 import { getLiveWeather, WeatherData } from "@/lib/weather";
 import { getDistanceMeters, cn } from "@/lib/utils";
@@ -97,6 +102,25 @@ function getCardinalDirection(deg: number): { label: string; code: string } {
 }
 
 /**
+ * Helper to determine if a waste report has been completed / cleaned
+ */
+function isReportCompleted(rep?: LaporanSampah | null): boolean {
+  if (!rep) return false;
+  const kode = (rep.status?.kode || "").toLowerCase();
+  const nama = (rep.status?.nama || "").toLowerCase();
+  const sid = rep.status_id || rep.status?.id;
+  return (
+    sid === 6 ||
+    kode === "selesai" ||
+    kode === "tuntas" ||
+    kode === "bersih" ||
+    nama.includes("selesai") ||
+    nama.includes("tuntas") ||
+    nama.includes("bersih")
+  );
+}
+
+/**
  * Creates dynamic Leaflet DivIcon for the waste collection truck.
  * Scales proportionally with map zoom to match real road lane widths.
  */
@@ -106,28 +130,42 @@ function createTruckDivIcon(
     driverName: string;
     status: string;
     heading: number;
+    vehicleType?: string;
   },
   zoom: number,
   isHeadingUp: boolean = false
 ) {
+  const isMotor = truck.vehicleType === "motorcycle";
+
   // Proportional vehicle scaling matching road width, slightly larger when zoomed out
   let width: number;
-  if (zoom >= 18) width = 22;
-  else if (zoom === 17) width = 18;
-  else if (zoom === 16) width = 14;
-  else if (zoom === 15) width = 12;
-  else if (zoom === 14) width = 10;
-  else if (zoom === 13) width = 9;
-  else if (zoom === 12) width = 8;
-  else width = 7;
+  if (isMotor) {
+    if (zoom >= 18) width = 18;
+    else if (zoom === 17) width = 15;
+    else if (zoom === 16) width = 13;
+    else if (zoom === 15) width = 11;
+    else if (zoom === 14) width = 9;
+    else if (zoom === 13) width = 8;
+    else width = 7;
+  } else {
+    if (zoom >= 18) width = 22;
+    else if (zoom === 17) width = 18;
+    else if (zoom === 16) width = 14;
+    else if (zoom === 15) width = 12;
+    else if (zoom === 14) width = 10;
+    else if (zoom === 13) width = 9;
+    else if (zoom === 12) width = 8;
+    else width = 7;
+  }
 
-  const height = Math.round(width * 2.3);
+  const height = isMotor ? Math.round(width * 2.0) : Math.round(width * 2.3);
   const isPickingUp = truck.status === "tahap_pengambilan";
   const isStandby = truck.status === "siaga_online" || truck.status === "online";
   const statusText = isPickingUp ? "Tahap Pengambilan" : isStandby ? "Siaga (Online)" : "OTW ke Lokasi";
   const badgeBg = isPickingUp ? "bg-emerald-600" : isStandby ? "bg-teal-600" : "bg-[#0EB29A]";
   const heading = truck.heading ?? 0;
   const badgeCounterRotate = isHeadingUp ? `rotate(${heading}deg)` : "rotate(0deg)";
+  const vehicleLabel = isMotor ? "Motor" : "Truk";
 
   // Floating status badge scaling
   let badgeHtml = "";
@@ -136,7 +174,7 @@ function createTruckDivIcon(
     badgeHtml = `
       <div class="mb-0.5 px-2 py-0.5 rounded-full bg-[#2B3752]/95 border border-[#0EB29A] text-white text-[10px] font-black shadow-xl flex items-center gap-1.5 whitespace-nowrap backdrop-blur-md pointer-events-none origin-bottom transition-transform duration-300" style="transform: scale(${scale}) ${badgeCounterRotate};">
         <span class="h-1.5 w-1.5 rounded-full ${isPickingUp ? "bg-emerald-400" : "bg-[#0EB29A]"} animate-ping"></span>
-        <span class="tracking-tight text-white">${truck.driverName}</span>
+        <span class="tracking-tight text-white">${truck.driverName} <span class="text-[8.5px] text-emerald-300 font-bold">(${vehicleLabel})</span></span>
         <span class="text-[8.5px] px-1.5 py-0.2 rounded-full ${badgeBg} text-white font-bold uppercase tracking-wider">${statusText}</span>
       </div>
     `;
@@ -144,10 +182,13 @@ function createTruckDivIcon(
     badgeHtml = `
       <div class="mb-0.5 px-1.5 py-0.2 rounded-full bg-[#2B3752]/95 border border-[#0EB29A] text-white text-[8.5px] font-black shadow-md flex items-center gap-1 whitespace-nowrap pointer-events-none origin-bottom transition-transform duration-300" style="transform: scale(0.7) ${badgeCounterRotate};">
         <span class="h-1.5 w-1.5 rounded-full ${isPickingUp ? "bg-emerald-400" : "bg-[#0EB29A]"}"></span>
-        <span class="tracking-tight text-white">${truck.driverName.split(" ")[0] || "Pengepul"}</span>
+        <span class="tracking-tight text-white">${truck.driverName.split(" ")[0] || "Pengepul"} (${vehicleLabel})</span>
       </div>
     `;
   }
+
+  const vehicleImgSrc = isMotor ? "/images/motorcycle-collector.svg" : "/images/truck-collector.png";
+  const vehicleAlt = isMotor ? "Armada Motor Pengepul" : "Armada Truk Pengepul";
 
   const truckHtml = `
     <div class="collector-truck-container relative flex flex-col items-center cursor-pointer select-none" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
@@ -159,7 +200,7 @@ function createTruckDivIcon(
           <div class="absolute -top-0.5 right-0.5 h-1 w-1 rounded-full bg-yellow-300/80 blur-[0.5px]"></div>
         ` : ""}
         <div class="absolute inset-x-0.5 inset-y-0.5 bg-black/40 rounded-sm blur-[1px] -z-10 translate-y-0.5"></div>
-        <img src="/images/truck-collector.png" alt="Armada Truk Pengepul" class="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none" />
+        <img src="${vehicleImgSrc}" alt="${vehicleAlt}" class="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none" />
       </div>
     </div>
   `;
@@ -298,10 +339,12 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   const [mapZoom, setMapZoom] = React.useState<number>(14);
   const routeLayersRef = React.useRef<{
     polylineBorder?: any;
-    polylineInner?: any;
+    polylineTraversed?: any;
+    polylineRemaining?: any;
     originMarker?: any;
   }>({});
   const collectorTruckMarkerRef = React.useRef<any>(null);
+  const userLocationMarkerRef = React.useRef<any>(null);
   const armadaMarkersRef = React.useRef<Map<string, any>>(new Map());
   const leafletLibRef = React.useRef<any>(null);
   const [activeArmadaList, setActiveArmadaList] = React.useState<ActiveArmadaTruck[]>([]);
@@ -717,12 +760,23 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     fetchLaporanListApi().then((data) => {
       if (isMounted && data && data.length > 0) {
         setReports(data);
-        const serverDispatched = data
-          .filter((r) => r.is_dispatched || r.status?.kode === "siap_diambil_pengepul")
+        const completedIds = data
+          .filter((r) => {
+            const statusKode = (r.status?.kode || "").toLowerCase();
+            const statusNama = (r.status?.nama || "").toLowerCase();
+            return statusKode === "selesai" || statusKode === "tuntas" || statusNama.includes("selesai") || statusNama.includes("tuntas");
+          })
           .map((r) => r.id);
-        if (serverDispatched.length > 0) {
-          setDispatchedReportIds((prev) => [...new Set([...prev, ...serverDispatched])]);
-        }
+
+        completedIds.forEach((id) => removeDispatchedReportId(id));
+
+        const serverDispatched = data
+          .filter((r) => !completedIds.includes(r.id) && (r.is_dispatched || r.status?.kode === "siap_diambil_pengepul"))
+          .map((r) => r.id);
+        setDispatchedReportIds((prev) => {
+          const filtered = prev.filter((id) => !completedIds.includes(id));
+          return [...new Set([...filtered, ...serverDispatched])];
+        });
       }
     });
 
@@ -773,9 +827,13 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     };
   }, [selectedReport]);
 
-  // Filter reports
+  // Filter reports (Bug 3: Automatically remove completed/picked up waste pins from active map)
   const filteredReports = React.useMemo(() => {
     return reports.filter((rep) => {
+      if (isReportCompleted(rep)) {
+        return false;
+      }
+
       const matchQuery =
         !searchQuery ||
         rep.alamat_lokasi.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1026,12 +1084,19 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         report?: LaporanSampah;
       }> = [];
 
-      // 1. Prioritize active warning broadcasts
+      // 1. Prioritize active warning broadcasts (omit completed / pulled reports)
       warnings.forEach((w) => {
+        // Skip inactive warning broadcasts
+        if (w.status_aktif === false || (w as any).is_aktif === false) return;
+
         const matchedReport =
-          w.laporan ||
           reports.find((r) => r.id === w.laporan_id) ||
+          w.laporan ||
           MOCK_LAPORAN_SAMPAH.find((r) => r.id === w.laporan_id);
+
+        // If the associated report is already completed/cleaned by pengepul, hide the radius
+        if (matchedReport && isReportCompleted(matchedReport)) return;
+        if (w.laporan && isReportCompleted(w.laporan)) return;
 
         const lat =
           matchedReport?.latitude ||
@@ -1054,10 +1119,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         });
       });
 
-      // 2. If no warnings loaded yet, detect critical flood/hazard reports
-      if (activeHazardTargets.length === 0) {
-        reports.forEach((r) => {
-          if (r.is_resiko_banjir || r.tipe_bahaya) {
+      // 2. Also detect critical flood/hazard reports that are still active (not completed)
+      reports.forEach((r) => {
+        if (isReportCompleted(r)) return;
+
+        if (r.is_resiko_banjir || r.tipe_bahaya) {
+          const alreadyCovered = activeHazardTargets.some(
+            (t) =>
+              t.report?.id === r.id ||
+              (Math.abs(t.lat - r.latitude) < 0.0001 && Math.abs(t.lng - r.longitude) < 0.0001)
+          );
+          if (!alreadyCovered) {
             activeHazardTargets.push({
               id: `rep_${r.id}`,
               lat: r.latitude,
@@ -1069,8 +1141,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               report: r,
             });
           }
-        });
-      }
+        }
+      });
 
       activeHazardTargets.forEach((t) => {
         const isAwas = t.level === "AWAS";
@@ -1120,6 +1192,10 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         }).addTo(map);
 
         if (t.report) {
+          (outerCircle as any)._targetReportId = t.report.id;
+          (innerCircle as any)._targetReportId = t.report.id;
+          (tagMarker as any)._targetReportId = t.report.id;
+
           tagMarker.on("click", () => {
             setSelectedReport(t.report!);
           });
@@ -1583,6 +1659,53 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           } else if (msg.type === "TRUCK_MISSION_FINISHED" || msg.type === "TRUCK_MISSION_CANCELLED") {
             setActiveArmadaList((prev) => prev.filter((t) => t.laporan_id !== msg.laporan_id));
             setDispatchedReportIds((prev) => prev.filter((id) => id !== msg.laporan_id));
+            if (msg.laporan_id) {
+              if (markersRef.current[msg.laporan_id] && mapInstanceRef.current) {
+                try {
+                  mapInstanceRef.current.removeLayer(markersRef.current[msg.laporan_id]);
+                } catch {}
+                delete markersRef.current[msg.laporan_id];
+              }
+              // Immediately remove any hazard radius layer tied to this report
+              if (mapInstanceRef.current) {
+                hazardLayersRef.current.forEach((layer) => {
+                  try {
+                    if ((layer as any)._targetReportId === msg.laporan_id) {
+                      mapInstanceRef.current?.removeLayer(layer);
+                    }
+                  } catch {}
+                });
+                hazardLayersRef.current = hazardLayersRef.current.filter(
+                  (layer) => (layer as any)._targetReportId !== msg.laporan_id
+                );
+              }
+              setReports((prev) =>
+                prev.map((r) =>
+                  r.id === msg.laporan_id
+                    ? {
+                        ...r,
+                        status_id: 6,
+                        status: {
+                          id: 6,
+                          kode: "selesai",
+                          nama: "Selesai Bersih",
+                          badge_color: "success",
+                          urutan: 6,
+                        },
+                      }
+                    : r
+                )
+              );
+              setWarnings((prev) =>
+                prev.map((w) =>
+                  w.laporan_id === msg.laporan_id || w.laporan?.id === msg.laporan_id
+                    ? { ...w, status_aktif: false, is_aktif: false }
+                    : w
+                )
+              );
+              setSelectedReport((prev) => (prev?.id === msg.laporan_id ? null : prev));
+              setActiveRouteReport((prev) => (prev?.id === msg.laporan_id ? null : prev));
+            }
           } else if (msg.type === "CITIZEN_PICKUP_REQUESTED" && msg.reportId) {
             setDispatchedReportIds((prev) => {
               if (!prev.includes(msg.reportId)) {
@@ -1782,6 +1905,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         autoPan: true,
       };
 
+      const isMotor = travelMode === "motorcycle";
+
       if (!collectorTruckMarkerRef.current) {
         const truckIcon = createTruckDivIcon(
           L,
@@ -1789,6 +1914,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             driverName,
             status: currentStatus,
             heading,
+            vehicleType: travelMode,
           },
           mapZoom,
           isHeadingUpMode
@@ -1802,8 +1928,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             user?.foto_profil ||
             "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80",
           rating: 4.9,
-          platNomor: "N 8472 AB",
-          jenisKendaraan: "Truk Bak Hidrolik Mini DLH",
+          platNomor: isMotor ? "N 4821 EX" : "N 8472 AB",
+          jenisKendaraan: isMotor ? "Sepeda Motor Roda Dua Pengepul (Mitra DLH)" : "Truk Bak Hidrolik Mini DLH",
           telepon: user?.no_telepon || (user as any)?.phone || "0812-3456-7890",
           alamat: activeRouteReport?.alamat_lokasi,
         });
@@ -1817,6 +1943,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         (marker as any)._lastHeading = heading;
         (marker as any)._lastStatus = currentStatus;
         (marker as any)._lastZoom = mapZoom;
+        (marker as any)._lastVehicleType = travelMode;
 
         collectorTruckMarkerRef.current = marker;
       } else {
@@ -1826,13 +1953,15 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         const prevHeading = (collectorTruckMarkerRef.current as any)._lastHeading;
         const prevStatus = (collectorTruckMarkerRef.current as any)._lastStatus;
         const prevZoom = (collectorTruckMarkerRef.current as any)._lastZoom;
+        const prevVehicleType = (collectorTruckMarkerRef.current as any)._lastVehicleType;
 
-        // Only recreate DOM element if rotation heading (>2 deg), status, or zoom level changed
+        // Only recreate DOM element if rotation heading (>2 deg), status, zoom level, or vehicle mode changed
         if (
           prevHeading === undefined ||
           Math.abs(prevHeading - heading) > 2 ||
           prevStatus !== currentStatus ||
-          prevZoom !== mapZoom
+          prevZoom !== mapZoom ||
+          prevVehicleType !== travelMode
         ) {
           const truckIcon = createTruckDivIcon(
             L,
@@ -1840,6 +1969,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               driverName,
               status: currentStatus,
               heading,
+              vehicleType: travelMode,
             },
             mapZoom,
             isHeadingUpMode
@@ -1853,8 +1983,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               user?.foto_profil ||
               "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80",
             rating: 4.9,
-            platNomor: "N 8472 AB",
-            jenisKendaraan: "Truk Bak Hidrolik Mini DLH",
+            platNomor: isMotor ? "N 4821 EX" : "N 8472 AB",
+            jenisKendaraan: isMotor ? "Sepeda Motor Roda Dua Pengepul (Mitra DLH)" : "Truk Bak Hidrolik Mini DLH",
             telepon: user?.no_telepon || (user as any)?.phone || "0812-3456-7890",
             alamat: activeRouteReport?.alamat_lokasi,
           });
@@ -1864,6 +1994,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           (collectorTruckMarkerRef.current as any)._lastHeading = heading;
           (collectorTruckMarkerRef.current as any)._lastStatus = currentStatus;
           (collectorTruckMarkerRef.current as any)._lastZoom = mapZoom;
+          (collectorTruckMarkerRef.current as any)._lastVehicleType = travelMode;
         }
       }
     };
@@ -1879,6 +2010,101 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     }
   }, [pengepulMissionStatus, collectorLocation, user, isMapReady, routeData, mapZoom, isHeadingUpMode, isDriverIdle, isPengepulOnline]);
 
+  // Bug 2: Indikator Lokasi Pengguna (Titik Biru) pada Mode Armada
+  // Tampilkan indikator posisi/lokasi pengguna (titik biru) saat status armada sedang offline.
+  // Sebaliknya, sembunyikan/hapus titik biru tersebut ketika status armada diubah menjadi online.
+  React.useEffect(() => {
+    const isPengepul = user?.role === "pengepul";
+    const isMissionActive =
+      pengepulMissionStatus === "otw" || pengepulMissionStatus === "tahap_pengambilan";
+    const isArmadaOnline = isPengepulOnline && (isPengepul || isMissionActive) && !isDriverIdle;
+
+    const map = mapInstanceRef.current;
+    if (!map || !isMapReady) return;
+
+    // Jika armada ONLINE -> sembunyikan/hapus titik biru (karena digantikan oleh marker armada truk)
+    if (isArmadaOnline) {
+      if (userLocationMarkerRef.current) {
+        try {
+          map.removeLayer(userLocationMarkerRef.current);
+        } catch {}
+        userLocationMarkerRef.current = null;
+      }
+      return;
+    }
+
+    // Jika armada OFFLINE (atau pengguna umum/warga) -> TAMPILKAN titik biru lokasi pengguna
+    const currentLat =
+      collectorLocation?.lat ??
+      gpsTracker.position?.lat ??
+      geo.latitude ??
+      -7.9826;
+    const currentLng =
+      collectorLocation?.lng ??
+      gpsTracker.position?.lng ??
+      geo.longitude ??
+      112.6308;
+
+    const renderBlueDot = (L: any) => {
+      if (!mapInstanceRef.current) return;
+
+      const blueDotHtml = `
+        <div class="user-location-beacon relative flex items-center justify-center select-none pointer-events-none" style="transform: translate(-50%, -50%);">
+          <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-500 opacity-60"></span>
+          <span class="absolute inline-flex h-6 w-6 rounded-full bg-blue-400/30"></span>
+          <div class="h-4 w-4 rounded-full bg-blue-600 border-2 border-white shadow-xl flex items-center justify-center">
+            <div class="h-1.5 w-1.5 rounded-full bg-white"></div>
+          </div>
+        </div>
+      `;
+
+      const blueDotIcon = L.divIcon({
+        className: "custom-user-blue-dot-marker",
+        html: blueDotHtml,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+
+      if (!userLocationMarkerRef.current) {
+        const marker = L.marker([currentLat, currentLng], {
+          icon: blueDotIcon,
+          zIndexOffset: 1100,
+        }).addTo(mapInstanceRef.current);
+        marker.bindTooltip("Lokasi Saya (GPS)", {
+          direction: "top",
+          offset: [0, -10],
+          className: "custom-tooltip-user-location",
+        });
+        userLocationMarkerRef.current = marker;
+      } else {
+        userLocationMarkerRef.current.setLatLng([currentLat, currentLng]);
+      }
+    };
+
+    if (leafletLibRef.current) {
+      renderBlueDot(leafletLibRef.current);
+    } else {
+      import("leaflet").then((leafletModule) => {
+        const L = (leafletModule as any).default || leafletModule;
+        leafletLibRef.current = L;
+        renderBlueDot(L);
+      });
+    }
+  }, [
+    isPengepulOnline,
+    user?.role,
+    pengepulMissionStatus,
+    isDriverIdle,
+    isMapReady,
+    collectorLocation?.lat,
+    collectorLocation?.lng,
+    gpsTracker.position?.lat,
+    gpsTracker.position?.lng,
+    geo.latitude,
+    geo.longitude,
+    travelMode,
+  ]);
+
   // Clear any existing route polyline layers, origin beacon marker, and collector truck
   const clearRouteLayers = () => {
     const map = mapInstanceRef.current;
@@ -1886,8 +2112,11 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       if (routeLayersRef.current.polylineBorder) {
         map.removeLayer(routeLayersRef.current.polylineBorder);
       }
-      if (routeLayersRef.current.polylineInner) {
-        map.removeLayer(routeLayersRef.current.polylineInner);
+      if (routeLayersRef.current.polylineTraversed) {
+        map.removeLayer(routeLayersRef.current.polylineTraversed);
+      }
+      if (routeLayersRef.current.polylineRemaining) {
+        map.removeLayer(routeLayersRef.current.polylineRemaining);
       }
       if (routeLayersRef.current.originMarker) {
         map.removeLayer(routeLayersRef.current.originMarker);
@@ -1938,8 +2167,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             lineJoin: "round",
           }).addTo(map);
 
-          // 2. Primary vibrant mint teal navigation path line (#0EB29A)
-          const polylineInner = L.polyline(data.coordinates, {
+          // 2. Traversed path: gray (#94a3b8) - Item 4: rute jalan yang telah dilalui armada menjadi warna abu-abu
+          const polylineTraversed = L.polyline([data.coordinates[0]], {
+            color: "#94a3b8",
+            weight: 4.5,
+            opacity: 0.95,
+            lineCap: "round",
+            lineJoin: "round",
+          }).addTo(map);
+
+          // 3. Remaining path: vibrant mint teal (#0EB29A)
+          const polylineRemaining = L.polyline(data.coordinates, {
             color: "#0EB29A",
             weight: 4.5,
             opacity: 0.95,
@@ -1947,7 +2185,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             lineJoin: "round",
           }).addTo(map);
 
-          // 3. Origin Beacon Marker (Blue pulsating Google Maps My Location dot)
+          // 4. Origin Beacon Marker (Blue pulsating Google Maps My Location dot)
           const originBeaconHtml = `
             <div class="relative w-6 h-6 flex items-center justify-center">
               <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-500 opacity-60"></span>
@@ -1966,7 +2204,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
           routeLayersRef.current = {
             polylineBorder,
-            polylineInner,
+            polylineTraversed,
+            polylineRemaining,
             originMarker,
           };
 
@@ -1984,6 +2223,35 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     }
   };
 
+  // Dynamically update traversed (gray) and remaining (teal) route segments (Item 4)
+  React.useEffect(() => {
+    if (!routeData?.coordinates || routeData.coordinates.length < 2) return;
+    const { polylineTraversed, polylineRemaining } = routeLayersRef.current;
+    if (!polylineTraversed || !polylineRemaining) return;
+
+    const coords = routeData.coordinates;
+    let splitIndex = 0;
+
+    if (isSimulatingDrive) {
+      splitIndex = Math.min(Math.max(0, simulationIndex), coords.length - 1);
+    } else if (collectorLocation) {
+      let minDistance = Infinity;
+      coords.forEach((pt, idx) => {
+        const d = Math.hypot(pt[0] - collectorLocation.lat, pt[1] - collectorLocation.lng);
+        if (d < minDistance) {
+          minDistance = d;
+          splitIndex = idx;
+        }
+      });
+    }
+
+    const traversed = coords.slice(0, splitIndex + 1);
+    const remaining = coords.slice(splitIndex);
+
+    polylineTraversed.setLatLngs(traversed.length > 0 ? traversed : [coords[0]]);
+    polylineRemaining.setLatLngs(remaining.length > 0 ? remaining : [coords[coords.length - 1]]);
+  }, [simulationIndex, isSimulatingDrive, collectorLocation, routeData]);
+
   const handleTravelModeChange = (mode: "driving" | "motorcycle" | "walking") => {
     setTravelMode(mode);
     if (activeRouteReport) {
@@ -1992,7 +2260,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   };
 
   const handleCloseRoute = () => {
-    if (activeRouteReport) {
+    if (activeRouteReport && pengepulMissionStatus !== "selesai") {
       cancelPenjemputanApi(activeRouteReport.id, user?.id);
       if (typeof BroadcastChannel !== "undefined") {
         try {
@@ -2033,8 +2301,12 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
   // Fly to user GPS location
   const handleFlyToMyLocation = () => {
-    if (!geo.latitude || !geo.longitude || !mapInstanceRef.current) return;
-    mapInstanceRef.current.flyTo([geo.latitude, geo.longitude], 16, { duration: 1.0 });
+    geo.refresh();
+    const lat = collectorLocation?.lat ?? gpsTracker.position?.lat ?? geo.latitude ?? -7.9826;
+    const lng = collectorLocation?.lng ?? gpsTracker.position?.lng ?? geo.longitude ?? 112.6308;
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 1.0 });
+    }
   };
 
   const handleLogout = async () => {
@@ -2126,7 +2398,13 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           isRailVisible={Boolean(user)}
           roleViewMode={roleViewMode}
           onOpenTrackerModal={() => {
-            setTrackingReport(reports[0] || null);
+            const stored = getStoredUserReports();
+            const userReport =
+              reports.find((r: any) => r.user?.id === user?.id || r.pelapor?.id === user?.id || r.user_id === user?.id) ||
+              (stored.length > 0 ? stored[0] : null) ||
+              reports[0] ||
+              null;
+            setTrackingReport(userReport);
             setIsTrackerModalOpen(true);
           }}
         />
@@ -2350,6 +2628,13 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           weather={currentWeather}
           user={user}
           roleViewMode={roleViewMode}
+          dispatchedReportIds={dispatchedReportIds}
+          activeArmadaList={activeArmadaList}
+          userLocation={
+            collectorLocation ||
+            (gpsTracker.position?.lat ? { lat: gpsTracker.position.lat, lng: gpsTracker.position.lng } : null) ||
+            (geo.latitude && geo.longitude ? { lat: geo.latitude, lng: geo.longitude } : null)
+          }
           onOpenTracker={(rep) => {
             setTrackingReport(rep);
             setIsTrackerModalOpen(true);
@@ -2368,6 +2653,9 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           }}
           onReportDispatched={(repId) => {
             setDispatchedReportIds((prev) => [...new Set([...prev, repId])]);
+          }}
+          onReportCancelled={(repId) => {
+            setDispatchedReportIds((prev) => prev.filter((id) => id !== repId));
           }}
           onClose={() => {
             setSelectedReport(null);
@@ -2561,7 +2849,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         <div
           className={cn(
             "hidden sm:block absolute bottom-8 z-20 transition-all duration-300",
-            user ? "left-4 sm:left-[84px]" : "left-6"
+            user ? "left-4 sm:left-[88px]" : "left-6"
           )}
         >
         {/* Layer Popover Menu */}
@@ -2818,15 +3106,17 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           <div className="relative z-10 w-80 max-w-[85vw] h-full bg-white shadow-2xl flex flex-col p-4 animate-in slide-in-from-left duration-200 border-r border-slate-200">
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#0EB29A] to-[#2E6E65] text-white flex items-center justify-center font-bold shadow-md shadow-[#0EB29A]/30">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
+              <Link href="/" className="flex items-center gap-2.5 group" title="TRINFO - Trash Information System">
+                <img
+                  src="/images/logo.png"
+                  alt="TRINFO Logo"
+                  className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
+                />
                 <div>
-                  <h3 className="text-sm font-black text-[#2B3752]">{siteConfig.name}</h3>
-                  <span className="text-[10px] text-[#0EB29A] font-bold">AI Multi-Hazard Maps</span>
+                  <h3 className="text-sm font-black text-[#2B3752]">TRINFO</h3>
+                  <span className="text-[10px] text-[#0EB29A] font-bold">Trash Information System</span>
                 </div>
-              </div>
+              </Link>
               <button
                 onClick={() => setIsSideMenuOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-[#2B3752] rounded-full"
@@ -2836,41 +3126,56 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             </div>
 
             {/* User Profile Card */}
-            <div className="my-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-[#0EB29A] text-white font-bold text-xs flex items-center justify-center">
-                  {user ? user.name.slice(0, 2).toUpperCase() : "TM"}
-                </div>
-                <div>
-                  <strong className="text-xs font-bold text-[#2B3752] block truncate max-w-[130px]">
-                    {user ? user.name : "Tamu (Belum Masuk)"}
-                  </strong>
-                  <span className="text-[10px] text-slate-400 block truncate max-w-[130px]">
-                    {user
-                      ? user.role === "admin"
+            {user ? (
+              <div className="my-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-full bg-[#0EB29A] text-white font-bold text-xs flex items-center justify-center">
+                    {user.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <strong className="text-xs font-bold text-[#2B3752] block truncate max-w-[130px]">
+                      {user.name}
+                    </strong>
+                    <span className="text-[10px] text-slate-400 block truncate max-w-[130px]">
+                      {user.role === "admin"
                         ? "Administrator DLH"
-                        : "Warga Teladan"
-                      : "Mode Tamu"}
-                  </span>
+                        : user.role === "pengepul"
+                        ? "Mitra Pengepul"
+                        : "Warga Teladan"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              {user ? (
                 <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
                   <Coins className="h-3.5 w-3.5" />
                   <span>{user.poin} Poin</span>
                 </div>
-              ) : (
+              </div>
+            ) : (
+              <div className="my-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-full bg-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center">
+                    <UserIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <strong className="text-xs font-bold text-[#2B3752] block">
+                      Belum Masuk
+                    </strong>
+                    <span className="text-[10px] text-slate-400 block">
+                      Akses Publik • Masuk untuk Poin
+                    </span>
+                  </div>
+                </div>
                 <button
                   onClick={() => {
                     setIsSideMenuOpen(false);
                     setIsLoginModalOpen(true);
                   }}
-                  className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#0EB29A] rounded-lg hover:bg-[#2E6E65] transition-colors cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-bold text-white bg-[#0EB29A] rounded-xl hover:bg-[#2E6E65] transition-colors cursor-pointer"
                 >
                   Masuk
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Menu Links */}
             <div className="flex-1 py-2 space-y-1 overflow-y-auto text-xs font-semibold">
@@ -2995,15 +3300,54 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           report={verificationTargetReport}
           user={user}
           onVerificationSuccess={(updatedReport, awardedPoints, aiResult) => {
+            // Bug 3: Immediately remove marker from map instance
+            if (markersRef.current[updatedReport.id] && mapInstanceRef.current) {
+              try {
+                mapInstanceRef.current.removeLayer(markersRef.current[updatedReport.id]);
+              } catch {}
+              delete markersRef.current[updatedReport.id];
+            }
+
+            // Immediately remove hazard radius circles from map instance
+            if (mapInstanceRef.current) {
+              hazardLayersRef.current.forEach((layer) => {
+                try {
+                  if ((layer as any)._targetReportId === updatedReport.id) {
+                    mapInstanceRef.current?.removeLayer(layer);
+                  }
+                } catch {}
+              });
+              hazardLayersRef.current = hazardLayersRef.current.filter(
+                (layer) => (layer as any)._targetReportId !== updatedReport.id
+              );
+            }
+
+            // Remove from dispatched IDs
+            setDispatchedReportIds((prev) => prev.filter((id) => id !== updatedReport.id));
+            removeDispatchedReportId(updatedReport.id);
+
+            // Bug 4: Persist to stored user reports so Laporan Saya reflects tuntas immediately
+            updateStoredUserReportStatus(updatedReport.id, updatedReport.status);
+            saveStoredUserReport(updatedReport);
+
+            // Deactivate warnings tied to this completed report so hazard radius is removed permanently
+            setWarnings((prev) =>
+              prev.map((w) =>
+                w.laporan_id === updatedReport.id || w.laporan?.id === updatedReport.id
+                  ? { ...w, status_aktif: false, is_aktif: false }
+                  : w
+              )
+            );
+
             // Update reports state
             setReports((prev) =>
               prev.map((r) => (r.id === updatedReport.id ? updatedReport : r))
             );
             if (selectedReport?.id === updatedReport.id) {
-              setSelectedReport(updatedReport);
+              setSelectedReport(null);
             }
             if (activeRouteReport?.id === updatedReport.id) {
-              setActiveRouteReport(updatedReport);
+              setActiveRouteReport(null);
             }
 
             // Update user reward points in state & localStorage
@@ -3077,6 +3421,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         isOpen={isTrackerModalOpen}
         onClose={() => setIsTrackerModalOpen(false)}
         report={trackingReport || selectedReport || reports[0] || null}
+        user={user}
         onViewOnMap={(rep) => {
           setSelectedReport(rep);
           handleRecenterOnTruck();

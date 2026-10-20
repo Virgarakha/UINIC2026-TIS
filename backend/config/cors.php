@@ -22,6 +22,7 @@ return [
     'allowed_origins' => [
         'http://192.168.20.167:3000',
         'http://localhost:3000',
+        'http://localhost:3001',
         'https://uinic-2026-tis.vercel.app/',
     ],
 

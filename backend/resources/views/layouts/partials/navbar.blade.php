@@ -15,9 +15,11 @@
     <!-- Right: Quick Action Icons & Profile -->
     <div class="d-flex align-items-center gap-2">
         <!-- API Version Badge -->
-        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 d-none d-lg-inline-block fw-semibold" style="font-size: 11px;">
-            <i class="bi bi-lightning-charge-fill text-warning me-1"></i> REST API v1
-        </span>
+        <a href="{{ route('admin.api-docs.index') }}" class="text-decoration-none" title="Dokumentasi & Paket API">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 d-none d-lg-inline-block fw-semibold" style="font-size: 11px;">
+                <i class="bi bi-lightning-charge-fill text-warning me-1"></i> REST API v1
+            </span>
+        </a>
 
         <!-- Fullscreen Button -->
         <button class="topbar-icon-btn" type="button" title="Toggle Fullscreen" onclick="if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } else { document.exitFullscreen(); }">

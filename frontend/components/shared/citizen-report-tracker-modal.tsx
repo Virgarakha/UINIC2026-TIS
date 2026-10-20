@@ -17,15 +17,17 @@ import {
   Award,
   Layers,
 } from "lucide-react";
-import { LaporanSampah } from "@/types";
+import { LaporanSampah, User } from "@/types";
 import { cn, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { getStoredUser, isGuestUser } from "@/lib/auth-storage";
 
 export interface CitizenReportTrackerModalProps {
   isOpen: boolean;
   onClose: () => void;
   report: LaporanSampah | null;
   onViewOnMap?: (report: LaporanSampah) => void;
+  user?: User | null;
 }
 
 export function CitizenReportTrackerModal({
@@ -33,6 +35,7 @@ export function CitizenReportTrackerModal({
   onClose,
   report,
   onViewOnMap,
+  user,
 }: CitizenReportTrackerModalProps) {
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -51,7 +54,18 @@ export function CitizenReportTrackerModal({
   if (!isOpen || !report) return null;
 
   const ai = report.analisis_ai;
-  const statusKode = report.status?.kode || "menunggu_analisis";
+  const statusKode = (report.status?.kode || "").toLowerCase();
+  const statusNama = (report.status?.nama || "").toLowerCase();
+  const statusJemput = ((report as any).status_jemput || "").toLowerCase();
+  const statusId = report.status_id || report.status?.id;
+
+  const isCompleted =
+    statusKode === "selesai" ||
+    statusKode === "tuntas" ||
+    statusNama.includes("selesai") ||
+    statusNama.includes("tuntas") ||
+    statusJemput === "selesai" ||
+    statusId === 6;
 
   // Determine active step index (0-based)
   // 0: Terkirim
@@ -62,8 +76,26 @@ export function CitizenReportTrackerModal({
   let currentStep = 1;
   if (ai) currentStep = 2;
   if (statusKode === "siap_diambil_pengepul") currentStep = 2;
-  if (statusKode === "sedang_dibersihkan" || (report as any).status_jemput === "menuju_lokasi") currentStep = 3;
-  if (statusKode === "selesai") currentStep = 4;
+  if (
+    statusKode === "sedang_ditangani" ||
+    statusKode === "sedang_dibersihkan" ||
+    statusJemput === "menuju_lokasi" ||
+    statusJemput === "sedang_jalan"
+  ) {
+    currentStep = 3;
+  }
+  if (isCompleted) {
+    currentStep = 4;
+  }
+
+  const effectiveUser = user || (typeof window !== "undefined" ? getStoredUser() : null);
+  const isGuest = isGuestUser(effectiveUser);
+
+  const driverName = (report as any).penjemputan?.pengepul?.name || (report as any).pengepul_nama || "Pak Slamet (Mitra DLH & Pengepul)";
+  const driverPhone = (report as any).penjemputan?.pengepul?.no_hp || (report as any).pengepul_telepon || "081333794278";
+  const driverPlat = (report as any).penjemputan?.pengepul?.plat_nomor || (report as any).pengepul_plat_nomor || "N 8472 AB";
+  const driverVehicle = (report as any).penjemputan?.pengepul?.jenis_kendaraan || (report as any).pengepul_jenis_kendaraan || "Truk Bak Hidrolik Mini DLH";
+  const driverRating = (report as any).penjemputan?.pengepul?.rating || (report as any).pengepul_rating || 4.95;
 
   const steps = [
     {
@@ -86,8 +118,8 @@ export function CitizenReportTrackerModal({
     },
     {
       title: "Mitra Pengepul Dikonfirmasi",
-      desc: "Pak Slamet (Mitra Resmi DLH) menerima penugasan penjemputan",
-      time: "Truk Bak Hidrolik N 8472 AB",
+      desc: `${driverName} menerima penugasan penjemputan`,
+      time: `${driverVehicle} • Plat ${driverPlat}`,
       icon: Truck,
       isDone: currentStep >= 2,
       isActive: currentStep === 2,
@@ -102,7 +134,11 @@ export function CitizenReportTrackerModal({
     },
     {
       title: "Sampah Terangkut & Area Bersih",
-      desc: currentStep >= 4 ? "Lokasi tuntas dibersihkan • +50 Poin Warga dikreditkan" : "Menunggu penyelesaian angkut & timbang",
+      desc: currentStep >= 4
+        ? isGuest
+          ? "Lokasi tuntas dibersihkan oleh armada mitra (Mode Tamu: 0 Poin)"
+          : "Lokasi tuntas dibersihkan • +50 Poin Warga dikreditkan"
+        : "Menunggu penyelesaian angkut & timbang",
       time: currentStep >= 4 ? "Tuntas Bersih" : "Tahap Akhir",
       icon: Award,
       isDone: currentStep >= 4,
@@ -204,18 +240,18 @@ export function CitizenReportTrackerModal({
             <div className="flex items-center gap-3">
               <img
                 src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=120&auto=format&fit=crop&q=80"
-                alt="Pak Slamet"
+                alt={driverName}
                 className="h-12 w-12 rounded-full object-cover border-2 border-[#0EB29A] shadow-xs"
               />
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h4 className="text-sm font-black text-[#18231D]">Pak Slamet</h4>
+                  <h4 className="text-sm font-black text-[#18231D]">{driverName}</h4>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    ★ 4.95
+                    ★ {driverRating}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 font-medium">
-                  Truk Bak Hidrolik • <span className="font-bold text-slate-700">N 8472 AB</span>
+                  {driverVehicle} • <span className="font-bold text-slate-700">{driverPlat}</span>
                 </p>
                 <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">
                   Mitra Resmi Dinas Lingkungan Hidup
@@ -225,7 +261,7 @@ export function CitizenReportTrackerModal({
 
             <div className="flex items-center gap-1.5">
               <a
-                href="https://wa.me/6281333794278"
+                href={`https://wa.me/${driverPhone.replace(/[^0-9]/g, "")}`}
                 target="_blank"
                 rel="noreferrer"
                 className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center transition-colors shadow-2xs"
@@ -234,7 +270,7 @@ export function CitizenReportTrackerModal({
                 <MessageCircle className="h-4 w-4" />
               </a>
               <a
-                href="tel:081333794278"
+                href={`tel:${driverPhone}`}
                 className="h-9 w-9 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center justify-center transition-colors shadow-2xs"
                 title="Panggilan Telepon"
               >

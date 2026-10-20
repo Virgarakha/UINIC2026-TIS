@@ -200,6 +200,7 @@ export async function safeFetch<T>(endpoint: string, fallbackData: T): Promise<T
 }
 
 export interface CreateLaporanPayload {
+  user_id?: number;
   foto_url: string;
   latitude: number;
   longitude: number;
@@ -253,12 +254,18 @@ export async function fetchPeringatanDiniApi(): Promise<PeringatanDini[]> {
  */
 export async function createLaporanApi(payload: CreateLaporanPayload): Promise<LaporanSampah> {
   try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("uinic_auth_token") : null;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${getApiBaseUrl()}/laporan`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 

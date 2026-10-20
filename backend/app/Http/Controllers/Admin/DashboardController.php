@@ -26,7 +26,7 @@ class DashboardController extends Controller
         $stats = array_merge($userStats, $laporanStats, [
             'total_tokens' => DB::table('personal_access_tokens')->count(),
             'peringatan_aktif' => PeringatanDini::where('status_aktif', true)->count(),
-            'total_penjemputan' => PenjemputanSampah::count(),
+            'total_penjemputan' => PenjemputanSampah::whereNotNull('laporan_id')->count(),
             'total_penukaran' => PenukaranHadiah::count(),
             'db_driver' => config('database.default'),
             'laravel_version' => app()->version(),
@@ -39,29 +39,32 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Monthly Waste Statistics (Biru = Sudah Dibersihkan, Merah = Belum Dibersihkan)
+        // Monthly Waste Statistics strictly synced with real database reports
         $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        $baseCleaned = [42, 54, 58, 65, 72, 68, 76, 84, 88, 92, 80, 95];
-        $baseUncleaned = [18, 24, 20, 16, 12, 15, 14, 10, 9, 7, 11, 8];
+        $cleanedPerMonth = array_fill(0, 12, 0);
+        $uncleanedPerMonth = array_fill(0, 12, 0);
 
-        $realCleanedCount = LaporanSampah::whereHas('status', fn ($q) => $q->where('kode', 'selesai'))->count();
-        $realUncleanedCount = LaporanSampah::whereDoesntHave('status', fn ($q) => $q->where('kode', 'selesai'))->count();
-
-        // Dynamically incorporate real database counts for current month (October = index 9)
-        $currentMonthIdx = now()->month - 1;
-        if (isset($baseCleaned[$currentMonthIdx])) {
-            $baseCleaned[$currentMonthIdx] = 80 + $realCleanedCount;
-            $baseUncleaned[$currentMonthIdx] = 6 + $realUncleanedCount;
+        $allReports = LaporanSampah::with('status')->get();
+        foreach ($allReports as $rep) {
+            $monthIdx = $rep->created_at ? ($rep->created_at->month - 1) : (now()->month - 1);
+            $isSelesai = in_array(strtolower($rep->status?->kode ?? ''), ['selesai', 'tuntas']);
+            if ($isSelesai) {
+                $cleanedPerMonth[$monthIdx]++;
+            } else {
+                $uncleanedPerMonth[$monthIdx]++;
+            }
         }
 
-        $totalCleaned = array_sum($baseCleaned);
-        $totalUncleaned = array_sum($baseUncleaned);
-        $cleanRate = round(($totalCleaned / max(1, ($totalCleaned + $totalUncleaned))) * 100, 1);
+        $totalCleaned = array_sum($cleanedPerMonth);
+        $totalUncleaned = array_sum($uncleanedPerMonth);
+        $cleanRate = ($totalCleaned + $totalUncleaned) > 0
+            ? round(($totalCleaned / ($totalCleaned + $totalUncleaned)) * 100, 1)
+            : 0;
 
         $chartData = [
             'categories' => $months,
-            'sudah_dibersihkan' => $baseCleaned,
-            'belum_dibersihkan' => $baseUncleaned,
+            'sudah_dibersihkan' => $cleanedPerMonth,
+            'belum_dibersihkan' => $uncleanedPerMonth,
             'clean_rate' => $cleanRate,
         ];
 

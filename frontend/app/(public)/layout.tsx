@@ -18,8 +18,10 @@ export default function PublicLayout({
   if (isPeta) {
     return (
       <div className="h-dvh max-h-dvh w-full flex flex-col overflow-hidden selection:bg-emerald-500/20 selection:text-emerald-700">
-        {/* Desktop Navbar only (hidden on mobile) */}
-        <Navbar />
+        {/* Desktop Navbar only (hidden on mobile in /peta for fullscreen map) */}
+        <div className="hidden md:block">
+          <Navbar />
+        </div>
 
         {/* Fullscreen Map Viewport with 0 padding/margin and no scroll */}
         <main className="flex-1 h-full w-full overflow-hidden p-0 m-0">

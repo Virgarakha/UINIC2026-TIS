@@ -23,6 +23,8 @@ import {
   Clock,
   Layers,
   Award,
+  LogIn,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,6 +36,7 @@ import {
   clearStoredSession,
   getStoredPointLedger,
   getStoredUserVouchers,
+  isGuestUser,
   PointLedgerEntry,
   ClaimedVoucher,
 } from "@/lib/auth-storage";
@@ -56,10 +59,11 @@ export default function ProfilPage() {
   React.useEffect(() => {
     const stored = getStoredUser();
     setUser(stored);
-    setLedger(getStoredPointLedger());
-    setVouchers(getStoredUserVouchers());
+    const guest = isGuestUser(stored);
+    setLedger(guest ? [] : getStoredPointLedger());
+    setVouchers(guest ? [] : getStoredUserVouchers());
 
-    if (stored) {
+    if (stored && !guest) {
       setEditName(stored.name || "");
       setEditPhone(stored.no_telepon || (stored as any).phone || "");
       setEditAvatarUrl(stored.avatar_url || (stored as any).foto_profil || "");
@@ -174,9 +178,10 @@ export default function ProfilPage() {
     }, 400);
   };
 
+  const isGuest = isGuestUser(user);
   const isPengepul = user?.role === "pengepul";
-  const userPoints = user?.poin ?? 240;
-  const activeVouchers = vouchers.filter((v) => v.status === "aktif");
+  const userPoints = isGuest ? 0 : (user?.poin ?? 0);
+  const activeVouchers = isGuest ? [] : vouchers.filter((v) => v.status === "aktif");
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -205,30 +210,34 @@ export default function ProfilPage() {
       <div className="p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden">
         <div className="flex items-center gap-4 relative z-10">
           <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-3xl bg-gradient-to-tr from-[#0EB29A] to-[#2E6E65] text-white flex items-center justify-center font-black text-2xl sm:text-3xl shadow-lg shadow-[#0EB29A]/25 border-2 border-white flex-shrink-0">
-            {user?.name ? user.name.charAt(0) : "U"}
+            {user?.name ? user.name.charAt(0) : "W"}
           </div>
 
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg sm:text-xl font-black text-[#2B3752]">{user?.name || "Pengguna Tamu"}</h2>
+              <h2 className="text-lg sm:text-xl font-black text-[#2B3752]">{user?.name || "Pengguna Belum Masuk"}</h2>
               <span
                 className={cn(
                   "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
-                  isPengepul
+                  isGuest
+                    ? "bg-slate-100 text-slate-700 border border-slate-300"
+                    : isPengepul
                     ? "bg-amber-100 text-amber-800 border border-amber-300"
                     : "bg-emerald-100 text-emerald-800 border border-emerald-300"
                 )}
               >
-                {isPengepul ? "🚛 Mitra Driver Pengepul" : "🌱 Warga Pelapor"}
+                {isGuest ? "🔒 Belum Masuk Akun" : isPengepul ? "🚛 Mitra Driver Pengepul" : "🌱 Warga Pelapor"}
               </span>
             </div>
 
-            <p className="text-xs text-slate-500">{user?.email || "Belum masuk akun"}</p>
+            <p className="text-xs text-slate-500">{user?.email || "Belum ada sesi login aktif"}</p>
 
             <div className="pt-1 flex items-center gap-2 text-xs font-medium text-slate-600">
               <Award className="h-4 w-4 text-amber-500" />
               <span>
-                {isPengepul ? (
+                {isGuest ? (
+                  <strong>Akses Terbuka Publik (Masuk akun untuk mengumpulkan poin reward)</strong>
+                ) : isPengepul ? (
                   <strong>Mitra Armada Bintang 5 (⭐ 4.9 • 134 Penjemputan)</strong>
                 ) : (
                   <strong>Warga Teladan Lingkungan (Level 2 • 5 Kontribusi)</strong>
@@ -239,7 +248,29 @@ export default function ProfilPage() {
         </div>
 
         <div className="flex items-center gap-2.5 relative z-10">
-          {user && (
+          {isGuest ? (
+            <>
+              <Link href="/login">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="rounded-2xl text-xs font-bold gap-1.5 cursor-pointer shadow-md"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span>Masuk Akun</span>
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-2xl text-xs font-bold cursor-pointer"
+                >
+                  <span>Daftar Akun</span>
+                </Button>
+              </Link>
+            </>
+          ) : user && (
             <>
               <Button
                 variant="outline"
@@ -328,7 +359,7 @@ export default function ProfilPage() {
         <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3 text-[#2B3752]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              {isPengepul ? "Misi Armada" : "Laporan Saya"}
+              {isGuest ? "Laporan Warga" : isPengepul ? "Misi Armada" : "Laporan Saya"}
             </span>
             <div className="h-8 w-8 rounded-xl bg-[#2B3752]/5 text-[#2B3752] flex items-center justify-center">
               {isPengepul ? <Truck className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
@@ -337,10 +368,10 @@ export default function ProfilPage() {
 
           <div className="flex items-baseline gap-2">
             <span className="text-3xl sm:text-4xl font-black text-[#2B3752]">
-              {isPengepul ? "134" : "5"}
+              {isGuest ? "Radar" : isPengepul ? "134" : "5"}
             </span>
             <span className="text-xs font-bold text-slate-500">
-              {isPengepul ? "Misi Tuntas" : "Titik Selesai"}
+              {isGuest ? "Akses Terbuka" : isPengepul ? "Misi Tuntas" : "Titik Selesai"}
             </span>
           </div>
 
@@ -351,7 +382,7 @@ export default function ProfilPage() {
                 size="sm"
                 className="w-full text-xs font-bold"
               >
-                <span>{isPengepul ? "Buka Radar Jemput" : "Kelola Laporan Saya"}</span>
+                <span>{isGuest ? "Pantau Laporan Warga" : isPengepul ? "Buka Radar Jemput" : "Kelola Laporan Saya"}</span>
                 <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </Link>
@@ -433,61 +464,90 @@ export default function ProfilPage() {
         </div>
 
         <Card className="bg-white border-slate-200 overflow-hidden rounded-3xl shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="px-5 py-3">Waktu Transaksi</th>
-                  <th className="px-5 py-3">Tipe Aksi</th>
-                  <th className="px-5 py-3">Keterangan</th>
-                  <th className="px-5 py-3 text-right">Mutasi Poin</th>
-                  <th className="px-5 py-3 text-right">Saldo Akhir</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {ledger.map((entry) => {
-                  const isPositive = entry.jumlahPoin > 0;
-                  return (
-                    <tr key={entry.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-5 py-3.5 whitespace-nowrap text-slate-400 font-mono text-[11px]">
-                        {formatDate(entry.timestamp)}
-                      </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap">
-                        <span
+          {isGuest ? (
+            <div className="text-center py-12 px-4 bg-slate-50/50 space-y-3">
+              <div className="h-12 w-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                <Lock className="h-6 w-6" />
+              </div>
+              <h4 className="text-sm font-bold text-[#2B3752]">Buku Besar Poin Memerlukan Akun Terdaftar</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Pengguna yang belum masuk akun tidak memiliki saldo atau histori mutasi poin reward. Masuk ke akun Anda untuk melihat dan mengumpulkan poin.
+              </p>
+              <div className="flex justify-center gap-2 pt-1">
+                <Link href="/login">
+                  <Button variant="primary" size="sm" className="font-bold text-xs gap-1.5">
+                    <LogIn className="h-3.5 w-3.5" />
+                    <span>Masuk Akun</span>
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="outline" size="sm" className="font-bold text-xs">
+                    <span>Daftar Akun</span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : ledger.length === 0 ? (
+            <div className="text-center py-12 px-4 text-slate-400 text-xs">
+              Belum ada mutasi poin pada akun ini.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3">Waktu Transaksi</th>
+                    <th className="px-5 py-3">Tipe Aksi</th>
+                    <th className="px-5 py-3">Keterangan</th>
+                    <th className="px-5 py-3 text-right">Mutasi Poin</th>
+                    <th className="px-5 py-3 text-right">Saldo Akhir</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {ledger.map((entry) => {
+                    const isPositive = entry.jumlahPoin > 0;
+                    return (
+                      <tr key={entry.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-slate-400 font-mono text-[11px]">
+                          {formatDate(entry.timestamp)}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                              entry.tipe === "lapor_sampah"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : entry.tipe === "sedekah_sampah"
+                                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                : entry.tipe === "penjemputan_mitra"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            )}
+                          >
+                            {entry.tipe.replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 max-w-xs truncate text-[#2B3752] font-semibold">
+                          {entry.deskripsi}
+                        </td>
+                        <td
                           className={cn(
-                            "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                            entry.tipe === "lapor_sampah"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : entry.tipe === "sedekah_sampah"
-                              ? "bg-purple-50 text-purple-700 border border-purple-200"
-                              : entry.tipe === "penjemputan_mitra"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : "bg-rose-50 text-rose-700 border border-rose-200"
+                            "px-5 py-3.5 whitespace-nowrap font-black text-right",
+                            isPositive ? "text-emerald-600" : "text-rose-600"
                           )}
                         >
-                          {entry.tipe.replace(/_/g, " ")}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 max-w-xs truncate text-[#2B3752] font-semibold">
-                        {entry.deskripsi}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-5 py-3.5 whitespace-nowrap font-black text-right",
-                          isPositive ? "text-emerald-600" : "text-rose-600"
-                        )}
-                      >
-                        {isPositive ? `+${entry.jumlahPoin}` : entry.jumlahPoin} Poin
-                      </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-right font-black text-[#2B3752]">
-                        {entry.saldoSetelahnya} Poin
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          {isPositive ? `+${entry.jumlahPoin}` : entry.jumlahPoin} Poin
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap text-right font-black text-[#2B3752]">
+                          {entry.saldoSetelahnya} Poin
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
 

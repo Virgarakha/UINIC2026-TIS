@@ -50,7 +50,7 @@ export function SearchFloatingBar({
     <div
       className={cn(
         "absolute top-3.5 z-20 flex flex-col gap-2 max-w-xl w-[calc(100vw-32px)] sm:w-auto transition-all duration-300",
-        isRailVisible ? "left-4 sm:left-[84px]" : "left-4"
+        isRailVisible ? "left-4 sm:left-[88px]" : "left-4"
       )}
     >
       {/* Role Indicator & Citizen Tracking Beacon */}
@@ -111,31 +111,19 @@ export function SearchFloatingBar({
           </div>
         )}
 
-        <div className="h-5 w-px bg-slate-200 mx-0.5 flex-shrink-0" />
-
-        {/* Login Button (When not logged in) OR User Status */}
-        {!user ? (
-          <button
-            onClick={onOpenLogin}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-bold hover:opacity-95 active:scale-95 transition-all shadow-md shadow-[#0EB29A]/20 cursor-pointer whitespace-nowrap flex-shrink-0"
-            title="Masuk untuk memantau titik tersimpan"
-          >
-            <UserIcon className="h-3.5 w-3.5" />
-            <span>Masuk</span>
-          </button>
-        ) : (
-          <button
-            onClick={onMenuToggle}
-            className="flex items-center gap-1.5 py-1 px-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
-            title={`Masuk sebagai ${user.name}`}
-          >
-            <div className="h-7 w-7 rounded-full bg-[#0EB29A] text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
-              {user.name.charAt(0)}
-            </div>
-            <span className="text-xs font-bold text-[#2B3752] hidden sm:inline max-w-[80px] truncate">
-              {user.name.split(" ")[0]}
-            </span>
-          </button>
+        {/* Login Button (Only when not logged in; when logged in, user profile is in the top navbar) */}
+        {!user && (
+          <>
+            <div className="h-5 w-px bg-slate-200 mx-0.5 flex-shrink-0" />
+            <button
+              onClick={onOpenLogin}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-bold hover:opacity-95 active:scale-95 transition-all shadow-md shadow-[#0EB29A]/20 cursor-pointer whitespace-nowrap flex-shrink-0"
+              title="Masuk untuk memantau titik tersimpan"
+            >
+              <UserIcon className="h-3.5 w-3.5" />
+              <span>Masuk</span>
+            </button>
+          </>
         )}
       </div>
 

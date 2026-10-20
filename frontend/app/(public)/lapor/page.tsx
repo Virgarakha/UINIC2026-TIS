@@ -21,6 +21,9 @@ import {
   Coins,
   Truck,
   Gift,
+  LogIn,
+  Lock,
+  ChevronRight,
 } from "lucide-react";
 import { CitizenReportTrackerModal } from "@/components/shared/citizen-report-tracker-modal";
 import { Button } from "@/components/ui/button";
@@ -30,7 +33,7 @@ import { getLiveWeather, WeatherData } from "@/lib/weather";
 import { analyzeWasteWithGemini, AnalisisAiResult } from "@/lib/gemini";
 import { createLaporanApi } from "@/lib/api-client";
 import { burnForensicWatermark, MetadataForensik } from "@/lib/image-watermark";
-import { saveStoredUserReport, recordPointTransaction } from "@/lib/auth-storage";
+import { saveStoredUserReport, recordPointTransaction, getStoredUser, isGuestUser } from "@/lib/auth-storage";
 import { LaporanSampah } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +79,13 @@ export default function LaporCameraPage() {
   const [createdReport, setCreatedReport] = React.useState<LaporanSampah | null>(null);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const isGuest = isGuestUser(currentUser);
+
+  React.useEffect(() => {
+    setCurrentUser(getStoredUser());
+  }, []);
 
   // Clean up camera stream
   const stopCamera = React.useCallback(() => {
@@ -315,14 +325,16 @@ export default function LaporCameraPage() {
 
       // 3. Persist to Backend API & PostgreSQL Database
       setProcessStep("Menyimpan laporan ke database & radar publik...");
+      const effectiveUserId = isGuest ? 1 : (currentUser?.id || 1);
       const newReport = await createLaporanApi({
+        user_id: effectiveUserId,
         foto_url:
           previewImage ||
           "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80",
         latitude: lat,
         longitude: lng,
         alamat_lokasi: title,
-        deskripsi: `${description ? description + " • " : ""}[Opsi Warga: ${citizenActionOption === "jual" ? "Jual ke Mitra Pengepul (Tunai)" : "Sedekah Lingkungan (+100 Poin)"}]`,
+        deskripsi: `${description ? description + " • " : ""}[Opsi Warga: ${citizenActionOption === "jual" ? "Jual ke Mitra Pengepul (Tunai)" : isGuest ? "Penjemputan Terbuka (Mode Tamu)" : "Sedekah Lingkungan (+100 Poin)"}]`,
         kategori_id: parseInt(kategoriId, 10),
         is_resiko_banjir: aiResult.persentase_sumbatan_aliran > 50,
         tipe_bahaya: aiResult.potensi_bahaya,
@@ -365,13 +377,15 @@ export default function LaporCameraPage() {
       saveStoredUserReport(newReport);
       setCreatedReport(newReport);
 
-      // Award points to user and record in ledger
-      const pointReward = citizenActionOption === "sedekah" ? 100 : 50;
-      recordPointTransaction(
-        pointReward,
-        citizenActionOption === "sedekah" ? "sedekah_sampah" : "lapor_sampah",
-        `Reward Laporan AI: ${newReport.alamat_lokasi} (${citizenActionOption === "sedekah" ? "Sedekah Lingkungan" : "Validasi AI"})`
-      );
+      // Award points to user and record in ledger (only for logged-in citizens)
+      if (!isGuest) {
+        const pointReward = citizenActionOption === "sedekah" ? 100 : 50;
+        recordPointTransaction(
+          pointReward,
+          citizenActionOption === "sedekah" ? "sedekah_sampah" : "lapor_sampah",
+          `Reward Laporan AI: ${newReport.alamat_lokasi} (${citizenActionOption === "sedekah" ? "Sedekah Lingkungan" : "Validasi AI"})`
+        );
+      }
 
       setIsSuccess(true);
     } catch (err: any) {
@@ -658,20 +672,22 @@ export default function LaporCameraPage() {
               </div>
 
               {/* Point Award Badge & Citizen Choice Summary */}
-              <div className="flex flex-col gap-1.5 max-w-sm mx-auto">
-                <div className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
-                  <span>
-                    🌟 Anda Memperoleh{" "}
-                    <strong className="text-amber-900 font-black">
-                      +{citizenActionOption === "sedekah" ? "100" : "50"} Poin Warga
-                    </strong>
-                  </span>
-                </div>
+              <div className="flex flex-col gap-2 max-w-sm mx-auto">
+                {!isGuest && (
+                  <div className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
+                    <span>
+                      🌟 Anda Memperoleh{" "}
+                      <strong className="text-amber-900 font-black">
+                        +{citizenActionOption === "sedekah" ? "100" : "50"} Poin Warga
+                      </strong>
+                    </span>
+                  </div>
+                )}
                 <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
                   <span>
                     {citizenActionOption === "jual"
                       ? "💵 Opsi: Jual ke Mitra Pengepul (Tunai)"
-                      : "🎁 Opsi: Sedekah Lingkungan (+100 Poin)"}
+                      : "📋 Laporan Terbuka Warga"}
                   </span>
                 </div>
               </div>
@@ -696,14 +712,26 @@ export default function LaporCameraPage() {
                   >
                     Lihat di Radar Peta
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/rewards")}
-                    className="flex-1 rounded-xl text-xs font-bold text-amber-700 hover:text-amber-800 border-amber-200 hover:bg-amber-50 cursor-pointer"
-                  >
-                    Tukar Hadiah (+Voucher)
-                  </Button>
+                  {isGuest ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push("/login")}
+                      className="flex-1 rounded-xl text-xs font-bold text-[#0EB29A] hover:text-[#0EB29A] border-[#0EB29A]/30 hover:bg-[#0EB29A]/10 cursor-pointer gap-1"
+                    >
+                      <LogIn className="h-3.5 w-3.5" />
+                      <span>Masuk Akun</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push("/rewards")}
+                      className="flex-1 rounded-xl text-xs font-bold text-amber-700 hover:text-amber-800 border-amber-200 hover:bg-amber-50 cursor-pointer"
+                    >
+                      Tukar Hadiah (+Voucher)
+                    </Button>
+                  )}
                 </div>
                 <Button
                   type="button"
@@ -816,20 +844,29 @@ export default function LaporCameraPage() {
 
                   <button
                     type="button"
-                    onClick={() => setCitizenActionOption("sedekah")}
+                    onClick={() => {
+                      if (!isGuest) {
+                        setCitizenActionOption("sedekah");
+                      }
+                    }}
                     className={cn(
-                      "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between",
-                      citizenActionOption === "sedekah"
-                        ? "border-amber-500 bg-white text-amber-700 font-bold shadow-xs ring-2 ring-amber-500/20"
-                        : "border-emerald-200/60 bg-white/60 text-slate-600 hover:bg-white"
+                      "p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between",
+                      isGuest
+                        ? "border-slate-200 bg-slate-100/80 text-slate-400 cursor-not-allowed opacity-80"
+                        : citizenActionOption === "sedekah"
+                        ? "border-amber-500 bg-white text-amber-700 font-bold shadow-xs ring-2 ring-amber-500/20 cursor-pointer"
+                        : "border-emerald-200/60 bg-white/60 text-slate-600 hover:bg-white cursor-pointer"
                     )}
+                    title={isGuest ? "Masuk akun terlebih dahulu untuk mendapatkan reward poin" : "Dapatkan +100 Poin Rewards"}
                   >
                     <div className="flex items-center gap-1 text-xs">
-                      <span>🎁</span>
-                      <span className="font-black text-[11px]">Sedekah / Poin</span>
+                      <span>{isGuest ? "🔒" : "🎁"}</span>
+                      <span className="font-black text-[11px]">
+                        {isGuest ? "Sedekah (Terkunci)" : "Sedekah / Poin"}
+                      </span>
                     </div>
                     <span className="text-[10px] text-slate-500 mt-1 leading-tight">
-                      Dapatkan +100 Poin Rewards
+                      {isGuest ? "Login untuk klaim poin" : "Dapatkan +100 Poin Rewards"}
                     </span>
                   </button>
                 </div>
@@ -905,6 +942,7 @@ export default function LaporCameraPage() {
         isOpen={isTrackerOpen}
         onClose={() => setIsTrackerOpen(false)}
         report={createdReport}
+        user={currentUser}
         onViewOnMap={(rep) => router.push(`/peta?id=${rep.id}`)}
       />
     </div>

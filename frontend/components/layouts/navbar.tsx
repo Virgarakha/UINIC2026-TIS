@@ -19,7 +19,7 @@ import { siteConfig } from "@/config/site";
 import { publicNavItems } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getStoredUser } from "@/lib/auth-storage";
+import { getStoredUser, isGuestUser } from "@/lib/auth-storage";
 import { User } from "@/types";
 
 export function Navbar() {
@@ -28,23 +28,36 @@ export function Navbar() {
   const [user, setUser] = React.useState<User | null>(null);
 
   React.useEffect(() => {
-    setUser(getStoredUser());
+    const syncUser = () => {
+      setUser(getStoredUser());
+    };
+    syncUser();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("uinic_auth_changed", syncUser);
+      window.addEventListener("storage", syncUser);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("uinic_auth_changed", syncUser);
+        window.removeEventListener("storage", syncUser);
+      }
+    };
   }, [pathname]);
 
   return (
-    <header className="hidden md:block sticky top-0 z-40 w-full border-b border-[#E7EDE5] bg-[#FBFBF8]/90 backdrop-blur-md transition-all">
+    <header className="sticky top-0 z-40 w-full border-b border-[#E7EDE5] bg-[#FBFBF8]/90 backdrop-blur-md transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between gap-4">
+        <div className="flex h-16 md:h-20 items-center justify-between gap-4">
           
           {/* Left: Brand Logo & Reviews Pill Badge */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1E5345] text-emerald-300 font-black text-xl group-hover:rotate-45 transition-transform">
-                ✦
-              </div>
-              <span className="text-xl font-black tracking-tight text-[#18231D]">
-                EcoPatrol
-              </span>
+            <Link href="/" className="flex items-center py-1 group" title="TRINFO - Trash Information System">
+              <img
+                src="/images/logo-text.png"
+                alt="TRINFO - Trash Information System"
+                className="h-10 sm:h-11 md:h-12 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+              />
             </Link>
 
             {/* +120 Reviews Pill Badge matching reference */}
@@ -93,7 +106,19 @@ export function Navbar() {
               Peta Radar
             </Link>
             <span className="text-slate-300 text-xs">•</span>
-            {user?.role === "warga" ? (
+            {!user || isGuestUser(user) ? (
+              <Link
+                href="/laporan-saya"
+                className={cn(
+                  "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all",
+                  pathname.startsWith("/laporan-saya")
+                    ? "bg-[#1E5345] text-white shadow-xs"
+                    : "text-slate-600 hover:text-[#18231D]"
+                )}
+              >
+                Laporan Warga
+              </Link>
+            ) : user?.role === "warga" ? (
               <Link
                 href="/laporan-saya"
                 className={cn(
@@ -157,7 +182,7 @@ export function Navbar() {
             </Link>
 
             {/* User Session or Dark Pill Button */}
-            {user ? (
+            {user && !isGuestUser(user) ? (
               <Link
                 href="/profil"
                 className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#18231D] text-white font-bold text-xs shadow-md hover:bg-[#25362D] transition-all"
@@ -170,21 +195,12 @@ export function Navbar() {
                 {user.role === "pengepul" && <Truck className="h-3 w-3 text-emerald-300" />}
               </Link>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/login"
-                  className="hidden sm:inline-flex px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:text-[#18231D] transition-colors"
-                >
-                  Masuk
-                </Link>
-                <Link
-                  href="/lapor"
-                  className="px-5 py-2.5 rounded-full bg-[#18231D] hover:bg-[#25362D] text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-2"
-                >
-                  <Camera className="h-3.5 w-3.5 text-emerald-300" />
-                  <span>Lapor Sampah</span>
-                </Link>
-              </div>
+              <Link
+                href="/login"
+                className="inline-flex px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:text-[#18231D] hover:bg-slate-100 transition-colors"
+              >
+                Masuk
+              </Link>
             )}
 
             {/* Admin Command Center Link */}
@@ -241,7 +257,7 @@ export function Navbar() {
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
-            {!user ? (
+            {!user || isGuestUser(user) ? (
               <div className="grid grid-cols-2 gap-2 mb-1">
                 <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full text-xs font-bold gap-1.5">

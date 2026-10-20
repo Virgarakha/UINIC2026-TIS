@@ -134,6 +134,10 @@ export function RouteDirectionPanel({
   }, []);
 
   const activeStatus = missionStatus || internalStatus;
+  const isMotor = travelMode === "motorcycle";
+  const vehicleLabel = isMotor ? "Motor" : "Truk";
+  const VehicleIcon = isMotor ? Bike : Truck;
+
   const updateStatus = (st: "idle" | "otw" | "tahap_pengambilan" | "selesai") => {
     setInternalStatus(st);
     onMissionStatusChange?.(st);
@@ -365,7 +369,7 @@ export function RouteDirectionPanel({
                       ? "bg-[#0EB29A] text-white animate-pulse shadow-md shadow-[#0EB29A]/40"
                       : "bg-slate-100 text-[#0EB29A] hover:bg-slate-200"
                   )}
-                  title="Pusatkan Kamera ke Posisi Truk"
+                  title={isMotor ? "Pusatkan Kamera ke Posisi Motor" : "Pusatkan Kamera ke Posisi Truk"}
                 >
                   <Crosshair className="h-4 w-4" />
                 </button>
@@ -383,7 +387,7 @@ export function RouteDirectionPanel({
                 </span>
                 <span className="text-xs">🍃</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                  {navigationMode === "gps" ? `${gpsSpeedKmh || 0} km/j` : "Simulasi"}
+                  {`${gpsSpeedKmh || 0} km/j`}
                 </span>
               </div>
               <div className="text-[11px] text-slate-500 font-medium truncate">
@@ -608,7 +612,7 @@ export function RouteDirectionPanel({
                     />
                   ) : (
                     <div className="h-7 w-7 rounded-xl bg-gradient-to-tr from-[#0EB29A] to-[#2E6E65] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                      <Truck className="h-3.5 w-3.5" />
+                      <VehicleIcon className="h-3.5 w-3.5" />
                     </div>
                   )}
                   <div>
@@ -660,170 +664,106 @@ export function RouteDirectionPanel({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="h-7 w-7 rounded-lg bg-[#0EB29A] flex items-center justify-center text-white shadow-md shadow-[#0EB29A]/40">
-                          <Truck className="h-4 w-4" />
+                          <VehicleIcon className="h-4 w-4" />
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-300 font-bold uppercase block tracking-wider">
-                            Armada Truk Pengepul
+                            {isMotor ? "Armada Sepeda Motor Pengepul" : "Armada Truk Pengepul"}
                           </span>
                           <h5 className="text-xs font-black text-white flex items-center gap-1.5">
                             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                            <span>{navigationMode === "gps" ? "GPS HP Siaga" : "Mode Simulasi"}</span>
+                            <span>GPS HP Siaga</span>
                           </h5>
                         </div>
                       </div>
 
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0EB29A]/20 text-emerald-300 border border-[#0EB29A]/50">
-                        {navigationMode === "gps"
-                          ? `${gpsSpeedKmh || 0} km/j`
-                          : isSimulatingDrive
-                            ? "Melaju ~35 km/j"
-                            : "Posisi Standby"}
+                        {`${gpsSpeedKmh || 0} km/j`}
                       </span>
                     </div>
 
-                    {/* Mode Selector Tabs: GPS Nyata HP vs Simulasi */}
-                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-white/10 rounded-xl text-[11px] font-bold">
-                      <button
-                        type="button"
-                        onClick={() => onNavigationModeChange?.("gps")}
-                        className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${navigationMode === "gps"
-                            ? "bg-[#0EB29A] text-white shadow-md shadow-[#0EB29A]/40"
-                            : "text-slate-300 hover:text-white"
-                          }`}
-                      >
-                        <Radio className="h-3.5 w-3.5 animate-pulse" />
-                        <span>📱 GPS Nyata HP</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onNavigationModeChange?.("simulation")}
-                        className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${navigationMode === "simulation"
-                            ? "bg-slate-700 text-white shadow-md"
-                            : "text-slate-300 hover:text-white"
-                          }`}
-                      >
-                        <Play className="h-3 w-3 fill-current" />
-                        <span>🎮 Simulasi Demo</span>
-                      </button>
-                    </div>
-
-                    {navigationMode === "gps" ? (
-                      /* GPS NYATA HP METRICS */
-                      <div className="space-y-2 pt-1 border-t border-white/10">
-                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9.5px] text-slate-400 block font-medium">Sisa Jarak</span>
-                            <strong className="text-sm font-black text-white">{displayDistance}m</strong>
-                          </div>
-                          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9.5px] text-slate-400 block font-medium">Kecepatan HP</span>
-                            <strong className="text-sm font-black text-[#0EB29A]">{gpsSpeedKmh || 0} km/j</strong>
-                          </div>
-                          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                            <span className="text-[9.5px] text-slate-400 block font-medium">Akurasi Satelit</span>
-                            <strong className="text-sm font-black text-emerald-300">±{gpsAccuracy || 5}m</strong>
-                          </div>
+                    {/* GPS NYATA HP METRICS */}
+                    <div className="space-y-2 pt-1 border-t border-white/10">
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                          <span className="text-[9.5px] text-slate-400 block font-medium">Sisa Jarak</span>
+                          <strong className="text-sm font-black text-white">{displayDistance}m</strong>
                         </div>
-
-                        {/* Auto Center Toggle & Quick Test */}
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (onRecenterTruck) {
-                                onRecenterTruck();
-                              } else {
-                                onToggleAutoCenterGps?.();
-                              }
-                            }}
-                            className={`flex-1 py-1.5 px-2.5 rounded-xl text-[10.5px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${autoCenterGps && !isMapPannedAway
-                                ? "bg-[#0EB29A]/20 border-[#0EB29A] text-emerald-300"
-                                : "bg-white/5 border-white/15 text-slate-300 hover:text-white"
-                              }`}
-                          >
-                            <Crosshair className={`h-3.5 w-3.5 ${autoCenterGps && !isMapPannedAway ? "text-[#0EB29A]" : ""}`} />
-                            <span>{autoCenterGps && !isMapPannedAway ? "🎯 Ikuti Posisi Truk (Aktif)" : "🎯 Pusatkan ke Truk"}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsSimulatedNear(true);
-                              onJumpNearTarget?.();
-                            }}
-                            className="py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/15 cursor-pointer whitespace-nowrap"
-                            title="Uji coba tiba dalam radius 45m"
-                          >
-                            ⚡ Tes Tiba (45m)
-                          </button>
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                          <span className="text-[9.5px] text-slate-400 block font-medium">Kecepatan HP</span>
+                          <strong className="text-sm font-black text-[#0EB29A]">{gpsSpeedKmh || 0} km/j</strong>
                         </div>
-
-                        <p className="text-[10px] text-slate-300 italic leading-snug">
-                          📡 Bawa HP Anda berjalan atau berkendara menuju titik. Truk di peta seluruh pengguna bergerak mengikuti GPS HP Anda secara realtime.
-                        </p>
-
-                        {gpsError && (
-                          <div className="p-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 text-[10px] font-medium">
-                            ⚠️ {gpsError}
-                          </div>
-                        )}
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                          <span className="text-[9.5px] text-slate-400 block font-medium">Akurasi Satelit</span>
+                          <strong className="text-sm font-black text-emerald-300">±{gpsAccuracy || 5}m</strong>
+                        </div>
                       </div>
-                    ) : (
-                      /* SIMULATION CONTROLS */
-                      <div className="space-y-2 pt-1 border-t border-white/10">
-                        <div className="flex items-center justify-between text-xs">
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-medium">Sisa Jarak ke Titik:</span>
-                            <strong className="text-base font-black text-white">
-                              {displayDistance} meter
-                            </strong>
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isWithin100Meters
-                                ? "bg-emerald-500/25 text-emerald-300 border-emerald-400 animate-pulse"
-                                : "bg-amber-500/20 text-amber-300 border-amber-400"
-                              }`}
-                          >
-                            {isWithin100Meters ? "✓ Siap Ambil (≤ 100m)" : "Belum Sampai (> 100m)"}
+
+                      {/* Tombol Kontrol Simulasi Pergerakan Otomatis (Fitur 3: bg-white) */}
+                      {onToggleSimulateDrive && (
+                        <button
+                          type="button"
+                          onClick={onToggleSimulateDrive}
+                          className="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-100 text-[#2B3752] text-xs font-black shadow-md border border-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                        >
+                          <Play
+                            className={`h-3.5 w-3.5 ${
+                              isSimulatingDrive
+                                ? "text-amber-500 fill-amber-500 animate-pulse"
+                                : "text-[#0EB29A] fill-[#0EB29A]"
+                            }`}
+                          />
+                          <span>
+                            {isSimulatingDrive
+                              ? `⏸️ Jeda Simulasi Gerak ${vehicleLabel} Otomatis`
+                              : `▶️ Jalankan Simulasi Gerak ${vehicleLabel} Otomatis`}
                           </span>
-                        </div>
+                        </button>
+                      )}
 
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={onToggleSimulateDrive}
-                            className={`flex-1 py-1.5 px-3 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${isSimulatingDrive
-                                ? "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
-                                : "bg-[#0EB29A] hover:bg-[#2E6E65] text-white shadow-md shadow-[#0EB29A]/40"
-                              }`}
-                          >
-                            {isSimulatingDrive ? (
-                              <>
-                                <span>⏸️ Jeda Laju Truk</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="h-3 w-3 fill-white" />
-                                <span>Jalankan Truk di Peta</span>
-                              </>
-                            )}
-                          </button>
+                      {/* Auto Center Toggle & Quick Test */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onRecenterTruck) {
+                              onRecenterTruck();
+                            } else {
+                              onToggleAutoCenterGps?.();
+                            }
+                          }}
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl text-[10.5px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${autoCenterGps && !isMapPannedAway
+                              ? "bg-[#0EB29A]/20 border-[#0EB29A] text-emerald-300"
+                              : "bg-white/5 border-white/15 text-slate-300 hover:text-white"
+                            }`}
+                        >
+                          <Crosshair className={`h-3.5 w-3.5 ${autoCenterGps && !isMapPannedAway ? "text-[#0EB29A]" : ""}`} />
+                          <span>{autoCenterGps && !isMapPannedAway ? (isMotor ? "🎯 Ikuti Posisi Motor (Aktif)" : "🎯 Ikuti Posisi Truk (Aktif)") : (isMotor ? "🎯 Pusatkan ke Motor" : "🎯 Pusatkan ke Truk")}</span>
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsSimulatedNear(true);
-                              onJumpNearTarget?.();
-                            }}
-                            className="py-1.5 px-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold transition-all cursor-pointer border border-white/20 whitespace-nowrap"
-                            title="Simulasikan truk tiba dalam radius 45 meter"
-                          >
-                            ⚡ Tiba (&lt;100m)
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSimulatedNear(true);
+                            onJumpNearTarget?.();
+                          }}
+                          className="py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold border border-white/15 cursor-pointer whitespace-nowrap"
+                          title="Uji coba tiba dalam radius 45m"
+                        >
+                          ⚡ Tes Tiba (45m)
+                        </button>
                       </div>
-                    )}
+
+                      <p className="text-[10px] text-slate-300 italic leading-snug">
+                        📡 Bawa HP Anda berjalan atau berkendara menuju titik. {vehicleLabel} di peta seluruh pengguna bergerak mengikuti GPS HP Anda secara realtime.
+                      </p>
+
+                      {gpsError && (
+                        <div className="p-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 text-[10px] font-medium">
+                          ⚠️ {gpsError}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {!isWithin100Meters ? (
@@ -835,14 +775,14 @@ export function RouteDirectionPanel({
                         <span>🔒 Tahap Pengambilan (Terkunci: Jarak {displayDistance}m &gt; 100m)</span>
                       </button>
                       <p className="text-[10px] text-slate-500 italic leading-snug">
-                        Ikon truk hijau bergerak di peta menyusuri jalan. Tombol akan terbuka otomatis saat jarak truk ≤ 100 meter dari lokasi sampah.
+                        Ikon {vehicleLabel.toLowerCase()} hijau bergerak di peta menyusuri jalan. Tombol akan terbuka otomatis saat jarak {vehicleLabel.toLowerCase()} ≤ 100 meter dari lokasi sampah.
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-bold flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                        <span>Truk telah tiba di lokasi (radius ≤ 100m)! Siap memulai tahap pembersihan.</span>
+                        <span>{vehicleLabel} telah tiba di lokasi (radius ≤ 100m)! Siap memulai tahap pembersihan.</span>
                       </div>
                       <button
                         onClick={() => {

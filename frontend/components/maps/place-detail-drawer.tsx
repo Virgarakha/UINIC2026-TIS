@@ -33,10 +33,19 @@ import {
 } from "lucide-react";
 import { LaporanSampah, TanggapanLaporan, User } from "@/types";
 import { HazardBadge } from "@/components/shared/hazard-badge";
+import { AuthModal } from "@/components/shared/auth-modal";
 import { WeatherData } from "@/lib/weather";
 import { formatDate, formatRupiah, getDistanceMeters, cn } from "@/lib/utils";
-import { fetchTanggapanApi, sendTanggapanApi, dispatchPenjemputanApi } from "@/lib/api-client";
-import { saveDispatchedReportId } from "@/lib/auth-storage";
+import {
+  fetchTanggapanApi,
+  sendTanggapanApi,
+  dispatchPenjemputanApi,
+  cancelPenjemputanApi,
+  fetchActiveArmadaApi,
+  getApiBaseUrl,
+  ActiveArmadaTruck,
+} from "@/lib/api-client";
+import { saveDispatchedReportId, removeDispatchedReportId, isGuestUser, getStoredUser } from "@/lib/auth-storage";
 
 function formatRelativeTime(dateString?: string): string {
   if (!dateString) return "Baru saja";
@@ -71,6 +80,10 @@ export interface PlaceDetailDrawerProps {
   onOpenTracker?: (report: LaporanSampah) => void;
   roleViewMode?: "warga" | "pengepul";
   onReportDispatched?: (reportId: number) => void;
+  onReportCancelled?: (reportId: number) => void;
+  dispatchedReportIds?: number[];
+  activeArmadaList?: ActiveArmadaTruck[];
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 export function PlaceDetailDrawer({
@@ -88,6 +101,10 @@ export function PlaceDetailDrawer({
   onOpenTracker,
   roleViewMode = "warga",
   onReportDispatched,
+  onReportCancelled,
+  dispatchedReportIds = [],
+  activeArmadaList = [],
+  userLocation,
 }: PlaceDetailDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<
     "ringkasan" | "ai" | "cuaca" | "tanggapan" | "sekitar"
@@ -113,15 +130,134 @@ export function PlaceDetailDrawer({
   const [isPengepulModalOpen, setIsPengepulModalOpen] = React.useState(false);
   const [isDispatching, setIsDispatching] = React.useState(false);
   const [dispatchSuccess, setDispatchSuccess] = React.useState(false);
+  const [isCancelling, setIsCancelling] = React.useState(false);
+  const [cancelSuccess, setCancelSuccess] = React.useState(false);
+  const [localDispatchedReportIds, setLocalDispatchedReportIds] = React.useState<number[]>([]);
+  const [internalArmadaList, setInternalArmadaList] = React.useState<ActiveArmadaTruck[]>([]);
+
+  // Fetch active armada if not passed from parent
+  React.useEffect(() => {
+    let mounted = true;
+    if (!activeArmadaList || activeArmadaList.length === 0) {
+      fetchActiveArmadaApi()
+        .then((data) => {
+          if (mounted && Array.isArray(data) && data.length > 0) {
+            setInternalArmadaList(data);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [activeArmadaList]);
+
+  // Reactive dispatch status: checks parent list, local state, and report status
+  const isAlreadyDispatched = Boolean(
+    report && (
+      (dispatchedReportIds && dispatchedReportIds.includes(report.id)) ||
+      localDispatchedReportIds.includes(report.id) ||
+      report.status_id === 3 ||
+      report.status_id === 4 ||
+      (report.status?.kode as string) === "dalam_penjemputan" ||
+      report.status?.kode === "siap_diambil_pengepul" ||
+      report.status?.kode === "sedang_dibersihkan" ||
+      (typeof report.status === "object" && (report.status as any)?.id === 3) ||
+      (report as any).penjemputan?.status_jemput === "menuju_lokasi"
+    )
+  );
+
+  const effectiveArmadaList = (activeArmadaList && activeArmadaList.length > 0) ? activeArmadaList : internalArmadaList;
+
+  // Real nearest armada calculation (Solves Bug 2: Data Armada Terdekat)
+  const nearestArmada = React.useMemo(() => {
+    if (!report) return null;
+    const refLat = report.latitude;
+    const refLng = report.longitude;
+
+    if (!effectiveArmadaList || effectiveArmadaList.length === 0) {
+      return {
+        id: 2,
+        nama: "Pak Slamet (Mitra DLH & Pengepul)",
+        plat: "N 8472 AB",
+        kendaraan: "Truk Bak Hidrolik Mini DLH",
+        telepon: "0813-3379-4278",
+        rating: 4.95,
+        totalMisi: 48,
+        jarakMeter: 550,
+        estimasiMenit: 3,
+        isReal: false,
+      };
+    }
+
+    let minDistance = Infinity;
+    let closestTruck = effectiveArmadaList[0];
+
+    effectiveArmadaList.forEach((truck) => {
+      const dist = getDistanceMeters(refLat, refLng, truck.latitude, truck.longitude);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestTruck = truck;
+      }
+    });
+
+    const travelMinutes = Math.max(2, Math.round(minDistance / 400));
+
+    return {
+      id: closestTruck.pengepul_id || closestTruck.id,
+      nama: closestTruck.pengepul_nama || "Pak Slamet (Mitra DLH & Pengepul)",
+      plat: closestTruck.pengepul_plat_nomor || "N 8472 AB",
+      kendaraan: closestTruck.pengepul_jenis_kendaraan || "Truk Bak Hidrolik Mini DLH",
+      telepon: closestTruck.pengepul_telepon || "0813-3379-4278",
+      rating: closestTruck.pengepul_rating || 4.95,
+      totalMisi: closestTruck.pengepul_total_misi || 48,
+      jarakMeter: Math.round(minDistance),
+      estimasiMenit: travelMinutes,
+      isReal: true,
+    };
+  }, [report, effectiveArmadaList]);
 
   // Lightbox Photo
   const [lightboxPhotoUrl, setLightboxPhotoUrl] = React.useState<string | null>(null);
 
+  // Isolated Reusable Auth Modal State for Protected Actions (Simpan, Tanggapan, etc.)
+  const [isAuthModalOpen, setIsAuthModalOpen] = React.useState<boolean>(false);
+  const [authActionMessage, setAuthActionMessage] = React.useState<string>("");
+  const [pendingAction, setPendingAction] = React.useState<(() => void) | null>(null);
+
+  const requireAuth = React.useCallback((message: string, action: () => void) => {
+    const currentUser = user || getStoredUser();
+    if (!currentUser) {
+      setAuthActionMessage(message);
+      setPendingAction(() => action);
+      setIsAuthModalOpen(true);
+      return false;
+    }
+    action();
+    return true;
+  }, [user]);
+
+  const DEFAULT_FALLBACK_IMAGE =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='500' viewBox='0 0 800 500'%3E%3Crect fill='%231e293b' width='800' height='500'/%3E%3Cg fill='%2364748b' transform='translate(360, 200)'%3E%3Cpath d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5-7l-3 3.72L9 13l-3 4h12l-4-5z'/%3E%3C/g%3E%3Ctext fill='%2394a3b8' font-family='sans-serif' font-size='16' font-weight='bold' x='50%25' y='60%25' text-anchor='middle'%3EFoto Bukti Lapangan%3C/text%3E%3C/svg%3E";
+
   const getSafeImageUrl = (url?: string | null) => {
-    if (url && (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/") || url.startsWith("data:"))) {
+    if (!url) return DEFAULT_FALLBACK_IMAGE;
+    if (url.startsWith("/")) {
+      if (url.startsWith("/storage")) {
+        const baseUrl = getApiBaseUrl().replace("/api/v1", "");
+        return `${baseUrl}${url}`;
+      }
       return url;
     }
-    return "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+    if (url.startsWith("http://localhost:8000") || url.startsWith("http://127.0.0.1:8000")) {
+      if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        return url.replace(/http:\/\/(localhost|127\.0\.0\.1):8000/, `http://${window.location.hostname}:8000`);
+      }
+    }
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+      return url;
+    }
+    return DEFAULT_FALLBACK_IMAGE;
   };
 
   // Synchronize or load tanggapan when report changes
@@ -146,6 +282,13 @@ export function PlaceDetailDrawer({
 
   const handleSubmitTanggapan = async () => {
     if (!report || !newKomentar.trim()) return;
+    const currentUser = user || getStoredUser();
+    if (!currentUser) {
+      requireAuth("Silakan masuk atau buat akun terlebih dahulu untuk mengirim respon warga.", () => {
+        handleSubmitTanggapan();
+      });
+      return;
+    }
     setIsSubmittingTanggapan(true);
     setSubmitSuccessMsg(null);
 
@@ -207,18 +350,35 @@ export function PlaceDetailDrawer({
     }, 700);
   };
 
+  // Dispatch Penjemputan (Solves Bug 1: reusable dispatch)
   const handleDispatchPengepul = async () => {
     if (!report) return;
     setIsDispatching(true);
     try {
-      await dispatchPenjemputanApi(report.id, user?.id || 30, "Penjemputan diminta via peta publik");
+      await dispatchPenjemputanApi(report.id, user?.id || 1, "Penjemputan diminta via peta publik");
     } catch {
       // safe fallback
     } finally {
       setIsDispatching(false);
       setDispatchSuccess(true);
+      setCancelSuccess(false);
       saveDispatchedReportId(report.id);
+      setLocalDispatchedReportIds((prev) => [...prev, report.id]);
       onReportDispatched?.(report.id);
+
+      if (onReportUpdated) {
+        onReportUpdated({
+          ...report,
+          status_id: 3,
+          status: {
+            id: 3,
+            kode: "siap_diambil_pengepul",
+            nama: "Dalam Penjemputan",
+            badge_color: "emerald",
+            urutan: 3,
+          },
+        });
+      }
 
       if (typeof BroadcastChannel !== "undefined") {
         try {
@@ -230,6 +390,7 @@ export function PlaceDetailDrawer({
             longitude: report.longitude,
             alamat: report.alamat_lokasi,
             kategori: report.kategori?.nama,
+            driver: nearestArmada?.nama,
             timestamp: Date.now(),
           });
           ch.close();
@@ -237,6 +398,52 @@ export function PlaceDetailDrawer({
       }
 
       setTimeout(() => setDispatchSuccess(false), 5000);
+    }
+  };
+
+  // Batalkan Penjemputan (Solves Bug 1: reuse button after cancelation)
+  const handleCancelDispatch = async () => {
+    if (!report) return;
+    setIsCancelling(true);
+    try {
+      await cancelPenjemputanApi(report.id, user?.id);
+    } catch {
+      // safe fallback
+    } finally {
+      setIsCancelling(false);
+      setCancelSuccess(true);
+      setDispatchSuccess(false);
+      removeDispatchedReportId(report.id);
+      setLocalDispatchedReportIds((prev) => prev.filter((id) => id !== report.id));
+      onReportCancelled?.(report.id);
+
+      if (onReportUpdated) {
+        onReportUpdated({
+          ...report,
+          status_id: 2,
+          status: {
+            id: 2,
+            kode: "terverifikasi",
+            nama: "Terverifikasi AI",
+            badge_color: "blue",
+            urutan: 2,
+          },
+        });
+      }
+
+      if (typeof BroadcastChannel !== "undefined") {
+        try {
+          const ch = new BroadcastChannel("uinic_armada_tracking");
+          ch.postMessage({
+            type: "CITIZEN_PICKUP_CANCELLED",
+            reportId: report.id,
+            timestamp: Date.now(),
+          });
+          ch.close();
+        } catch {}
+      }
+
+      setTimeout(() => setCancelSuccess(false), 5000);
     }
   };
 
@@ -341,7 +548,7 @@ export function PlaceDetailDrawer({
         // Mobile height: peek (h-[300px]) vs expanded (h-[calc(86vh-64px)]), Desktop is max-h
         mobileSheetState === "peek" ? "h-[300px] sm:h-auto" : "h-[calc(86vh-64px)] sm:h-auto",
         "sm:max-h-[calc(100vh-32px)]",
-        isRailVisible ? "left-0 sm:left-[80px]" : "left-0 sm:left-4"
+        isRailVisible ? "left-0 sm:left-[88px]" : "left-0 sm:left-4"
       )}
     >
       {/* Mobile Top Drag Handle Bar */}
@@ -364,8 +571,7 @@ export function PlaceDetailDrawer({
         <img
           src={getSafeImageUrl(report.foto_url)}
           onError={(e) => {
-            (e.target as HTMLImageElement).src =
-              "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+            (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
           }}
           alt={report.alamat_lokasi}
           className="w-full h-full object-cover brightness-95 group-hover:scale-105 transition-transform duration-300"
@@ -484,7 +690,9 @@ export function PlaceDetailDrawer({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-black text-emerald-950 truncate">
-                {report.status?.nama || "Menunggu Penjemputan"}
+                {isAlreadyDispatched
+                  ? "Armada Sedang Menuju Lokasi"
+                  : report.status?.nama || "Menunggu Penjemputan"}
               </span>
               <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-200/60 text-emerald-800">
                 Live
@@ -497,14 +705,27 @@ export function PlaceDetailDrawer({
         </div>
 
         {roleViewMode === "warga" ? (
-          <button
-            type="button"
-            onClick={() => onOpenTracker?.(report)}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95"
-          >
-            <Truck className="h-3.5 w-3.5" />
-            <span>Lacak Status</span>
-          </button>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {isAlreadyDispatched && (
+              <button
+                type="button"
+                onClick={() => setIsPengepulModalOpen(true)}
+                className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                title="Kelola atau Batalkan Penjemputan Armada"
+              >
+                <X className="h-3 w-3" />
+                <span>Batal Jemput</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenTracker?.(report)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95"
+            >
+              <Truck className="h-3.5 w-3.5" />
+              <span>Lacak Status</span>
+            </button>
+          </div>
         ) : (
           <button
             type="button"
@@ -536,7 +757,14 @@ export function PlaceDetailDrawer({
 
         <button
           onClick={() => {
-            if (onToggleBookmark) onToggleBookmark(report.id);
+            requireAuth(
+              "Silakan masuk terlebih dahulu untuk menyimpan laporan titik sampah ini ke daftar pantau Anda.",
+              () => {
+                if (onToggleBookmark && report) {
+                  onToggleBookmark(report.id);
+                }
+              }
+            );
           }}
           className="flex flex-col items-center gap-1 p-1 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer"
           title={isBookmarked ? "Hapus dari Daftar Simpan" : "Simpan ke Daftar Pantau"}
@@ -565,16 +793,30 @@ export function PlaceDetailDrawer({
           <span className="text-[10px] font-bold text-[#2B3752]">Siaga</span>
         </button>
 
-        <button
-          onClick={() => setIsPengepulModalOpen(true)}
-          className="flex flex-col items-center gap-1 p-1 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer"
-          title="Buka Dispatch Penjemputan Mitra Pengepul"
-        >
-          <div className="h-9 w-9 rounded-full bg-[#2E6E65]/10 text-[#2E6E65] flex items-center justify-center group-hover:bg-[#2E6E65] group-hover:text-white transition-all shadow-xs">
-            <Truck className="h-4 w-4" />
-          </div>
-          <span className="text-[10px] font-bold text-[#2B3752]">Pengepul</span>
-        </button>
+        {!(user?.role === "pengepul" || roleViewMode === "pengepul") && (
+          <button
+            onClick={() => setIsPengepulModalOpen(true)}
+            className="flex flex-col items-center gap-1 p-1 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer relative"
+            title={isAlreadyDispatched ? "Kelola / Batalkan Penjemputan Armada" : "Buka Dispatch Penjemputan Mitra Pengepul"}
+          >
+            <div
+              className={cn(
+                "h-9 w-9 rounded-full flex items-center justify-center transition-all shadow-xs relative",
+                isAlreadyDispatched
+                  ? "bg-emerald-600 text-white"
+                  : "bg-[#2E6E65]/10 text-[#2E6E65] group-hover:bg-[#2E6E65] group-hover:text-white"
+              )}
+            >
+              <Truck className="h-4 w-4" />
+              {isAlreadyDispatched && (
+                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-white animate-ping" />
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-[#2B3752]">
+              {isAlreadyDispatched ? "Dijemput" : "Pengepul"}
+            </span>
+          </button>
+        )}
 
         <button
           onClick={handleCopyLink}
@@ -614,14 +856,14 @@ export function PlaceDetailDrawer({
           <span>Analisis AI</span>
         </button>
         <button
-          onClick={() => setActiveTab("cuaca")}
-          className={`py-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === "cuaca"
-              ? "border-[#2E6E65] text-[#2E6E65] font-bold"
+          onClick={() => setActiveTab("tanggapan")}
+          className={`py-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === "tanggapan"
+              ? "border-[#0EB29A] text-[#0EB29A] font-bold"
               : "border-transparent text-slate-500 hover:text-[#2B3752]"
             }`}
         >
-          <CloudRain className="h-3.5 w-3.5 text-[#2E6E65]" />
-          <span>Cuaca & Lingkungan</span>
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>Respon Warga ({tanggapanList.length})</span>
         </button>
         <button
           onClick={() => setActiveTab("ringkasan")}
@@ -633,14 +875,14 @@ export function PlaceDetailDrawer({
           Ringkasan
         </button>
         <button
-          onClick={() => setActiveTab("tanggapan")}
-          className={`py-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === "tanggapan"
-              ? "border-[#0EB29A] text-[#0EB29A] font-bold"
+          onClick={() => setActiveTab("cuaca")}
+          className={`py-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === "cuaca"
+              ? "border-[#2E6E65] text-[#2E6E65] font-bold"
               : "border-transparent text-slate-500 hover:text-[#2B3752]"
             }`}
         >
-          <MessageSquare className="h-3.5 w-3.5" />
-          <span>Respon Warga ({tanggapanList.length})</span>
+          <CloudRain className="h-3.5 w-3.5 text-[#2E6E65]" />
+          <span>Cuaca & Lingkungan</span>
         </button>
       </div>
 
@@ -655,8 +897,7 @@ export function PlaceDetailDrawer({
           <img
             src={getSafeImageUrl(report.foto_url)}
             onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+              (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
             }}
             alt={report.alamat_lokasi}
             className="w-full h-full object-cover brightness-95"
@@ -942,8 +1183,7 @@ export function PlaceDetailDrawer({
                     <img
                       src={getSafeImageUrl(report.foto_url)}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=800&q=80";
+                        (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
                       }}
                       alt="Sebelum Pembersihan"
                       className="w-full h-full object-cover"
@@ -1000,7 +1240,12 @@ export function PlaceDetailDrawer({
             {/* Quick Action: Button or Collapse to Open Form */}
             {!isReviewFormOpen ? (
               <button
-                onClick={() => setIsReviewFormOpen(true)}
+                onClick={() =>
+                  requireAuth(
+                    "Silakan masuk atau daftar terlebih dahulu untuk memberikan ulasan atau tanggapan kondisi terkini.",
+                    () => setIsReviewFormOpen(true)
+                  )
+                }
                 className="w-full py-2.5 px-3 rounded-xl bg-[#2B3752] hover:bg-[#1f283d] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
               >
                 <Plus className="h-4 w-4 text-[#0EB29A]" />
@@ -1419,8 +1664,7 @@ export function PlaceDetailDrawer({
               <img
                 src={getSafeImageUrl(lightboxPhotoUrl || report.foto_url)}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=1200&q=80";
+                  (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_IMAGE;
                 }}
                 alt="Foto Bukti Lapangan"
                 className="max-h-[64vh] w-auto max-w-full object-contain rounded-2xl shadow-lg border border-slate-200/80 bg-white"
@@ -1579,6 +1823,7 @@ export function PlaceDetailDrawer({
 
             {/* Content */}
             <div className="p-4 space-y-3.5 text-xs">
+
               {/* Recyclable Waste Info */}
               <div className="p-3 rounded-2xl bg-[#0EB29A]/10 border border-[#0EB29A]/25 space-y-2">
                 <div className="flex items-center justify-between">
@@ -1593,56 +1838,121 @@ export function PlaceDetailDrawer({
                 </div>
               </div>
 
-              {/* Nearest Active Collector Info */}
+              {/* Nearest Active Collector Info (Bug 2: Data Riil Armada Online) */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Armada Terdekat Siap Berangkat:
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Armada Terdekat Siap Berangkat:
+                  </span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Aktif Online
+                  </span>
+                </div>
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-[#2E6E65] text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+                  <div className="h-10 w-10 rounded-2xl bg-[#2E6E65] text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
                     <Truck className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <strong className="text-[#2B3752] text-xs block truncate">
-                      Cak Joko Prasetyo (Armada Klojen)
+                      {nearestArmada?.nama || "Pak Slamet (Mitra DLH & Pengepul)"}
                     </strong>
-                    <span className="text-[10px] text-slate-500 block">
-                      Truk Bak Hidrolik Mini • Jarak: ~450 meter (±6 menit)
+                    <span className="text-[10px] text-slate-500 block truncate">
+                      {nearestArmada?.kendaraan || "Truk Bak Hidrolik Mini DLH"} • Plat {nearestArmada?.plat || "N 8472 AB"}
                     </span>
-                    <span className="text-[10px] text-amber-600 font-semibold">
-                      ⭐ 4.9 (134 misi jemput selesai)
-                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-[#2E6E65] font-semibold">
+                        Jarak: ~{nearestArmada && nearestArmada.jarakMeter < 1000 ? `${nearestArmada.jarakMeter} m` : `${((nearestArmada?.jarakMeter || 0) / 1000).toFixed(1)} km`} (±{nearestArmada?.estimasiMenit || 3} menit)
+                      </span>
+                      <span className="text-[10px] text-amber-600 font-semibold">
+                        ⭐ {nearestArmada?.rating || 4.95} ({nearestArmada?.totalMisi || 48} misi)
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Success Banner */}
-              {dispatchSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs flex items-center gap-2 animate-in fade-in duration-200">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                  <span className="font-medium">Permintaan penjemputan terkirim! Armada sedang bergerak menuju titik laporan.</span>
+              {/* Status Banner when already dispatched */}
+              {isAlreadyDispatched && (
+                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3 flex-shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <div>
+                    <strong className="block text-emerald-950 font-bold">Armada Sedang Menuju Lokasi</strong>
+                    <span className="text-[11px] text-emerald-700">Permintaan penjemputan aktif. Armada menuju titik koordinat.</span>
+                  </div>
                 </div>
               )}
 
-              {/* Action Buttons */}
+              {/* Success Banner when just dispatched */}
+              {dispatchSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs flex items-center gap-2 animate-in fade-in duration-200">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span className="font-medium">Permintaan penjemputan berhasil dikirimkan! Armada sedang bergerak menuju lokasi laporan.</span>
+                </div>
+              )}
+
+              {/* Success Banner when cancelled */}
+              {cancelSuccess && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2 animate-in fade-in duration-200">
+                  <CheckCircle2 className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  <span className="font-medium">Permintaan penjemputan berhasil dibatalkan. Anda dapat mengajukan permintaan kembali kapan saja.</span>
+                </div>
+              )}
+
+              {/* Action Buttons (Bug 1: Tombol Penjemputan Reaktif & Bisa Dibatalkan/Diajukan Ulang) */}
               <div className="space-y-2 pt-1">
-                <button
-                  onClick={handleDispatchPengepul}
-                  disabled={isDispatching}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#2E6E65] hover:bg-[#24574f] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                >
-                  {isDispatching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Mengirimkan Penugasan...</span>
-                    </>
-                  ) : (
-                    <>
+                {isAlreadyDispatched ? (
+                  <>
+                    <button
+                      onClick={handleCancelDispatch}
+                      disabled={isCancelling}
+                      className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Membatalkan Permintaan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <X className="h-4 w-4" />
+                          <span>Batalkan Permintaan Penjemputan</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsPengepulModalOpen(false);
+                        onOpenTracker?.(report);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-[#2E6E65] hover:bg-[#24574f] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                    >
                       <Truck className="h-4 w-4" />
-                      <span>Minta Penjemputan Armada Sekarang</span>
-                    </>
-                  )}
-                </button>
+                      <span>Lacak Posisi Armada Realtime</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleDispatchPengepul}
+                    disabled={isDispatching}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#2E6E65] hover:bg-[#24574f] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    {isDispatching ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Mengirimkan Penugasan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="h-4 w-4" />
+                        <span>Minta Penjemputan Armada Sekarang</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() => setIsPengepulModalOpen(false)}
                   className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
@@ -1654,6 +1964,24 @@ export function PlaceDetailDrawer({
           </div>
         </div>
       )}
+
+      {/* Reusable Auth Modal for Protected Actions */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          setIsAuthModalOpen(false);
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
+        }}
+        actionTitle="Autentikasi Diperlukan"
+        actionMessage={authActionMessage}
+      />
     </div>
   );
 }

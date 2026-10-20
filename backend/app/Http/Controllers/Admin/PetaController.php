@@ -1,7 +1,5 @@
 <?php
 
-namespace App\Models;
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -16,18 +14,29 @@ class PetaController extends Controller
      */
     public function index(): View
     {
-        $reports = LaporanSampah::with(['status', 'kategori', 'analisisAi.jenisSampahDominan', 'pelapor'])
+        $allReports = LaporanSampah::with(['status', 'kategori', 'analisisAi.jenisSampahDominan', 'pelapor'])
             ->latest('id')
             ->get();
 
+        // Active reports to display on map and radar feed (exclude completed ones)
+        $activeReports = $allReports->filter(function ($r) {
+            $statusKode = strtolower($r->status?->kode ?? '');
+            $statusNama = strtolower($r->status?->nama ?? '');
+            return !in_array($statusKode, ['selesai', 'tuntas']) && !str_contains($statusNama, 'selesai') && !str_contains($statusNama, 'tuntas');
+        })->values();
+
         $stats = [
-            'total_titik' => $reports->count(),
-            'kritis' => $reports->where('is_resiko_banjir', true)->count(),
-            'siap_pengepul' => $reports->where('status.kode', 'siap_diambil_pengepul')->count(),
-            'selesai' => $reports->where('status.kode', 'selesai')->count(),
+            'total_titik' => $activeReports->count(),
+            'kritis' => $activeReports->filter(fn ($r) => $r->is_resiko_banjir || !empty($r->tipe_bahaya))->count(),
+            'siap_pengepul' => $activeReports->where('status.kode', 'siap_diambil_pengepul')->count(),
+            'selesai' => $allReports->filter(function ($r) {
+                $statusKode = strtolower($r->status?->kode ?? '');
+                $statusNama = strtolower($r->status?->nama ?? '');
+                return in_array($statusKode, ['selesai', 'tuntas']) || str_contains($statusNama, 'selesai') || str_contains($statusNama, 'tuntas');
+            })->count(),
         ];
 
-        return view('admin.peta.index', compact('reports', 'stats'));
+        return view('admin.peta.index', ['reports' => $activeReports, 'stats' => $stats]);
     }
 
     /**
@@ -36,6 +45,9 @@ class PetaController extends Controller
     public function markers(): JsonResponse
     {
         $reports = LaporanSampah::with(['status', 'kategori', 'analisisAi.jenisSampahDominan'])
+            ->whereHas('status', function ($q) {
+                $q->whereNotIn('kode', ['selesai', 'tuntas']);
+            })
             ->latest('id')
             ->get();
 

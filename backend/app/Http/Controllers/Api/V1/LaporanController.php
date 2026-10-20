@@ -51,7 +51,11 @@ class LaporanController extends BaseApiController
      */
     public function store(StoreLaporanRequest $request): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $userId = $request->user()?->id ?? ($request->input('user_id') ? (int) $request->input('user_id') : null);
+        if (! $userId) {
+            $defaultCitizen = \App\Models\User::where('role', 'warga')->first();
+            $userId = $defaultCitizen?->id ?? 3;
+        }
         $laporan = $this->laporanService->create($request->validated(), $userId);
 
         return $this->sendResponse(new LaporanResource($laporan), 'Laporan dan analisis AI berhasil disimpan ke database', 201);
@@ -83,6 +87,9 @@ class LaporanController extends BaseApiController
     public function peringatanDini(): JsonResponse
     {
         $warnings = PeringatanDini::where('status_aktif', true)
+            ->whereDoesntHave('laporan.status', function ($q) {
+                $q->whereIn('kode', ['selesai', 'tuntas']);
+            })
             ->with(['laporan.status', 'laporan.kategori'])
             ->latest()
             ->get();
@@ -126,6 +133,10 @@ class LaporanController extends BaseApiController
                     'no_telepon' => '0812-3456-789',
                 ]
             );
+        }
+
+        if ($user->id === 1 || $user->email === 'warga.tamu@ecocitizen.id') {
+            return $this->sendError('Pengguna tanpa login tidak dapat menukarkan poin atau mengklaim reward. Silakan masuk akun terlebih dahulu.', [], 403);
         }
 
         $userPoints = (int) ($user->poin_reward ?? 0);
@@ -387,11 +398,11 @@ class LaporanController extends BaseApiController
                 'pengepul_id' => $item->pengepul_id,
                 'pengepul_nama' => $pengepulName,
                 'pengepul_foto' => $avatarUrl,
-                'pengepul_telepon' => $item->pengepul?->no_telepon ?? '0812-3456-7890',
-                'pengepul_rating' => 4.9,
-                'pengepul_total_misi' => 128 + ($item->pengepul_id * 3),
-                'pengepul_plat_nomor' => 'N ' . (8200 + ($item->pengepul_id * 13) % 900) . ' AB',
-                'pengepul_jenis_kendaraan' => 'Truk Bak Hidrolik Mini DLH',
+                'pengepul_telepon' => $item->pengepul?->no_telepon ?? '0813-3379-4278',
+                'pengepul_rating' => (float) ($item->pengepul?->rating ?? 4.95),
+                'pengepul_total_misi' => (int) ($item->pengepul?->total_ulasan ? ($item->pengepul->total_ulasan * 3) : (128 + ($item->pengepul_id * 3))),
+                'pengepul_plat_nomor' => $item->pengepul?->plat_nomor ?? ('N ' . (8200 + ($item->pengepul_id * 13) % 900) . ' AB'),
+                'pengepul_jenis_kendaraan' => $item->pengepul?->jenis_kendaraan ?? 'Truk Bak Hidrolik Mini DLH',
                 'status_jemput' => $item->status_jemput,
                 'latitude' => (float) $item->current_latitude,
                 'longitude' => (float) $item->current_longitude,

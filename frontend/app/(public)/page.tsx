@@ -283,7 +283,7 @@ export default function LandingHomePage() {
                   className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-full border-2 border-[#18231D] bg-white text-[#18231D] hover:bg-[#18231D] hover:text-white transition-all shadow-xs active:scale-95"
                 >
                   <span className="font-extrabold text-sm sm:text-base">
-                    Gabung EcoPatrol Sekarang
+                    Gabung TRINFO Sekarang
                   </span>
                   <span className="h-7 w-7 rounded-full bg-[#1E5345] group-hover:bg-emerald-400 text-white group-hover:text-[#18231D] flex items-center justify-center transition-colors">
                     <span className="text-xs">🍃</span>

@@ -37,12 +37,13 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Info */}
           <div className="md:col-span-2 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0EB29A] to-[#2E6E65] text-white shadow-sm shadow-[#0EB29A]/20">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-              <span className="text-base font-black text-[#2B3752]">{siteConfig.name}</span>
-            </div>
+            <Link href="/" className="inline-block" title="TRINFO - Trash Information System">
+              <img
+                src="/images/logo-text.png"
+                alt="TRINFO - Trash Information System"
+                className="h-10 w-auto object-contain"
+              />
+            </Link>
             <p className="text-slate-600 leading-relaxed max-w-md text-xs">
               {siteConfig.description}
             </p>

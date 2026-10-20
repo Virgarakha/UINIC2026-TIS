@@ -131,8 +131,9 @@
                     </div>
                 @empty
                     <div class="text-center py-5 text-secondary">
-                        <i class="bi bi-geo-alt display-6 d-block mb-2 opacity-50"></i>
-                        <span style="font-size: 13px;">Belum ada titik laporan tercatat.</span>
+                        <i class="bi bi-check-circle-fill text-success display-6 d-block mb-2"></i>
+                        <h6 class="text-white fw-bold mb-1">Radar Bersih</h6>
+                        <span style="font-size: 13px;">Semua titik sampah telah selesai dibersihkan!</span>
                     </div>
                 @endforelse
             </div>

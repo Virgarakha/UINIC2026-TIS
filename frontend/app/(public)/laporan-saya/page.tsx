@@ -27,7 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CitizenReportTrackerModal } from "@/components/shared/citizen-report-tracker-modal";
-import { getStoredUser, setStoredSession, getStoredUserReports } from "@/lib/auth-storage";
+import { getStoredUser, setStoredSession, getStoredUserReports, isGuestUser } from "@/lib/auth-storage";
 import { MOCK_LAPORAN_SAMPAH, fetchLaporanListApi } from "@/lib/api-client";
 import { LaporanSampah, User } from "@/types";
 import { cn, formatDate } from "@/lib/utils";
@@ -124,11 +124,17 @@ export default function LaporanSayaPage() {
         // Combine: locally created first, then API reports, then mock completed history
         const combined = [...locallyCreated, ...apiReports, ...COMPLETED_REPORTS_MOCK];
         
-        // Remove duplicates by ID
+        // Remove duplicates by ID, prioritizing completed status
         const uniqueMap = new Map<number, LaporanSampah>();
         combined.forEach((rep) => {
           if (!uniqueMap.has(rep.id)) {
             uniqueMap.set(rep.id, rep);
+          } else {
+            const existing = uniqueMap.get(rep.id)!;
+            const isRepCompleted = rep.status?.kode === "selesai" || rep.status?.kode === "tuntas" || (rep.status?.nama || "").toLowerCase().includes("selesai");
+            if (isRepCompleted) {
+              uniqueMap.set(rep.id, { ...existing, ...rep });
+            }
           }
         });
 
@@ -137,7 +143,19 @@ export default function LaporanSayaPage() {
       .catch(() => {
         const locallyCreated = getStoredUserReports();
         const fallback = [...locallyCreated, ...MOCK_LAPORAN_SAMPAH, ...COMPLETED_REPORTS_MOCK];
-        setReports(fallback);
+        const uniqueMap = new Map<number, LaporanSampah>();
+        fallback.forEach((rep) => {
+          if (!uniqueMap.has(rep.id)) {
+            uniqueMap.set(rep.id, rep);
+          } else {
+            const existing = uniqueMap.get(rep.id)!;
+            const isRepCompleted = rep.status?.kode === "selesai" || rep.status?.kode === "tuntas" || (rep.status?.nama || "").toLowerCase().includes("selesai");
+            if (isRepCompleted) {
+              uniqueMap.set(rep.id, { ...existing, ...rep });
+            }
+          }
+        });
+        setReports(Array.from(uniqueMap.values()));
       })
       .finally(() => {
         setIsLoading(false);
@@ -146,6 +164,45 @@ export default function LaporanSayaPage() {
 
   React.useEffect(() => {
     loadData();
+
+    let ch: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        ch = new BroadcastChannel("uinic_armada_tracking");
+        ch.onmessage = (e) => {
+          if (e.data?.type === "TRUCK_MISSION_FINISHED" && e.data?.laporan_id) {
+            setReports((prev) =>
+              prev.map((r) =>
+                r.id === e.data.laporan_id
+                  ? {
+                      ...r,
+                      status: {
+                        id: 6,
+                        kode: "selesai",
+                        nama: "Selesai Bersih",
+                        badge_color: "success",
+                        urutan: 6,
+                      },
+                    }
+                  : r
+              )
+            );
+          }
+        };
+      } catch {}
+    }
+
+    const handleStorageChange = () => {
+      loadData();
+    };
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("uinic_reports_changed", handleStorageChange);
+
+    return () => {
+      if (ch) ch.close();
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("uinic_reports_changed", handleStorageChange);
+    };
   }, [loadData]);
 
   // Demo auto-login as warga
@@ -196,6 +253,8 @@ export default function LaporanSayaPage() {
     return acc + (curr.analisis_ai?.nilai_ekonomi_estimasi || 35000);
   }, 0);
 
+  const isGuest = isGuestUser(user);
+
   return (
     <div className="min-h-screen bg-[#FBFBF8] text-[#18231D] pb-24 md:pb-16">
       
@@ -211,50 +270,55 @@ export default function LaporanSayaPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-black uppercase tracking-wider border border-emerald-500/30">
-                  Citizen Waste-to-Cash Portal
+                  {isGuest ? "Citizen Waste Radar • Pemantauan Terbuka" : "Citizen Waste-to-Cash Portal • Realtime Radar"}
                 </span>
-                <span className="text-xs text-slate-400">• Realtime Radar</span>
+                <span className="text-xs text-slate-400">• Malang Raya</span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
-                Laporan & Pelacakan Saya
+                {isGuest ? "Laporan Warga" : "Laporan & Pelacakan Saya"}
               </h1>
               <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
-                Pantau langsung status verifikasi AI Gemini, pergerakan armada penjemput sampah, estimasi uang tunai/poin reward, dan transparansi foto bersih.
+                {isGuest
+                  ? "Pantau langsung laporan kebersihan lingkungan seluruh warga, verifikasi citra visual AI Gemini, serta transparansi penjemputan armada."
+                  : "Pantau langsung status verifikasi AI Gemini, pergerakan armada penjemput sampah, estimasi uang tunai/poin reward, dan transparansi foto bersih."}
               </p>
             </div>
 
             {/* User Profile Card & Action CTA */}
             <div className="flex flex-wrap items-center gap-3">
-              {user ? (
+              {isGuest ? (
+                <div className="flex items-center gap-3">
+                  <Link href="/login">
+                    <button
+                      type="button"
+                      className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-xs font-bold text-white transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <LogIn className="h-4 w-4 text-emerald-300" />
+                      <span>Masuk Akun</span>
+                    </button>
+                  </Link>
+                </div>
+              ) : (
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-md">
                   <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#0EB29A] to-emerald-400 text-[#18231D] font-black text-sm flex items-center justify-center shadow-xs">
-                    {user.name.charAt(0)}
+                    {user?.name?.charAt(0) || "U"}
                   </div>
                   <div>
                     <span className="text-xs font-bold block text-white leading-tight">
-                      {user.name}
+                      {user?.name}
                     </span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[10px] text-emerald-300 font-semibold uppercase">
-                        {user.role}
+                        {user?.role}
                       </span>
                       <span className="text-white/40 text-[10px]">•</span>
                       <div className="flex items-center gap-1 text-[11px] font-bold text-amber-300">
                         <Coins className="h-3 w-3" />
-                        <span>{user.poin || user.poin_reward || 240} Poin</span>
+                        <span>{user?.poin || user?.poin_reward || 0} Poin</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleQuickLoginWarga}
-                  className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-xs font-bold text-white transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <UserCheck className="h-4 w-4 text-emerald-300" />
-                  <span>Masuk sebagai Warga Demo</span>
-                </button>
               )}
 
               <Link href="/lapor">
@@ -320,6 +384,28 @@ export default function LaporanSayaPage() {
       {/* 2. Main Content Viewport */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20">
         
+        {/* Public Radar Informational Banner */}
+        {isGuest && (
+          <div className="mb-4 p-4 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#0EB29A] text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-xs">
+                🌿
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-950">Akses Radar Publik Seluruh Warga</p>
+                <p className="text-[11.5px] text-emerald-800/90 mt-0.5 leading-relaxed">
+                  Halaman ini menampilkan seluruh <strong>Laporan Warga</strong> secara publik dan transparan. Untuk mengumpulkan poin reward setiap kali melapor serta menukarkan voucher, silakan masuk ke akun Anda.
+                </p>
+              </div>
+            </div>
+            <Link href="/login" className="flex-shrink-0">
+              <Button size="sm" className="rounded-xl bg-[#0EB29A] hover:bg-[#2E6E65] text-white text-xs font-bold">
+                Masuk Akun
+              </Button>
+            </Link>
+          </div>
+        )}
+
         {/* Search & Filter Bar */}
         <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 border border-slate-200/80 mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           
@@ -611,6 +697,7 @@ export default function LaporanSayaPage() {
           setSelectedTrackerReport(null);
         }}
         report={selectedTrackerReport}
+        user={user}
         onViewOnMap={(rep) => {
           router.push(`/peta?id=${rep.id}`);
         }}

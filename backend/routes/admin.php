@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AnalisisAiController;
+use App\Http\Controllers\Admin\ApiDocsController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HadiahController;
 use App\Http\Controllers\Admin\LaporanController;
@@ -101,3 +102,6 @@ Route::controller(MasterDataController::class)->prefix('master')->name('master.'
     Route::put('/tipe-tanggapan/{id}', 'updateTipeTanggapan')->name('tipe-tanggapan.update');
     Route::delete('/tipe-tanggapan/{id}', 'destroyTipeTanggapan')->name('tipe-tanggapan.destroy');
 });
+
+// 6. DOKUMENTASI REST API & SKEMA PAKET BERBAYAR
+Route::get('/api-docs', [ApiDocsController::class, 'index'])->name('api-docs.index');

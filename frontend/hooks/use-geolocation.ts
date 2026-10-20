@@ -19,37 +19,7 @@ export function useGeolocation() {
     isLoading: false,
   });
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setState({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          error: null,
-          isLoading: false,
-        });
-      },
-      (error) => {
-        setState((prev) => ({
-          ...prev,
-          error: error.message,
-          isLoading: false,
-        }));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
-      }
-    );
-  }, []);
-
-  const refresh = () => {
+  const fetchLocation = (highAccuracy = true) => {
     if (typeof window === "undefined" || !navigator.geolocation) return;
     setState((prev) => ({ ...prev, isLoading: true }));
     navigator.geolocation.getCurrentPosition(
@@ -68,8 +38,35 @@ export function useGeolocation() {
           error: error.message,
           isLoading: false,
         }));
+      },
+      {
+        enableHighAccuracy: highAccuracy,
+        timeout: 10000,
+        maximumAge: 5000,
       }
     );
+  };
+
+  useEffect(() => {
+    fetchLocation(true);
+
+    // Auto-sync when permission status changes (e.g. user toggles Allow in browser)
+    if (typeof navigator !== "undefined" && navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((permissionStatus) => {
+          permissionStatus.onchange = () => {
+            if (permissionStatus.state === "granted") {
+              fetchLocation(true);
+            }
+          };
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const refresh = () => {
+    fetchLocation(true);
   };
 
   return { ...state, refresh };

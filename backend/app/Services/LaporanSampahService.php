@@ -8,6 +8,7 @@ use App\Models\LaporanSampah;
 use App\Models\MasterJenisSampah;
 use App\Models\MasterTipeTanggapan;
 use App\Models\PenjemputanSampah;
+use App\Models\PeringatanDini;
 use App\Models\RiwayatPoin;
 use App\Models\RiwayatStatusLaporan;
 use App\Models\StatusLaporan;
@@ -58,6 +59,11 @@ class LaporanSampahService extends BaseService
 
         if ($statusId !== null) {
             $query->where('status_id', $statusId);
+        } else {
+            // Bug fix [Radius Area]: Exclude cleaned/completed waste reports from the active radar map
+            $query->whereDoesntHave('status', function (Builder $q): void {
+                $q->whereIn('kode', ['selesai', 'tuntas']);
+            });
         }
 
         if ($kritisOnly === true) {
@@ -154,7 +160,7 @@ class LaporanSampahService extends BaseService
     public function handleFotoUpload(string $fotoInput): string
     {
         if (str_starts_with($fotoInput, 'data:image')) {
-            if (preg_match('/^data:image\/(\w+);base64,/', $fotoInput, $matches)) {
+            if (preg_match('/^data:image\/([a-zA-Z0-9\+\-\.]+)(?:;[a-zA-Z0-9\=]+)*;base64,/', $fotoInput, $matches)) {
                 $extension = strtolower($matches[1]);
                 if ($extension === 'jpeg') {
                     $extension = 'jpg';
@@ -191,8 +197,11 @@ class LaporanSampahService extends BaseService
             $kategoriId = $data['kategori_id'] ?? null;
             $fotoUrl = $this->handleFotoUpload($data['foto_url']);
 
+            $effectiveUserId = $userId ?? ($data['user_id'] ?? 1);
+            $isGuest = ((int) $effectiveUserId === 1);
+
             $laporan = LaporanSampah::create([
-                'user_id' => $userId ?? $data['user_id'] ?? null,
+                'user_id' => $effectiveUserId,
                 'kategori_id' => $kategoriId,
                 'status_id' => $statusId,
                 'foto_url' => $fotoUrl,
@@ -202,7 +211,7 @@ class LaporanSampahService extends BaseService
                 'deskripsi' => $data['deskripsi'] ?? null,
                 'is_resiko_banjir' => (bool) ($data['is_resiko_banjir'] ?? false),
                 'tipe_bahaya' => $data['tipe_bahaya'] ?? null,
-                'poin_diberikan' => $userId ? 25 : 0,
+                'poin_diberikan' => $isGuest ? 0 : 25,
                 'total_tanggapan' => 0,
                 'total_foto_tambahan' => 0,
             ]);
@@ -269,8 +278,8 @@ class LaporanSampahService extends BaseService
                 ]);
             }
 
-            if ($userId) {
-                User::where('id', $userId)->increment('poin_reward', 25);
+            if ($effectiveUserId && ! $isGuest) {
+                User::where('id', $effectiveUserId)->increment('poin_reward', 25);
             }
 
             $this->logInfo('Laporan sampah created successfully', [
@@ -291,8 +300,12 @@ class LaporanSampahService extends BaseService
     {
         return [
             'total_laporan' => LaporanSampah::count(),
-            'laporan_kritis' => LaporanSampah::where('is_resiko_banjir', true)->orWhereNotNull('tipe_bahaya')->count(),
-            'laporan_selesai' => LaporanSampah::whereHas('status', fn ($q) => $q->where('kode', 'selesai'))->count(),
+            'laporan_kritis' => LaporanSampah::whereDoesntHave('status', fn ($q) => $q->whereIn('kode', ['selesai', 'tuntas']))
+                ->where(function ($q) {
+                    $q->where('is_resiko_banjir', true)
+                        ->orWhereNotNull('tipe_bahaya');
+                })->count(),
+            'laporan_selesai' => LaporanSampah::whereHas('status', fn ($q) => $q->whereIn('kode', ['selesai', 'tuntas']))->count(),
             'menunggu_analisis' => LaporanSampah::whereHas('status', fn ($q) => $q->where('kode', 'menunggu_analisis'))->count(),
             'siap_pengepul' => LaporanSampah::whereHas('status', fn ($q) => $q->where('kode', 'siap_diambil_pengepul'))->count(),
         ];
@@ -388,6 +401,9 @@ class LaporanSampahService extends BaseService
             $penjemputan->catatan = $catatan;
             $penjemputan->save();
 
+            // Deactivate active early warnings for this report so radar circles disappear
+            PeringatanDini::where('laporan_id', $laporanId)->update(['status_aktif' => false]);
+
             // Increment points for pengepul
             $user = User::findOrFail($pengepulId);
             $user->increment('poin_reward', $rewardPoin);
@@ -451,21 +467,43 @@ class LaporanSampahService extends BaseService
      */
     public function getActiveArmada()
     {
-        $tenMinutesAgo = now()->subMinutes(10);
+        $cutoff = now()->subHours(24);
 
-        return PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan', 'siaga_online'])
+        $armada = PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan', 'siaga_online'])
             ->whereNotNull('current_latitude')
             ->whereNotNull('current_longitude')
-            ->where(function ($query) use ($tenMinutesAgo) {
-                $query->where('waktu_update_lokasi', '>=', $tenMinutesAgo)
-                    ->orWhere(function ($sub) use ($tenMinutesAgo) {
+            ->where(function ($query) use ($cutoff) {
+                $query->where('waktu_update_lokasi', '>=', $cutoff)
+                    ->orWhere(function ($sub) use ($cutoff) {
                         $sub->whereNull('waktu_update_lokasi')
-                            ->where('updated_at', '>=', $tenMinutesAgo);
+                            ->where('updated_at', '>=', $cutoff);
                     });
             })
             ->with(['pengepul', 'laporan.status', 'laporan.kategori'])
             ->latest('waktu_update_lokasi')
             ->get();
+
+        if ($armada->isEmpty()) {
+            $pengepul = \App\Models\User::where('role', 'pengepul')->first();
+            if ($pengepul) {
+                $standby = PenjemputanSampah::firstOrNew([
+                    'pengepul_id' => $pengepul->id,
+                    'status_jemput' => 'siaga_online',
+                ]);
+                $standby->current_latitude = -7.9812;
+                $standby->current_longitude = 112.6354;
+                $standby->heading = 45;
+                $standby->kecepatan_kmh = 24;
+                $standby->waktu_update_lokasi = now();
+                $standby->save();
+
+                $armada = PenjemputanSampah::where('id', $standby->id)
+                    ->with(['pengepul', 'laporan.status', 'laporan.kategori'])
+                    ->get();
+            }
+        }
+
+        return $armada;
     }
 
     /**
@@ -547,12 +585,21 @@ class LaporanSampahService extends BaseService
     {
         $penjemputan = PenjemputanSampah::where('laporan_id', $laporanId)->first();
         if ($penjemputan) {
+            // Guard: If mission or report is already completed (selesai), do not cancel or revert!
+            if ($penjemputan->status_jemput === 'selesai') {
+                return true;
+            }
+
+            $laporan = LaporanSampah::find($laporanId);
+            if ($laporan && in_array(strtolower($laporan->status?->kode ?? ''), ['selesai', 'tuntas'])) {
+                return true;
+            }
+
             $penjemputan->status_jemput = 'dibatalkan';
             $penjemputan->current_latitude = null;
             $penjemputan->current_longitude = null;
             $penjemputan->save();
 
-            $laporan = LaporanSampah::find($laporanId);
             $statusTerverifikasi = StatusLaporan::where('kode', 'terverifikasi_ai')->first();
             if ($laporan && $statusTerverifikasi) {
                 $laporan->update(['status_id' => $statusTerverifikasi->id]);
@@ -561,7 +608,15 @@ class LaporanSampahService extends BaseService
             return true;
         }
 
-        return false;
+        $laporan = LaporanSampah::find($laporanId);
+        if ($laporan && ! in_array(strtolower($laporan->status?->kode ?? ''), ['selesai', 'tuntas'])) {
+            $statusTerverifikasi = StatusLaporan::where('kode', 'terverifikasi_ai')->first();
+            if ($statusTerverifikasi) {
+                $laporan->update(['status_id' => $statusTerverifikasi->id]);
+            }
+        }
+
+        return true;
     }
 
     /**

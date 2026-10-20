@@ -16,12 +16,25 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Seed default Administrator
+        // 1. Seed default Warga Tanpa Login (User ID 1 - Tamu tanpa login, tidak mendapatkan poin reward)
+        User::firstOrCreate(
+            ['email' => 'warga.tamu@ecocitizen.id'],
+            [
+                'name' => 'Warga (Tanpa Login)',
+                'password' => Hash::make('password'),
+                'role' => 'warga',
+                'poin_reward' => 0,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        // Seed default Administrator
         $admin = User::firstOrCreate(
             ['email' => 'admin@uinic.com'],
             [
                 'name' => 'Admin UINIC',
                 'password' => Hash::make('password'),
+                'role' => 'admin',
                 'email_verified_at' => now(),
             ]
         );
