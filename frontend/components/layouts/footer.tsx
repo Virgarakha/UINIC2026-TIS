@@ -47,20 +47,6 @@ export function Footer() {
             <p className="text-slate-600 leading-relaxed max-w-md text-xs">
               {siteConfig.description}
             </p>
-            <div className="flex items-center gap-2 pt-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[10px] text-slate-600 font-mono">
-                Next.js 16
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[10px] text-slate-600 font-mono">
-                PostgreSQL
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[10px] text-slate-600 font-mono">
-                Gemini 3.1 Flash Lite
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[10px] text-slate-600 font-mono">
-                Google Maps API
-              </span>
-            </div>
           </div>
 
           {/* Quick Links */}

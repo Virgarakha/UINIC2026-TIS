@@ -307,23 +307,7 @@ export function EcoRecycleGraphic({ className = "" }: { className?: string }) {
         </g>
 
         {/* Floating Verified & Tech Badges */}
-        <g transform="translate(420, 100)" className="animate-bounce" style={{ animationDuration: "4s" }}>
-          <rect width="130" height="38" rx="19" fill="#FFFFFF" stroke="#1B4D3B" strokeWidth="2.5" filter="url(#shadowFilter)" />
-          <circle cx="20" cy="19" r="9" fill="#10B981" />
-          <path d="M 16 19 L 19 22 L 25 16" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <text x="36" y="23" fill="#1B4D3B" fontSize="12" fontWeight="800" fontFamily="sans-serif">
-            100% Pilah
-          </text>
-        </g>
-
-        <g transform="translate(40, 420)">
-          <rect width="145" height="38" rx="19" fill="#FFFFFF" stroke="#1B4D3B" strokeWidth="2.5" filter="url(#shadowFilter)" />
-          <circle cx="20" cy="19" r="9" fill="#0EB29A" />
-          <text x="16" y="23" fill="#FFFFFF" fontSize="11" fontWeight="bold">✦</text>
-          <text x="36" y="23" fill="#1B4D3B" fontSize="11" fontWeight="800" fontFamily="sans-serif">
-            AI Vision Siaga
-          </text>
-        </g>
+       
       </svg>
     </div>
   );

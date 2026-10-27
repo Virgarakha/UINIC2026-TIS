@@ -34,7 +34,6 @@ export default function PublicLayout({
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-emerald-500/20 selection:text-emerald-700">
       {/* 1. Live Breaking Alert Ticker */}
-      <LiveAlertTicker />
 
       {/* 2. Glassmorphic Sticky Header */}
       <Navbar />

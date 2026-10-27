@@ -309,3 +309,21 @@ export function calculateDistanceMeters(
   return Math.round(R * c);
 }
 
+/**
+ * Membuka navigasi langsung ke lokasi target menggunakan aplikasi native Google Maps
+ * (mendukung mode turn-by-turn dengan panduan suara dan data kemacetan lalu lintas riil).
+ */
+export function openInGoogleMaps(
+  lat: number,
+  lng: number,
+  mode: "driving" | "motorcycle" | "walking" = "driving"
+): void {
+  const travelModeParam =
+    mode === "motorcycle" ? "two-wheeler" : mode === "walking" ? "walking" : "driving";
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=${travelModeParam}`;
+  if (typeof window !== "undefined") {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+

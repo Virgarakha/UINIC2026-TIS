@@ -29,8 +29,9 @@ import {
   VolumeX,
   Radio,
   Crosshair,
+  ExternalLink,
 } from "lucide-react";
-import { RouteDirectionData } from "@/lib/routing";
+import { RouteDirectionData, openInGoogleMaps } from "@/lib/routing";
 import { LaporanSampah, User } from "@/types";
 import { getDistanceMeters, cn } from "@/lib/utils";
 import { startPenjemputanApi, updateTruckLocationApi } from "@/lib/api-client";
@@ -397,6 +398,18 @@ export function RouteDirectionPanel({
 
             {/* Right Action Button */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Quick Google Maps Shortcut on Mobile */}
+              <button
+                type="button"
+                onClick={() => openInGoogleMaps(report.latitude, report.longitude, travelMode)}
+                className="py-2 px-2.5 rounded-xl bg-white text-emerald-700 hover:bg-emerald-50 text-xs font-bold border border-emerald-300 flex items-center gap-1 shadow-2xs cursor-pointer flex-shrink-0"
+                title="Buka Navigasi Google Maps Asli"
+              >
+                <Navigation className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600" />
+                <span className="text-[11px] font-black">Maps</span>
+                <ExternalLink className="h-2.5 w-2.5 text-slate-400" />
+              </button>
+
               {activeStatus === "idle" && (
                 <button
                   onClick={handleStartTask}
@@ -599,6 +612,34 @@ export function RouteDirectionPanel({
 
         {/* Main Content Area: ETA, Summary, and Step-by-Step Directions */}
         <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${mobileNavState === "compact" ? "hidden sm:block" : "block"}`}>
+          {/* Official Google Maps Turn-by-Turn Navigation Quick Action */}
+          <div className="p-3.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border-2 border-[#0EB29A]/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+              <div className="h-9 w-9 rounded-xl bg-white border border-[#0EB29A]/30 text-[#0EB29A] flex items-center justify-center flex-shrink-0 shadow-xs">
+                <Navigation className="h-5 w-5 fill-[#0EB29A]" />
+              </div>
+              <div className="min-w-0">
+                <h5 className="text-xs font-black text-[#2B3752] flex items-center gap-1.5 flex-wrap">
+                  <span>Buka di Aplikasi Google Maps</span>
+                  <span className="text-[9.5px] px-1.5 py-0.5 bg-emerald-600 text-white rounded-md font-bold uppercase tracking-wider">
+                    Saran Sopir
+                  </span>
+                </h5>
+                <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                  Navigasi suara akurat, pantauan macet jalan raya, & aman tanpa menguras baterai browser.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => openInGoogleMaps(report.latitude, report.longitude, travelMode)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#0EB29A] hover:bg-[#0ca18b] active:scale-95 text-white text-xs font-black shadow-md shadow-[#0EB29A]/20 flex items-center justify-center gap-2 flex-shrink-0 transition-all cursor-pointer"
+            >
+              <span>Buka Google Maps</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           {/* Pengepul Mission Control Center (Only when logged in as role 'pengepul') */}
           {user?.role === "pengepul" && (
             <div className="p-4 rounded-2xl bg-white border-2 border-[#0EB29A] shadow-md shadow-[#0EB29A]/10 space-y-3">

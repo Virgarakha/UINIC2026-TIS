@@ -30,12 +30,14 @@ import {
   Clock,
   Plus,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { LaporanSampah, TanggapanLaporan, User } from "@/types";
 import { HazardBadge } from "@/components/shared/hazard-badge";
 import { AuthModal } from "@/components/shared/auth-modal";
 import { WeatherData } from "@/lib/weather";
 import { formatDate, formatRupiah, getDistanceMeters, cn } from "@/lib/utils";
+import { openInGoogleMaps } from "@/lib/routing";
 import {
   fetchTanggapanApi,
   sendTanggapanApi,
@@ -727,16 +729,28 @@ export function PlaceDetailDrawer({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenRoute) onOpenRoute(report);
-            }}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-[#0EB29A] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95 animate-pulse"
-          >
-            <Navigation className="h-3.5 w-3.5" />
-            <span>Jemput Sampah</span>
-          </button>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => openInGoogleMaps(report.latitude, report.longitude, "driving")}
+              className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[#2B3752] hover:bg-slate-50 text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+              title="Buka Navigasi Langsung di Aplikasi Google Maps"
+            >
+              <Navigation className="h-3 w-3 text-emerald-600 fill-emerald-600" />
+              <span>Maps</span>
+              <ExternalLink className="h-3 w-3 text-slate-400" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenRoute) onOpenRoute(report);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-[#0EB29A] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95 animate-pulse"
+            >
+              <Navigation className="h-3.5 w-3.5" />
+              <span>Jemput Sampah</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -828,6 +842,32 @@ export function PlaceDetailDrawer({
           <span className="text-[10px] font-bold text-[#2B3752]">
             {isCopied ? "Tersalin!" : "Bagikan"}
           </span>
+        </button>
+      </div>
+
+      {/* 3b. Google Maps Native Navigation Quick Launch Banner */}
+      <div className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border-b border-emerald-100 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-7 w-7 rounded-lg bg-[#0EB29A] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+            <Navigation className="h-4 w-4 fill-white" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-black text-[#2B3752] block truncate">
+              Navigasi Google Maps Resmi
+            </span>
+            <span className="text-[10px] text-slate-500 block truncate">
+              Turn-by-turn suara & pantauan macet jalan raya riil
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => openInGoogleMaps(report.latitude, report.longitude, "driving")}
+          className="px-3 py-1.5 rounded-xl bg-[#0EB29A] hover:bg-[#0ca18b] active:scale-95 text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+          title="Buka Langsung di Aplikasi Google Maps"
+        >
+          <span>Buka Maps</span>
+          <ExternalLink className="h-3 w-3" />
         </button>
       </div>
 

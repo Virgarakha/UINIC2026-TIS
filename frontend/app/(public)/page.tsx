@@ -5,17 +5,18 @@ import Link from "next/link";
 import {
   Camera,
   MapPin,
-  ShieldCheck,
   Truck,
   ArrowRight,
   Star,
   CheckCircle2,
-  Recycle,
-  Sparkles,
-  ChevronRight,
-  Phone,
   MessageSquare,
   Coins,
+  ShieldCheck,
+  AlertTriangle,
+  Waves,
+  Sparkles,
+  Zap,
+  Scale,
 } from "lucide-react";
 import {
   fetchMitraPengepulApi,
@@ -132,7 +133,7 @@ export default function LandingHomePage() {
                   reviewer_name: "Koordinator DLH Kota Malang",
                   reviewer_role: "Dinas Lingkungan Hidup",
                   rating: 5,
-                  komentar: "Mitra armada resmi terverifikasi program EcoPatrol UINIC08.",
+                  komentar: "Mitra armada resmi terverifikasi program pemantauan kebersihan wilayah.",
                   created_at: "2026-10-17T00:00:00Z",
                 },
               ],
@@ -174,7 +175,7 @@ export default function LandingHomePage() {
       const res = await sendPengepulUlasanApi(selectedMitraForReview.id, {
         rating: reviewRating,
         komentar: reviewComment.trim(),
-        reviewer_name: reviewerName.trim() || stored?.name || "Warga EcoPatrol",
+        reviewer_name: reviewerName.trim() || stored?.name || "Warga Pelapor",
         reviewer_role: reviewerRole.trim() || "Warga Pelapor",
         warga_id: stored?.id,
       });
@@ -186,7 +187,7 @@ export default function LandingHomePage() {
             const newUlasan = [
               {
                 id: Date.now(),
-                reviewer_name: reviewerName.trim() || "Warga EcoPatrol",
+                reviewer_name: reviewerName.trim() || "Warga Pelapor",
                 reviewer_role: reviewerRole.trim() || "Warga",
                 rating: reviewRating,
                 komentar: reviewComment.trim(),
@@ -212,7 +213,7 @@ export default function LandingHomePage() {
         `Reward Ulasan Mitra Armada: ${selectedMitraForReview.name}`
       );
 
-      setReviewSuccessMsg("Ulasan berhasil dikirim! Anda mendapatkan +15 Poin Reward.");
+      setReviewSuccessMsg("Ulasan berhasil dikirim! Anda mendapatkan +15 Poin.");
       setTimeout(() => {
         setSelectedMitraForReview(null);
         setReviewSuccessMsg(null);
@@ -224,90 +225,113 @@ export default function LandingHomePage() {
     }
   };
 
-  const totalReportsCount = reportsList.length || 12;
+  const totalReportsCount = reportsList.length || 18;
   const totalVolumeM3 = reportsList.reduce(
     (acc, r) => acc + (r.analisis_ai?.volume_sampah_m3 || 2.4),
     0
   );
   const totalCleanedCount =
-    reportsList.filter((r) => r.status?.kode === "selesai").length || 8;
+    reportsList.filter((r) => r.status?.kode === "selesai").length || 14;
 
   return (
     <div className="bg-[#FBFBF8] text-[#18231D] min-h-screen selection:bg-emerald-200">
       
       {/* ========================================================
-          1. HERO SECTION (EcoPack Style Typography & Vector)
+          1. HERO SECTION (Warm, Punchy, Beautifully Balanced)
       ======================================================== */}
-      <section className="relative overflow-hidden pt-6 pb-14 md:pt-12 md:pb-20">
+      <section className="relative overflow-hidden pt-8 pb-14 md:pt-14 md:pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
             
             {/* Left Column: Bold Typography & Actions */}
             <div className="lg:col-span-7 flex flex-col justify-center">
               
-              {/* Main Headline with Inline Badge and Pill Enclosed Word */}
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[64px] font-black tracking-tight text-[#18231D] leading-[1.12] mb-6">
-                Wujudkan kota{" "}
-                <span className="inline-flex items-center align-middle mx-1.5 px-2.5 py-1 rounded-2xl bg-white border border-[#DFE7DD] shadow-xs hover:rotate-3 transition-transform">
-                  <span className="text-xl sm:text-2xl mr-1">📦🌿</span>
-                  <span className="h-5 w-5 rounded-full bg-[#10B981] text-white flex items-center justify-center font-black text-xs">
-                    +
-                  </span>
-                </span>{" "}
-                masa depan bersih dan{" "}
-                <span className="inline-block px-4 py-0.5 my-1 rounded-full border-2 border-[#82C3A8] bg-[#EAF5EF] text-[#1B4D3B]">
-                  lestari
-                </span>{" "}
-                bersama
+
+              {/* Main Headline with High Character */}
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[62px] font-extrabold tracking-tight text-[#18231D] leading-[1.12] mb-6">
+                Wujudkan kota masa depan bersih, bebas sampah dan{" "}
+                <span className="relative inline-block text-[#1B4D3B]">
+                  terawat lestari.
+                  <span className="absolute left-0 bottom-1 w-full h-3 bg-[#10B981]/25 -z-10 rounded-sm" />
+                </span>
               </h1>
 
-              {/* Subtitle with subtle keyword underlines */}
+              {/* Subtitle */}
               <p className="text-base sm:text-lg text-[#4B5950] font-normal leading-relaxed max-w-2xl mb-8">
-                Inovasi kolaborasi warga berbasis AI Vision yang tidak hanya{" "}
-                <span className="underline decoration-[#82C3A8] decoration-2 underline-offset-4 font-bold text-[#18231D]">
-                  menjaga keamanan lingkungan
-                </span>{" "}
-                dari sumbatan sampah sungai, namun juga mewujudkan{" "}
-                <span className="underline decoration-[#82C3A8] decoration-2 underline-offset-4 font-bold text-[#18231D]">
-                  dampak minimal
-                </span>{" "}
-                terhadap ancaman risiko banjir perkotaan.
+                Kolaborasi warga, armada pengepul, dan dinas lingkungan untuk mendeteksi sumbatan saluran air perkotaan serta menyalurkan sampah daur ulang bernilai ekonomis.
               </p>
 
-              {/* Action Buttons matching EcoPack Pill Style */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                
-                {/* Primary Button */}
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-4 sm:gap-5 mb-10">
                 <Link
-                  href="/register"
-                  className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-full border-2 border-[#18231D] bg-white text-[#18231D] hover:bg-[#18231D] hover:text-white transition-all shadow-xs active:scale-95"
+                  href="/lapor"
+                  className="group inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-[#1E5345] hover:bg-[#153D32] text-white font-semibold text-sm sm:text-base shadow-sm hover:shadow-md transition-all active:scale-98"
                 >
-                  <span className="font-extrabold text-sm sm:text-base">
-                    Gabung TRINFO Sekarang
-                  </span>
-                  <span className="h-7 w-7 rounded-full bg-[#1E5345] group-hover:bg-emerald-400 text-white group-hover:text-[#18231D] flex items-center justify-center transition-colors">
-                    <span className="text-xs">🍃</span>
-                  </span>
+                  <Camera className="h-4 w-4" />
+                  <span>Lapor Titik Sampah</span>
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform opacity-80" />
                 </Link>
 
-                {/* Secondary Button */}
                 <Link
                   href="/peta"
-                  className="inline-flex items-center gap-2 text-sm sm:text-base font-extrabold text-[#18231D] hover:text-[#256B52] transition-colors py-2 group"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl border-2 border-[#18231D] bg-white text-[#18231D] hover:bg-[#18231D] hover:text-white font-semibold text-sm sm:text-base transition-all shadow-2xs active:scale-98"
                 >
-                  <span>Jelajahi Peta Radar</span>
-                  <span className="h-7 w-7 rounded-full bg-[#18231D] text-white flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
+                  <MapPin className="h-4 w-4" />
+                  <span>Jelajahi Peta Wilayah</span>
                 </Link>
+              </div>
 
+              {/* Live Real-time Stat Pills */}
+              <div className="grid grid-cols-3 gap-3 max-w-xl pt-6 border-t border-[#DFE7DD]">
+                <div className="p-3 rounded-xl bg-white border border-[#DFE7DD]">
+                  <div className="text-xl sm:text-2xl font-semibold text-[#18231D] tabular-nums">
+                    {totalReportsCount}
+                  </div>
+                  <div className="text-[11px] font-semibold text-[#63756A]">Titik Laporan</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white border border-[#DFE7DD]">
+                  <div className="text-xl sm:text-2xl font-semibold text-[#1E5345] tabular-nums">
+                    {totalCleanedCount}
+                  </div>
+                  <div className="text-[11px] font-semibold text-[#63756A]">Tuntas Bersih</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white border border-[#DFE7DD]">
+                  <div className="text-xl sm:text-2xl font-semibold text-[#18231D] tabular-nums">
+                    ~{totalVolumeM3.toFixed(1)} <span className="text-xs font-medium text-[#63756A]">m³</span>
+                  </div>
+                  <div className="text-[11px] font-semibold text-[#63756A]">Material Terpilah</div>
+                </div>
               </div>
 
             </div>
 
-            {/* Right Column: Circular Vector Artwork Illustration */}
-            <div className="lg:col-span-5 flex justify-center lg:justify-end">
+            {/* Right Column: Custom Visual Artwork with Live Overlay Tags */}
+            <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
               <EcoRecycleGraphic className="w-full max-w-[460px] lg:max-w-[500px]" />
+
+              {/* Floating Verified Overlay Pill */}
+              <div className="absolute top-6 left-2 sm:-left-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3 animate-in fade-in">
+                <div className="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center text-[#1E5345] font-semibold">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-[#18231D]">Mitra Resmi DLH</div>
+                  <div className="text-[10px] font-semibold text-slate-500">Armada Siaga Wilayah</div>
+                </div>
+              </div>
+
+              {/* Floating Reward Overlay Pill */}
+              <div className="absolute bottom-6 right-2 sm:-right-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3 animate-in fade-in">
+                <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
+                  <Coins className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-[#18231D]">+15 Poin Tiap Ulasan</div>
+                  <div className="text-[10px] font-semibold text-slate-500">Klaim Sembako & Bibit</div>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -315,120 +339,176 @@ export default function LandingHomePage() {
       </section>
 
       {/* ========================================================
-          2. PROBLEM / FEATURE HIGHLIGHT CARDS (001 & 002)
+          2. DUA FOKUS UTAMA PENANGANAN (Visual Experience Cards)
       ======================================================== */}
-      <section className="py-6 pb-16">
+      <section className="py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <div className="mb-10 max-w-3xl">
+            <span className="text-xs font-semibold tracking-widest text-[#2E6E65] uppercase block mb-2">
+              FOKUS PRIORITAS INTERVENSI
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#2B3752] tracking-tight leading-tight">
+              Dua Permasalahan Kritis yang Kami Tangani
+            </h2>
+            <p className="text-sm sm:text-base text-[#4B5950] mt-3 font-medium leading-relaxed">
+              Integrasi sistem tanggap darurat hidrologi pencegah banjir luapan dan aktivasi logistik sirkular berinsentif untuk Kota Malang.
+            </p>
+          </div>
 
-            {/* Card 001: Timbunan Sampah Liar */}
-            <div className="relative rounded-[32px] bg-[#F3F5EF] border border-[#E2E8DE] p-7 sm:p-9 flex flex-col justify-between overflow-hidden shadow-xs hover:border-[#10B981]/50 transition-all group">
-              <div>
-                {/* Pill Badge matching reference */}
-                <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white border border-[#DFE6DB] shadow-2xs mb-6">
-                  <span className="text-xs font-black tracking-wider text-[#18231D]">
-                    001
-                  </span>
-                  <div className="flex -space-x-1.5">
-                    <img
-                      className="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover"
-                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60&auto=format&fit=crop&q=80"
-                      alt="Warga"
-                    />
-                    <img
-                      className="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover"
-                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&auto=format&fit=crop&q=80"
-                      alt="Warga"
-                    />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            {/* Card 1: Sumbatan Saluran Air & Banjir (Corporate Navy #2B3752 + Emerald Teal #0EB29A) */}
+            <div className="rounded-[32px] bg-[#2B3752] text-white p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden shadow-xl border border-[#0EB29A]/30 group">
+              {/* Corner Ambient Glow with Primary Teal */}
+              <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-bl from-[#0EB29A]/20 via-[#2E6E65]/15 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+
+              <div className="relative z-10">
+                {/* Header Pills */}
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-white">
+                    <AlertTriangle className="h-3.5 w-3.5 text-[#0EB29A] shrink-0" />
+                    <span>01 • MITIGASI LUAPAN AIR</span>
                   </div>
-                  <span className="h-4 w-4 rounded-full bg-[#10B981] text-white flex items-center justify-center font-bold text-[10px]">
-                    +
-                  </span>
+
+                 
                 </div>
 
-                {/* Big Bold Title */}
-                <h3 className="text-2xl sm:text-3xl font-black text-[#18231D] leading-snug max-w-sm">
-                  Timbunan Sampah Liar & Sumbatan Saluran Air
+                <h3 className="text-2xl sm:text-3xl font-semibold text-white leading-snug mb-3">
+                  Sumbatan Drainase &amp; Bibir Sungai
                 </h3>
+
+                <p className="text-sm sm:text-base text-slate-200 leading-relaxed font-normal mb-6">
+                  Tumpukan sampah liar di gorong-gorong dan pintu air memicu banjir mendadak saat hujan deras. Warga memotret titik sumbatan untuk langsung dianalisis dan dibersihkan bersama BPBD &amp; DLH.
+                </p>
+
+                {/* Simulated AI Hydrological Risk Scanner Widget */}
+                <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-4 sm:p-5 mb-6 text-xs">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 text-white font-semibold truncate">
+                      <MapPin className="h-3.5 w-3.5 text-[#0EB29A] shrink-0" />
+                      <span>Saluran Primer Lowokwaru • Kali Brantas</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-[#0EB29A]/20 border border-[#0EB29A]/40 text-[#0EB29A] font-semibold text-[10px] shrink-0">
+                      STATUS KRITIS
+                    </span>
+                  </div>
+
+                  {/* Visual Clog Level Bar */}
+                  <div className="space-y-1.5 mb-3.5">
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-200">
+                      <span>Estimasi Penampang Saluran Tersumbat</span>
+                      <span className="text-[#0EB29A] font-semibold">78% Tertutup</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-black/40 overflow-hidden p-0.5">
+                      <div className="h-full rounded-full bg-gradient-to-r from-[#2E6E65] to-[#0EB29A] w-[78%]" />
+                    </div>
+                  </div>
+
+                  {/* Weather & Satgas Status */}
+                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-white/10 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-slate-200">
+                      <Waves className="h-3.5 w-3.5 text-[#0EB29A] shrink-0" />
+                      <span className="truncate">Hujan 34 mm/jam</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-200 justify-end">
+                      <ShieldCheck className="h-3.5 w-3.5 text-[#0EB29A] shrink-0" />
+                      <span className="truncate">Satgas DLH Siaga</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Graphic Right (Cardboard Box with Leaves) */}
-              <div className="mt-6 flex justify-end">
-                <svg
-                  className="w-36 h-28 sm:w-44 sm:h-32 drop-shadow-md group-hover:scale-105 transition-transform"
-                  viewBox="0 0 200 150"
-                  fill="none"
+              {/* Action Footer */}
+              <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] uppercase font-semibold text-slate-300 block tracking-wider">Prioritas Respons</span>
+                  <span className="text-xs sm:text-sm font-semibold text-white">Titik Kritis Segera Dibersihkan</span>
+                </div>
+                <Link
+                  href="/lapor"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0EB29A] hover:bg-[#0ca18b] text-white font-semibold text-xs shadow-md transition-all hover:scale-[1.02] active:scale-98 shrink-0"
                 >
-                  {/* Leaves inside Box */}
-                  <path d="M 60 70 C 40 40, 70 10, 110 30 C 100 50, 80 65, 60 70 Z" fill="#256B52" stroke="#18231D" strokeWidth="2.5" />
-                  <path d="M 100 70 C 100 30, 140 15, 170 45 C 150 65, 120 70, 100 70 Z" fill="#10B981" stroke="#18231D" strokeWidth="2.5" />
-                  <path d="M 75 40 Q 95 30 115 45" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
-                  
-                  {/* Isometric Box */}
-                  <polygon points="40,80 120,60 160,85 80,105" fill="#F5E3C0" stroke="#18231D" strokeWidth="3" />
-                  <polygon points="80,105 160,85 160,135 80,150" fill="#DFC69D" stroke="#18231D" strokeWidth="3" />
-                  <polygon points="40,80 80,105 80,150 40,125" fill="#EAD0A9" stroke="#18231D" strokeWidth="3" />
-                  
-                  {/* Triangle symbol on box */}
-                  <polygon points="120,100 110,120 130,120" fill="none" stroke="#256B52" strokeWidth="2.5" />
-                </svg>
+                  <span>Lapor Titik Sumbatan</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             </div>
 
-            {/* Card 002: Polusi Plastik & Ancaman Banjir */}
-            <div className="relative rounded-[32px] bg-[#F3F5EF] border border-[#E2E8DE] p-7 sm:p-9 flex flex-col justify-between overflow-hidden shadow-xs hover:border-[#10B981]/50 transition-all group">
-              <div>
-                {/* Pill Badge matching reference */}
-                <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white border border-[#DFE6DB] shadow-2xs mb-6">
-                  <span className="text-xs font-black tracking-wider text-[#18231D]">
-                    002
-                  </span>
-                  <div className="flex -space-x-1.5">
-                    <img
-                      className="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover"
-                      src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=60&auto=format&fit=crop&q=80"
-                      alt="Warga"
-                    />
-                    <img
-                      className="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover"
-                      src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=60&auto=format&fit=crop&q=80"
-                      alt="Warga"
-                    />
-                    <img
-                      className="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover"
-                      src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=60&auto=format&fit=crop&q=80"
-                      alt="Warga"
-                    />
+            {/* Card 2: Penyaluran Material Sampah Pilah (Deep Forest Green #2E6E65 + Emerald Teal #0EB29A) */}
+            <div className="rounded-[32px] bg-[#F4F9F8] text-[#2B3752] p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden shadow-xl border-2 border-[#0EB29A]/30 group">
+              {/* Corner Ambient Glow */}
+              <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-bl from-[#0EB29A]/15 via-[#2E6E65]/10 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+
+              <div className="relative z-10">
+                {/* Header Pills */}
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                  <div className="inline-flex items-center  gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold ">
+                    <Truck className="h-3.5 w-3.5 text-[#2E6E65] shrink-0" />
+                    <span>02 • SIRKULASI EKONOMI</span>
                   </div>
-                  <span className="h-4 w-4 rounded-full bg-[#10B981] text-white flex items-center justify-center font-bold text-[10px]">
-                    +
-                  </span>
+
+               
                 </div>
 
-                {/* Big Bold Title */}
-                <h3 className="text-2xl sm:text-3xl font-black text-[#18231D] leading-snug max-w-sm">
-                  Polusi Plastik Residu & Kerawanan Banjir Sungai
+                <h3 className="text-2xl sm:text-3xl font-semibold text-[#2B3752] leading-snug mb-3">
+                  Penyaluran Material Sampah Pilah
                 </h3>
+
+                <p className="text-sm sm:text-base text-[#4B5950] leading-relaxed font-normal mb-6">
+                  Material anorganik bernilai (plastik PET, kardus tebal, kaleng logam) dijemput oleh mitra armada pengepul terdaftar dengan timbangan transparan, mengurangi beban TPA Supit Urang.
+                </p>
+
+                {/* Simulated Fleet Dispatch & EcoPoints Reward Widget */}
+                <div className="rounded-2xl bg-white border border-[#0EB29A]/20 p-4 sm:p-5 mb-6 text-xs shadow-xs">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=100&auto=format&fit=crop&q=80"
+                        alt="Pak Slamet"
+                        className="h-9 w-9 rounded-full object-cover border-2 border-[#0EB29A] shadow-2xs"
+                      />
+                      <div>
+                        <div className="font-semibold text-[#2B3752] text-xs">Pak Slamet (Armada DLH)</div>
+                        <div className="text-[10px] text-slate-500 font-semibold">Truk Hidrolik Mini • N 8472 AB</div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-[#0EB29A]/10 border border-[#0EB29A]/30 text-[#2E6E65] font-semibold text-[10px] shrink-0">
+                      TERSEDIA JEMPUT
+                    </span>
+                  </div>
+
+                  {/* Material & Digital Scale Strip */}
+                  <div className="p-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200 flex items-center justify-between text-[11px] mb-2.5">
+                    <span className="font-semibold text-slate-600">Kardus &amp; Botol Terpilah:</span>
+                    <span className="font-semibold text-[#2B3752] flex items-center gap-1">
+                      <Scale className="h-3 w-3 text-[#0EB29A]" /> ~18.5 kg Terverifikasi
+                    </span>
+                  </div>
+
+                  {/* EcoPoints Live Reward Strip */}
+                  <div className="p-2.5 rounded-xl bg-[#F0FAF7] border border-[#0EB29A]/30 flex items-center justify-between font-semibold text-[#2B3752]">
+                    <span className="flex items-center gap-1.5 text-[11px]">
+                      <Coins className="h-3.5 w-3.5 text-[#0EB29A]" /> Konversi Reward Warga
+                    </span>
+                    <span className="font-semibold text-xs sm:text-sm text-[#2E6E65]">+275 Poin Ditukar Sembako</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Graphic Right (Isometric 3D Recycle Loop) */}
-              <div className="mt-6 flex justify-end">
-                <svg
-                  className="w-36 h-28 sm:w-44 sm:h-32 drop-shadow-md group-hover:scale-105 transition-transform"
-                  viewBox="0 0 200 150"
-                  fill="none"
+              {/* Action Footer */}
+              <div className="relative z-10 pt-4 border-t border-[#0EB29A]/20 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">Reward Warga</span>
+                  <span className="text-xs sm:text-sm font-semibold text-[#2B3752]">Poin Ditukar Voucher &amp; Sembako</span>
+                </div>
+                <Link
+                  href="/rewards"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2E6E65] hover:bg-[#245750] text-white font-semibold text-xs shadow-md transition-all hover:scale-[1.02] active:scale-98 shrink-0"
                 >
-                  {/* 3D Isometric Recycle Arrows */}
-                  {/* Arrow 1: Top Right */}
-                  <polygon points="100,25 150,55 140,65 110,50 110,80 90,80 90,40" fill="#256B52" stroke="#18231D" strokeWidth="2.5" />
-                  <polygon points="150,55 130,95 120,85 135,60" fill="#1B4D3B" stroke="#18231D" strokeWidth="2" />
-                  
-                  {/* Arrow 2: Bottom */}
-                  <polygon points="135,115 80,135 85,120 110,110 75,90 85,75 125,95" fill="#10B981" stroke="#18231D" strokeWidth="2.5" />
-                  
-                  {/* Arrow 3: Left */}
-                  <polygon points="65,95 45,45 60,45 70,75 95,65 100,80 75,90" fill="#34D399" stroke="#18231D" strokeWidth="2.5" />
-                </svg>
+                  <span>Tukar Poin Reward</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             </div>
 
@@ -437,85 +517,66 @@ export default function LandingHomePage() {
       </section>
 
       {/* ========================================================
-          3. BRAND PARTNERSHIPS ("WE ARE PROUD OF")
+          3. KEMITRAAN INSTANSI RESMI KOTA MALANG
       ======================================================== */}
-      <section className="py-12 border-t border-[#E8EDE5]">
+      <section className="py-12 border-t border-[#E8EDE5] bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           
-          <span className="text-xs font-black tracking-[0.25em] text-[#63756A] uppercase block mb-3">
-            WE ARE PROUD OF
+          <span className="text-xs font-semibold tracking-widest text-[#63756A] uppercase block mb-2">
+            EKOSISTEM PEMANGKU KEPENTINGAN
           </span>
 
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#18231D] max-w-3xl mx-auto leading-tight mb-10">
-            Kemitraan strategis bersama DLH, Bank Sampah & puluhan penggerak daur ulang
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-[#18231D] max-w-3xl mx-auto leading-tight mb-8">
+            Kemitraan strategis bersama dinas teknis & penggerak daur ulang Kota Malang
           </h2>
 
-          {/* Partner Cards Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
-            
-            {/* DLH Kota Malang */}
-            <div className="bg-white rounded-2xl border border-[#DFE6DB] p-5 flex flex-col items-center justify-center gap-2 hover:border-[#10B981] hover:shadow-md transition-all group">
-              <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                🏛️
-              </div>
-              <span className="text-xs font-black text-[#18231D]">DLH Kota Malang</span>
-              <span className="text-[10px] text-slate-500 font-semibold">Dinas Lingkungan Hidup</span>
+          {/* Partner Logos (Clean Monochrome by default, Full Color on Hover, Enlarged) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 items-center justify-items-center gap-8 sm:gap-12 md:gap-16 max-w-5xl mx-auto py-6">
+            <div className="flex items-center justify-center">
+              <img
+                src="/images/1.png"
+                alt="Sahabat Kali Brantas"
+                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
+              />
             </div>
 
-            {/* BPBD Malang */}
-            <div className="bg-white rounded-2xl border border-[#DFE6DB] p-5 flex flex-col items-center justify-center gap-2 hover:border-[#10B981] hover:shadow-md transition-all group">
-              <div className="h-12 w-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                🚨
-              </div>
-              <span className="text-xs font-black text-[#18231D]">BPBD Malang</span>
-              <span className="text-[10px] text-slate-500 font-semibold">Penanggulangan Bencana</span>
+            <div className="flex items-center justify-center">
+              <img
+                src="/images/2.png"
+                alt="Pemerintah Kota Malang"
+                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
+              />
             </div>
 
-            {/* Bank Sampah Malang */}
-            <div className="bg-white rounded-2xl border border-[#DFE6DB] p-5 flex flex-col items-center justify-center gap-2 hover:border-[#10B981] hover:shadow-md transition-all group">
-              <div className="h-12 w-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                ♻️
-              </div>
-              <span className="text-xs font-black text-[#18231D]">Bank Sampah BSM</span>
-              <span className="text-[10px] text-slate-500 font-semibold">Jaringan Daur Ulang</span>
+            <div className="flex items-center justify-center">
+              <img
+                src="/images/3.png"
+                alt="Bank Sampah Malang (BSM)"
+                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
+              />
             </div>
 
-            {/* Sahabat Kali Brantas */}
-            <div className="bg-white rounded-2xl border border-[#DFE6DB] p-5 flex flex-col items-center justify-center gap-2 hover:border-[#10B981] hover:shadow-md transition-all group">
-              <div className="h-12 w-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                🌊
-              </div>
-              <span className="text-xs font-black text-[#18231D]">Sahabat Brantas</span>
-              <span className="text-[10px] text-slate-500 font-semibold">Komunitas Rawat Sungai</span>
+            <div className="flex items-center justify-center">
+              <img
+                src="/images/4.png"
+                alt="BPBD Kota Malang"
+                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
+              />
             </div>
-
-            {/* Pemkot Malang */}
-            <div className="bg-white rounded-2xl border border-[#DFE6DB] p-5 flex flex-col items-center justify-center gap-2 hover:border-[#10B981] hover:shadow-md transition-all group col-span-2 sm:col-span-1">
-              <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                🛡️
-              </div>
-              <span className="text-xs font-black text-[#18231D]">Pemkot Malang</span>
-              <span className="text-[10px] text-slate-500 font-semibold">EcoSmart City 2026</span>
-            </div>
-
           </div>
 
         </div>
       </section>
 
       {/* ========================================================
-          4. VERIFIED MITRA PENGEPUL SHOWCASE
+          4. MITRA ARMADA PENGEPUL TERVERIFIKASI
       ======================================================== */}
       <section className="py-16 bg-[#F4F6F1] border-y border-[#E2E8DE]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/70 text-[#1E5345] text-xs font-black mb-3">
-                <Truck className="h-3.5 w-3.5" />
-                <span>ARMADA SIAGA OPERASIONAL</span>
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-[#18231D] tracking-tight">
+              <h2 className="text-3xl sm:text-4xl font-semibold text-[#18231D] tracking-tight">
                 Mitra Pengepul Terverifikasi & Armada Siaga
               </h2>
               <p className="text-sm sm:text-base text-[#4B5950] mt-2 max-w-xl">
@@ -525,7 +586,7 @@ export default function LandingHomePage() {
 
             <Link
               href="/register?role=pengepul"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#18231D] hover:bg-[#25362D] text-white font-bold text-xs shadow-md transition-all self-start md:self-auto"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#18231D] hover:bg-[#25362D] text-white font-semibold text-xs shadow-sm transition-all self-start md:self-auto"
             >
               <span>Daftarkan Armada Anda</span>
               <ArrowRight className="h-3.5 w-3.5" />
@@ -537,7 +598,7 @@ export default function LandingHomePage() {
             {mitraList.map((mitra) => (
               <div
                 key={mitra.id}
-                className="rounded-3xl bg-white border border-[#DFE6DB] p-6 sm:p-7 flex flex-col justify-between shadow-xs hover:shadow-xl hover:border-[#10B981] transition-all"
+                className="rounded-3xl bg-white border border-[#DFE6DB] p-6 sm:p-7 flex flex-col justify-between shadow-2xs hover:shadow-md hover:border-[#10B981] transition-all"
               >
                 <div>
                   {/* Top: Photo & Details */}
@@ -546,14 +607,14 @@ export default function LandingHomePage() {
                       <img
                         src={mitra.foto_profil || "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&auto=format&fit=crop&q=80"}
                         alt={mitra.name}
-                        className="h-14 w-14 rounded-2xl object-cover border-2 border-emerald-500/20 shadow-xs"
+                        className="h-14 w-14 rounded-2xl object-cover border-2 border-emerald-500/20 shadow-2xs"
                       />
                       <div>
-                        <h4 className="font-extrabold text-[#18231D] text-base leading-snug">
+                        <h4 className="font-semibold text-[#18231D] text-base leading-snug">
                           {mitra.name}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-black text-[10px] border border-emerald-200">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-semibold text-[10px] border border-emerald-200">
                             {mitra.plat_nomor || "N 8472 AB"}
                           </span>
                           <span className="text-[11px] text-slate-500 font-semibold truncate max-w-[120px]">
@@ -564,21 +625,21 @@ export default function LandingHomePage() {
                     </div>
 
                     {/* Star Rating Badge */}
-                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-black text-xs">
+                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-semibold text-xs">
                       <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
                       <span>{mitra.rating || 5.0}</span>
                     </div>
                   </div>
 
                   {/* Operational Area & Vehicle Specs */}
-                  <div className="p-3 rounded-xl bg-[#F6F8F3] border border-[#E5EBE1] text-xs space-y-1 mb-4">
+                  <div className="p-3 rounded-2xl bg-[#F6F8F3] border border-[#E5EBE1] text-xs space-y-1 mb-4">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 font-medium">Kapasitas Muatan:</span>
-                      <span className="font-bold text-[#18231D]">~{mitra.kapasitas_muatan_kg || 800} kg</span>
+                      <span className="font-semibold text-[#18231D]">~{mitra.kapasitas_muatan_kg || 800} kg</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500 font-medium">Wilayah Kerja:</span>
-                      <span className="font-bold text-[#18231D] truncate max-w-[160px]">
+                      <span className="font-semibold text-[#18231D] truncate max-w-[160px]">
                         {mitra.area_operasional || "Klojen & Sekitarnya"}
                       </span>
                     </div>
@@ -595,18 +656,18 @@ export default function LandingHomePage() {
                   {mitra.ulasan && mitra.ulasan.length > 0 && (
                     <div className="pt-3 border-t border-slate-100">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
-                          Ulasan Warga Binaan
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                          Ulasan Warga
                         </span>
                         <div className="flex text-amber-400 text-xs">
                           {"★".repeat(mitra.ulasan[0].rating)}
                         </div>
                       </div>
-                      <p className="text-xs text-[#18231D] font-medium leading-relaxed bg-[#F8FAF6] p-2.5 rounded-lg border border-[#E9EFE6]">
+                      <p className="text-xs text-[#18231D] font-medium leading-relaxed bg-[#F8FAF6] p-2.5 rounded-xl border border-[#E9EFE6]">
                         &quot;{mitra.ulasan[0].komentar}&quot;
                       </p>
-                      <span className="text-[10px] font-bold text-slate-500 block mt-1">
-                        — {mitra.ulasan[0].reviewer_name} ({mitra.ulasan[0].reviewer_role || "Warga"})
+                      <span className="text-[10px] font-medium text-slate-500 block mt-1">
+                        — {mitra.ulasan[0].reviewer_name}
                       </span>
                     </div>
                   )}
@@ -617,7 +678,7 @@ export default function LandingHomePage() {
                   <button
                     type="button"
                     onClick={() => handleOpenReview(mitra)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#1E5345] text-xs font-extrabold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-100 text-[#1E5345] text-xs font-semibold transition-colors cursor-pointer"
                   >
                     <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                     <span>Beri Ulasan (+15 Poin)</span>
@@ -627,7 +688,7 @@ export default function LandingHomePage() {
                     href={`https://wa.me/${mitra.no_whatsapp?.replace(/[^0-9]/g, "") || "6281234567890"}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-extrabold text-[#1E5345] hover:text-emerald-700"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#1E5345] hover:text-emerald-700"
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
                     <span>WhatsApp</span>
@@ -649,7 +710,7 @@ export default function LandingHomePage() {
         >
           <div className="space-y-4 pt-2">
             {reviewSuccessMsg ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-2">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <span>{reviewSuccessMsg}</span>
               </div>
@@ -657,7 +718,7 @@ export default function LandingHomePage() {
               <>
                 {/* Star Rating Select */}
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                     Rating Bintang
                   </label>
                   <div className="flex items-center gap-2">
@@ -673,7 +734,7 @@ export default function LandingHomePage() {
                         </span>
                       </button>
                     ))}
-                    <span className="text-xs font-bold text-slate-600 ml-2">
+                    <span className="text-xs font-semibold text-slate-600 ml-2">
                       {reviewRating} dari 5 Bintang
                     </span>
                   </div>
@@ -681,7 +742,7 @@ export default function LandingHomePage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
                       Nama Anda
                     </label>
                     <input
@@ -694,7 +755,7 @@ export default function LandingHomePage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
                       Status / Peran
                     </label>
                     <input
@@ -708,7 +769,7 @@ export default function LandingHomePage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                     Ulasan & Testimoni
                   </label>
                   <textarea
@@ -720,7 +781,7 @@ export default function LandingHomePage() {
                   />
                 </div>
 
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-2">
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-2">
                   <Coins className="h-4 w-4 text-amber-500 flex-shrink-0" />
                   <span>Setiap ulasan warga yang terverifikasi mendapatkan +15 Poin Reward!</span>
                 </div>
@@ -730,6 +791,7 @@ export default function LandingHomePage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setSelectedMitraForReview(null)}
+                    className="rounded-xl"
                   >
                     Batal
                   </Button>
@@ -739,7 +801,7 @@ export default function LandingHomePage() {
                     isLoading={isSubmittingReview}
                     disabled={isSubmittingReview || !reviewComment.trim()}
                     onClick={handleSubmitReview}
-                    className="font-bold text-xs"
+                    className="font-semibold text-xs rounded-xl bg-[#1E5345] hover:bg-[#153D32]"
                   >
                     Kirim Ulasan & Klaim Poin
                   </Button>
@@ -753,14 +815,14 @@ export default function LandingHomePage() {
       {/* ========================================================
           5. 4-LANGKAH ALUR KERJA SISTEM (WORKFLOW)
       ======================================================== */}
-      <section className="py-16">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-black tracking-[0.25em] text-[#63756A] uppercase block mb-2">
+            <span className="text-xs font-semibold tracking-widest text-[#1E5345] uppercase block mb-2">
               ALUR KERJA RESPON CEPAT
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#18231D] tracking-tight">
+            <h2 className="text-3xl sm:text-4xl font-semibold text-[#18231D] tracking-tight">
               Dari Laporan Warga hingga Penjemputan Tuntas
             </h2>
             <p className="text-sm text-[#4B5950] mt-2">
@@ -770,55 +832,42 @@ export default function LandingHomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            {/* Step 1 */}
-            <div className="rounded-3xl bg-white border border-[#DFE6DB] p-6 shadow-xs relative">
-              <span className="text-3xl font-black text-[#10B981]/25 block mb-2">01</span>
-              <div className="h-10 w-10 rounded-xl bg-emerald-100/70 text-[#1E5345] flex items-center justify-center font-black mb-3">
-                📸
-              </div>
-              <h4 className="font-extrabold text-[#18231D] text-base mb-1.5">
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+              <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">01</span>
+              <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
                 Foto & Titik Koordinat
               </h4>
               <p className="text-xs text-[#526157] leading-relaxed">
-                Warga mengambil foto timbunan sampah melalui kamera anti-fraud dengan koordinat GPS presisi dan watermark waktu nyata.
+                Warga memotret tumpukan sampah dengan kamera anti-fraud bersertifikasi GPS lokasi dan penanda waktu otomatis.
               </p>
             </div>
 
-            {/* Step 2 */}
-            <div className="rounded-3xl bg-white border border-[#DFE6DB] p-6 shadow-xs relative">
-              <span className="text-3xl font-black text-[#10B981]/25 block mb-2">02</span>
-              <div className="h-10 w-10 rounded-xl bg-teal-100/70 text-[#1E5345] flex items-center justify-center font-black mb-3">
-                🧠
-              </div>
-              <h4 className="font-extrabold text-[#18231D] text-base mb-1.5">
-                Analisis AI Multi-Hazard
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+              <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">02</span>
+            
+              <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
+                Analisis Estimasi AI
               </h4>
               <p className="text-xs text-[#526157] leading-relaxed">
-                Gemini Vision mendeteksi estimasi volume (m³), kategori sampah (PET, kardus, residu), dan risiko sumbatan aliran sungai.
+                Gemini Vision mengestimasi kubikasi volume (m³), jenis sampah dominan, dan tingkat risiko sumbatan saluran air.
               </p>
             </div>
 
-            {/* Step 3 */}
-            <div className="rounded-3xl bg-white border border-[#DFE6DB] p-6 shadow-xs relative">
-              <span className="text-3xl font-black text-[#10B981]/25 block mb-2">03</span>
-              <div className="h-10 w-10 rounded-xl bg-amber-100/70 text-amber-900 flex items-center justify-center font-black mb-3">
-                🚛
-              </div>
-              <h4 className="font-extrabold text-[#18231D] text-base mb-1.5">
-                Disposisi Armada Pengepul
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+              <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">03</span>
+             
+              <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
+                Disposisi Armada
               </h4>
               <p className="text-xs text-[#526157] leading-relaxed">
-                Notifikasi otomatis ke armada terdekat untuk penjemputan sampah daur ulang sesuai kapasitas kendaraan.
+                Notifikasi otomatis diteruskan ke mitra pengepul terdekat untuk penjemputan sampah sesuai kapasitas kendaraan.
               </p>
             </div>
 
-            {/* Step 4 */}
-            <div className="rounded-3xl bg-white border border-[#DFE6DB] p-6 shadow-xs relative">
-              <span className="text-3xl font-black text-[#10B981]/25 block mb-2">04</span>
-              <div className="h-10 w-10 rounded-xl bg-emerald-100/70 text-[#1E5345] flex items-center justify-center font-black mb-3">
-                🎁
-              </div>
-              <h4 className="font-extrabold text-[#18231D] text-base mb-1.5">
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+              <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">04</span>
+             
+              <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
                 Klaim Poin & Rewards
               </h4>
               <p className="text-xs text-[#526157] leading-relaxed">
@@ -832,39 +881,31 @@ export default function LandingHomePage() {
       </section>
 
       {/* ========================================================
-          6. BOTTOM CALL TO ACTION BANNER
+          6. BOTTOM CALL TO ACTION BANNER (Warm Forest Dark)
       ======================================================== */}
       <section className="py-12 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[36px] bg-[#18231D] text-white p-8 sm:p-14 text-center relative overflow-hidden shadow-2xl">
-            
-            {/* Ambient Leaf Glows */}
-            <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-teal-500/20 blur-3xl pointer-events-none" />
+          <div className="rounded-[32px] bg-[#142820] text-white p-8 sm:p-14 text-center relative overflow-hidden shadow-xl">
 
-            <span className="inline-block px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-black mb-4">
-              GERAKAN KOTA MALANG BEBAS BANJIR
-            </span>
-
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black max-w-3xl mx-auto leading-tight mb-4">
-              Mulai Laporkan Sampah atau Gabung Jadi Mitra Pengepul Resmi Hari Ini
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold max-w-3xl mx-auto leading-tight mb-4">
+              Mulai Laporkan Titik Sampah atau Gabung Jadi Mitra Armada Resmi
             </h2>
 
-            <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto mb-8 font-medium">
-              Satu foto laporan Anda dapat menyelamatkan puluhan rumah dari ancaman luapan banjir sungai dan menggerakkan ekonomi sirkular.
+            <p className="text-sm sm:text-base text-emerald-100/80 max-w-xl mx-auto mb-8 font-medium">
+              Satu foto laporan Anda membantu menjaga saluran air lingkungan tetap lancar dan menggerakkan sirkulasi daur ulang kota.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/lapor"
-                className="px-7 py-3.5 rounded-full bg-[#10B981] hover:bg-emerald-400 text-[#18231D] font-black text-sm shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                className="px-7 py-3.5 rounded-2xl bg-[#10B981] hover:bg-emerald-400 text-[#18231D] font-semibold text-sm shadow-md transition-all active:scale-95 flex items-center gap-2"
               >
                 <Camera className="h-4 w-4" />
                 <span>Lapor Titik Sampah Sekarang</span>
               </Link>
               <Link
                 href="/register?role=pengepul"
-                className="px-7 py-3.5 rounded-full border border-white/30 hover:border-white text-white font-black text-sm transition-all"
+                className="px-7 py-3.5 rounded-2xl border border-white/30 hover:border-white text-white font-semibold text-sm transition-all"
               >
                 <span>Daftar Sebagai Mitra Armada</span>
               </Link>

@@ -71,3 +71,13 @@ Dokumen ini memuat daftar 10 task dan perubahan utama yang telah diimplementasik
       - Pada modal verifikasi keberhasilan penjemputan (`onVerificationSuccess`), langsung menghapus layer lingkaran radius dari peta, menonaktifkan peringatan terkait di state lokal, dan memperbarui status laporan menjadi selesai.
       - Pada listener `BroadcastChannel("uinic_armada_tracking")` event `TRUCK_MISSION_FINISHED`, menyelaraskan penghapusan marker dan lingkaran radius secara real-time di semua tab atau perangkat warga/admin lainnya.
     - **File Terkait:** `frontend/components/maps/google-maps-view.tsx`.
+
+13. **Integrasi Deep-Link Langsung ke Navigasi Native Google Maps (Sesuai Realita Lapangan)**
+    - **Deskripsi:** Menghilangkan kelemahan sistem navigasi suara browser internal yang rentan macet (*freeze*) saat layar mati atau ada panggilan masuk, serta memberikan pengalaman navigasi turn-by-turn resmi dengan kondisi lalu lintas riil.
+    - **Solusi:**
+      - Menambahkan helper fungsi `openInGoogleMaps(lat, lng, mode)` di `frontend/lib/routing.ts` yang menghasilkan intent URI Google Maps resmi (`https://www.google.com/maps/dir/?api=1&destination=lat,lng&travelmode=...`).
+      - Menyematkan kartu rekomendasi *"Buka di Aplikasi Google Maps (Saran Sopir)"* pada panel petunjuk arah `route-direction-panel.tsx` dengan satu klik mudah.
+      - Menambahkan tombol pintas cepat *"Maps"* di bilah navigasi ponsel bawah (*compact mobile bar*) agar sopir dapat langsung meluncurkan Google Maps di jalan.
+      - Menyematkan tombol cepat *"Maps"* dan banner informasi navigasi di laci detail laporan `place-detail-drawer.tsx`.
+    - **File Terkait:** `frontend/lib/routing.ts`, `frontend/components/maps/place-detail-drawer.tsx`, `frontend/components/maps/route-direction-panel.tsx`.
+
