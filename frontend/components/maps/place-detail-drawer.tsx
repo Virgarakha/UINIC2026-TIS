@@ -706,29 +706,7 @@ export function PlaceDetailDrawer({
           </div>
         </div>
 
-        {roleViewMode === "warga" ? (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {isAlreadyDispatched && (
-              <button
-                type="button"
-                onClick={() => setIsPengepulModalOpen(true)}
-                className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
-                title="Kelola atau Batalkan Penjemputan Armada"
-              >
-                <X className="h-3 w-3" />
-                <span>Batal Jemput</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => onOpenTracker?.(report)}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95"
-            >
-              <Truck className="h-3.5 w-3.5" />
-              <span>Lacak Status</span>
-            </button>
-          </div>
-        ) : (
+        {user?.role === "pengepul" ? (
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               type="button"
@@ -751,11 +729,27 @@ export function PlaceDetailDrawer({
               <span>Jemput Sampah</span>
             </button>
           </div>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {isAlreadyDispatched && (
+              <button
+                type="button"
+                onClick={() => onOpenTracker?.(report)}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-95"
+              >
+                <Truck className="h-3.5 w-3.5" />
+                <span>Lacak Status</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      {/* 3. Google Maps Action Buttons (Rute, Simpan, Siaga, Pengepul, Bagikan) */}
-      <div className="p-3 border-b border-slate-100 flex-shrink-0 grid grid-cols-5 gap-1 text-center bg-white">
+      {/* 3. Google Maps Action Buttons (Rute, Simpan, Siaga, Bagikan - Tombol Pengepul hanya untuk role pengepul terdaftar) */}
+      <div className={cn(
+        "p-3 border-b border-slate-100 flex-shrink-0 grid gap-1 text-center bg-white",
+        user?.role === "pengepul" ? "grid-cols-5" : "grid-cols-4"
+      )}>
         <button
           onClick={() => {
             if (onOpenRoute) onOpenRoute(report);
@@ -807,27 +801,20 @@ export function PlaceDetailDrawer({
           <span className="text-[10px] font-bold text-[#2B3752]">Siaga</span>
         </button>
 
-        {!(user?.role === "pengepul" || roleViewMode === "pengepul") && (
+        {/* Hanya tampil untuk mitra pengepul terdaftar */}
+        {user?.role === "pengepul" && (
           <button
-            onClick={() => setIsPengepulModalOpen(true)}
+            onClick={() => {
+              if (onOpenRoute) onOpenRoute(report);
+            }}
             className="flex flex-col items-center gap-1 p-1 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer relative"
-            title={isAlreadyDispatched ? "Kelola / Batalkan Penjemputan Armada" : "Buka Dispatch Penjemputan Mitra Pengepul"}
+            title="Mulai Misi Penjemputan Sampah Mitra DLH"
           >
-            <div
-              className={cn(
-                "h-9 w-9 rounded-full flex items-center justify-center transition-all shadow-xs relative",
-                isAlreadyDispatched
-                  ? "bg-emerald-600 text-white"
-                  : "bg-[#2E6E65]/10 text-[#2E6E65] group-hover:bg-[#2E6E65] group-hover:text-white"
-              )}
-            >
+            <div className="h-9 w-9 rounded-full bg-[#1E5345] text-white flex items-center justify-center transition-all shadow-xs">
               <Truck className="h-4 w-4" />
-              {isAlreadyDispatched && (
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-white animate-ping" />
-              )}
             </div>
-            <span className="text-[10px] font-bold text-[#2B3752]">
-              {isAlreadyDispatched ? "Dijemput" : "Pengepul"}
+            <span className="text-[10px] font-bold text-[#1E5345]">
+              Jemput
             </span>
           </button>
         )}

@@ -1275,7 +1275,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           Boolean(rep.is_dispatched) ||
           activeArmadaList.some((t) => t.laporan_id === rep.id) ||
           rep.status?.kode === "siap_diambil_pengepul";
-        const isPengepulRole = user?.role === "pengepul" || roleViewMode === "pengepul";
+        const isPengepulRole = user?.role === "pengepul";
         const showShockwave = isDispatched && isPengepulRole;
 
         // Precision Map Pin: 40px wide, 48px tall, sharp needle tip anchored precisely at [20, 48]
@@ -1713,7 +1713,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               }
               return prev;
             });
-            if (msg.latitude && msg.longitude && mapInstanceRef.current && (user?.role === "pengepul" || roleViewMode === "pengepul")) {
+            if (msg.latitude && msg.longitude && mapInstanceRef.current && user?.role === "pengepul") {
               mapInstanceRef.current.flyTo([msg.latitude, msg.longitude], 16, { duration: 1.2 });
             }
           }

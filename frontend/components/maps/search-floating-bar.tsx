@@ -32,7 +32,7 @@ export function SearchFloatingBar({
   roleViewMode = "warga",
   onOpenTrackerModal,
 }: SearchFloatingBarProps) {
-  const categories = roleViewMode === "pengepul" ? [
+  const categories = user?.role === "pengepul" ? [
     { id: "all", label: `Semua Order (${totalResults})`, icon: Layers },
     { id: "pengepul", label: "📦 Kardus & Logam (Cuan)", icon: Recycle },
     { id: "banjir", label: "🌊 Sumbatan Saluran Air", icon: Trash2 },
@@ -43,7 +43,7 @@ export function SearchFloatingBar({
     { id: "wabah", label: "Wabah Sanitasi", icon: AlertTriangle },
     { id: "kebakaran", label: "Gas Metana & Api", icon: Flame },
     { id: "bau", label: "Bau Toksik", icon: Biohazard },
-    { id: "pengepul", label: "Siap Pengepul", icon: Recycle },
+    { id: "pengepul", label: "Daur Ulang", icon: Recycle },
   ];
 
   return (
