@@ -32,7 +32,7 @@ export function SearchFloatingBar({
   roleViewMode = "warga",
   onOpenTrackerModal,
 }: SearchFloatingBarProps) {
-  const categories = roleViewMode === "pengepul" ? [
+  const categories = user?.role === "pengepul" ? [
     { id: "all", label: `Semua Order (${totalResults})`, icon: Layers },
     { id: "pengepul", label: "📦 Kardus & Logam (Cuan)", icon: Recycle },
     { id: "banjir", label: "🌊 Sumbatan Saluran Air", icon: Trash2 },
@@ -43,7 +43,7 @@ export function SearchFloatingBar({
     { id: "wabah", label: "Wabah Sanitasi", icon: AlertTriangle },
     { id: "kebakaran", label: "Gas Metana & Api", icon: Flame },
     { id: "bau", label: "Bau Toksik", icon: Biohazard },
-    { id: "pengepul", label: "Siap Pengepul", icon: Recycle },
+    { id: "pengepul", label: "Daur Ulang", icon: Recycle },
   ];
 
   return (
@@ -54,28 +54,7 @@ export function SearchFloatingBar({
       )}
     >
       {/* Role Indicator & Citizen Tracking Beacon */}
-      <div className="flex items-center gap-1.5 self-start">
-        {roleViewMode === "pengepul" ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18231D] text-emerald-300 text-xs font-black shadow-md border border-emerald-900/40">
-            <span>🚛</span>
-            <span>Mitra Driver Pengepul</span>
-          </div>
-        ) : (
-          onOpenTrackerModal && (
-            <button
-              type="button"
-              onClick={onOpenTrackerModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 text-xs font-black backdrop-blur-md shadow-xs hover:bg-emerald-500/25 transition-all cursor-pointer animate-in fade-in"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-              </span>
-              <span>Lacak Laporan Saya</span>
-            </button>
-          )
-        )}
-      </div>
+    
       {/* 1. Google Maps Search Pill */}
       <div className="flex items-center h-12 w-full sm:w-[440px] bg-white rounded-full shadow-xl shadow-slate-200/70 border border-slate-200/90 px-3.5 gap-2 transition-all hover:shadow-2xl">
         {!isRailVisible && (

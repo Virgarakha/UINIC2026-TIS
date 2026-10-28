@@ -10,8 +10,8 @@ export function DashboardTopbar() {
     <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs">
       {/* Breadcrumb Info */}
       <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Link href="/dashboard" className="hover:text-[#0EB29A] font-medium">
-          Dashboard
+        <Link href="/peta" className="hover:text-[#0EB29A] font-medium">
+          Radar Peta
         </Link>
         <ChevronRight className="h-3.5 w-3.5 opacity-40" />
         <span className="font-bold text-[#2B3752]">Ikhtisar Aktivitas</span>

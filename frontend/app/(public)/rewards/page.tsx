@@ -225,17 +225,8 @@ export default function RewardsPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       {/* Page Header */}
       <div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#0EB29A] transition-colors mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Kembali ke Beranda</span>
-        </Link>
-        <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 mb-1">
-          <Coins className="h-4 w-4" />
-          <span>Ekonomi Sirkular & Gamifikasi Warga</span>
-        </div>
+       
+       
         <h1 className="text-3xl font-black text-[#2B3752]">
           Katalog Penukaran Hadiah Aksi Lingkungan
         </h1>
