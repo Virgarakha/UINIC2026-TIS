@@ -3217,14 +3217,6 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                 <span>Panduan Pilah Sampah</span>
               </Link>
 
-              <Link
-                href="/dashboard"
-                onClick={() => setIsSideMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#2B3752] hover:bg-slate-100 transition-colors"
-              >
-                <LayoutDashboard className="h-4 w-4 text-purple-500" />
-                <span>Portal Dashboard</span>
-              </Link>
 
               {user && (
                 <button

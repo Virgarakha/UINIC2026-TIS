@@ -52,11 +52,7 @@ export default function LoginPage() {
       setSuccessMessage(`Berhasil masuk sebagai ${user.name}! Mengalihkan...`);
 
       setTimeout(() => {
-        if (user.role === "pengepul") {
-          router.push("/peta");
-        } else {
-          router.push("/dashboard");
-        }
+        router.push("/peta");
       }, 700);
     } catch (err: any) {
       setErrorMessage(err.message || "Gagal masuk. Periksa kembali email dan kata sandi.");
@@ -94,11 +90,7 @@ export default function LoginPage() {
         setStoredSession(user, res.token);
         setSuccessMessage(`Mode Demo Aktif: Masuk sebagai ${user.name}`);
         setTimeout(() => {
-          if (demoRole === "pengepul") {
-            router.push("/peta");
-          } else {
-            router.push("/dashboard");
-          }
+          router.push("/peta");
         }, 500);
       })
       .catch((err) => {

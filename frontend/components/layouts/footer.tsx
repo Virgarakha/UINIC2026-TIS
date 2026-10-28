@@ -111,8 +111,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard" className="hover:text-[#0EB29A] transition-colors">
-                  Portal Warga & Pengepul
+                <Link href="/peta" className="hover:text-[#0EB29A] transition-colors">
+                  Radar Titik Sampah
                 </Link>
               </li>
             </ul>

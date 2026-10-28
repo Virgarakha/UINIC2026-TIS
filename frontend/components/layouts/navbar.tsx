@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   X,
   LayoutDashboard,
+  Compass,
   ExternalLink,
   User as UserIcon,
   LogIn,
@@ -253,10 +254,10 @@ export function Navbar() {
                 <span>Lapor Titik Sampah (Kamera/GPS)</span>
               </Button>
             </Link>
-            <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+            <Link href="/peta" onClick={() => setIsMobileMenuOpen(false)}>
               <Button variant="outline" className="w-full gap-2">
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Portal Dashboard Warga</span>
+                <Compass className="h-4 w-4" />
+                <span>Radar Titik Sampah</span>
               </Button>
             </Link>
           </div>

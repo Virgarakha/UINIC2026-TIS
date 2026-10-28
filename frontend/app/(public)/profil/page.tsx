@@ -194,10 +194,7 @@ export default function ProfilPage() {
           <ArrowLeft className="h-4 w-4" />
           <span>Kembali ke Beranda</span>
         </Link>
-        <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0EB29A] mb-1">
-          <ShieldCheck className="h-4 w-4" />
-          <span>Manajemen Akun & Rekam Jejak Partisipasi</span>
-        </div>
+       
         <h1 className="text-2xl sm:text-3xl font-black text-[#2B3752]">
           Profil Akun & Buku Besar Poin
         </h1>
@@ -216,18 +213,7 @@ export default function ProfilPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg sm:text-xl font-black text-[#2B3752]">{user?.name || "Pengguna Belum Masuk"}</h2>
-              <span
-                className={cn(
-                  "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
-                  isGuest
-                    ? "bg-slate-100 text-slate-700 border border-slate-300"
-                    : isPengepul
-                    ? "bg-amber-100 text-amber-800 border border-amber-300"
-                    : "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                )}
-              >
-                {isGuest ? "🔒 Belum Masuk Akun" : isPengepul ? "🚛 Mitra Driver Pengepul" : "🌱 Warga Pelapor"}
-              </span>
+            
             </div>
 
             <p className="text-xs text-slate-500">{user?.email || "Belum ada sesi login aktif"}</p>
@@ -390,66 +376,7 @@ export default function ProfilPage() {
         </div>
       </div>
 
-      {/* QUICK ROLE SWITCHER FOR DEMO / EVALUATION */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <RefreshCw className={cn("h-4 w-4 text-[#0EB29A]", isSwitching && "animate-spin")} />
-            <h4 className="text-xs sm:text-sm font-black text-[#2B3752]">
-              Beralih Akun Demo 1-Klik (Pengujian Evaluasi)
-            </h4>
-          </div>
-          <span className="text-[11px] text-slate-400">
-            Uji coba perspektif Warga vs Mitra Driver Pengepul secara langsung
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => handleSwitchAccount("warga")}
-            className={cn(
-              "p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between",
-              !isPengepul
-                ? "bg-white border-[#0EB29A] ring-2 ring-[#0EB29A]/20 shadow-sm"
-                : "bg-white/60 border-slate-200 hover:bg-white hover:border-slate-300"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
-                BS
-              </div>
-              <div>
-                <strong className="text-xs text-[#2B3752] block">Budi Santoso (Warga)</strong>
-                <span className="text-[10px] text-slate-500">Lapor sampah AI, klaim voucher hadiah</span>
-              </div>
-            </div>
-            {!isPengepul && <CheckCircle2 className="h-4 w-4 text-[#0EB29A]" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSwitchAccount("pengepul")}
-            className={cn(
-              "p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between",
-              isPengepul
-                ? "bg-white border-[#0EB29A] ring-2 ring-[#0EB29A]/20 shadow-sm"
-                : "bg-white/60 border-slate-200 hover:bg-white hover:border-slate-300"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
-                PJ
-              </div>
-              <div>
-                <strong className="text-xs text-[#2B3752] block">Pak Joko (Mitra Pengepul)</strong>
-                <span className="text-[10px] text-slate-500">Radar jemput, navigasi armada, timbang cuan</span>
-              </div>
-            </div>
-            {isPengepul && <CheckCircle2 className="h-4 w-4 text-[#0EB29A]" />}
-          </button>
-        </div>
-      </div>
+     
 
       {/* Point Transaction Ledger (Buku Besar Mutasi Poin) */}
       <div className="space-y-4">

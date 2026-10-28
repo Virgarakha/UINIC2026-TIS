@@ -129,11 +129,10 @@ function RegisterContent() {
       if (role === "pengepul") {
         localStorage.setItem("uinic_pengepul_online", "true");
         setSuccessMessage("Pendaftaran Mitra Berhasil! Status armada Anda langsung aktif.");
-        setTimeout(() => router.push("/peta"), 800);
       } else {
-        setSuccessMessage("Pendaftaran Berhasil! Selamat bergabung di EcoPatrol.");
-        setTimeout(() => router.push("/dashboard"), 800);
+        setSuccessMessage("Pendaftaran Berhasil! Selamat bergabung di TRINFO.");
       }
+      setTimeout(() => router.push("/peta"), 800);
     } catch (err: any) {
       setErrorMessage(err.message || "Gagal melakukan pendaftaran. Periksa kembali form.");
     } finally {
@@ -368,13 +367,13 @@ function RegisterContent() {
           <div className="relative rounded-[32px] overflow-hidden shadow-2xl h-[620px] bg-slate-900 group">
             {/* Hero Photo */}
             <img
-              src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&auto=format&fit=crop&q=80"
+              src="images/register.png"
               alt="EcoPatrol Community"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
 
             {/* Dark gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent pointer-events-none" />
 
             {/* Quote Overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10 text-white">
