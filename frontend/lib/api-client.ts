@@ -212,6 +212,10 @@ export interface CreateLaporanPayload {
   tipe_bahaya?: string | null;
   metadata_forensik?: MetadataForensik | null;
   analisis_ai?: {
+    is_valid_sampah?: boolean;
+    alasan_validasi?: string;
+    kategori_id?: number;
+    kategori_nama?: string;
     volume_sampah_m3: number;
     persentase_sumbatan_aliran: number;
     estimasi_berat_kg: number;

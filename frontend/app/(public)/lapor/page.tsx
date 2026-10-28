@@ -24,6 +24,8 @@ import {
   LogIn,
   Lock,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { CitizenReportTrackerModal } from "@/components/shared/citizen-report-tracker-modal";
 import { Button } from "@/components/ui/button";
@@ -72,6 +74,24 @@ export default function LaporCameraPage() {
   const [citizenActionOption, setCitizenActionOption] = React.useState<"jual" | "sedekah">("jual");
   const [isTrackerOpen, setIsTrackerOpen] = React.useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = React.useState(false);
+  const touchStartYRef = React.useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartYRef.current === null) return;
+    const diff = touchStartYRef.current - e.changedTouches[0].clientY;
+    if (diff > 35) {
+      // Swiped up -> expand
+      setIsSheetExpanded(true);
+    } else if (diff < -35) {
+      // Swiped down -> collapse
+      setIsSheetExpanded(false);
+    }
+    touchStartYRef.current = null;
+  };
 
   // Pipeline submission state
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -80,8 +100,58 @@ export default function LaporCameraPage() {
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
+  // AI Validation & Auto Categorization State
+  const [aiValidation, setAiValidation] = React.useState<AnalisisAiResult | null>(null);
+  const [isValidatingPhoto, setIsValidatingPhoto] = React.useState(false);
+
   const [currentUser, setCurrentUser] = React.useState<any>(null);
   const isGuest = isGuestUser(currentUser);
+
+  // Automatic AI verification and categorization function
+  const validatePhotoWithAi = React.useCallback(
+    async (imageBase64: string, hintFileName?: string) => {
+      setIsValidatingPhoto(true);
+      setErrorMessage(null);
+      try {
+        const lat = geo.latitude || -7.9826;
+        const lng = geo.longitude || 112.6308;
+        const weather = await getLiveWeather(lat, lng);
+        const derivedTitle = title.trim() || (hintFileName ? hintFileName.replace(/\.[^/.]+$/, "") : "");
+        const res = await analyzeWasteWithGemini({
+          base64Image: imageBase64,
+          mimeType: "image/jpeg",
+          title: derivedTitle,
+          description: description,
+          alamatLokasi: "Lokasi Foto Laporan",
+          latitude: lat,
+          longitude: lng,
+          weather: weather,
+        });
+        setAiValidation(res);
+
+        if (res.is_valid_sampah) {
+          if (res.kategori_id) {
+            setKategoriId(String(res.kategori_id));
+          }
+          if (!title.trim() && res.jenis_sampah_dominan) {
+            setTitle(`Timbunan ${res.jenis_sampah_dominan}`);
+          }
+        } else {
+          setErrorMessage(
+            res.alasan_validasi ||
+              "Foto ditolak oleh AI Inspector: Objek bukan timbunan sampah atau saluran air tersumbat."
+          );
+        }
+        return res;
+      } catch (err) {
+        console.warn("AI validation error:", err);
+        return null;
+      } finally {
+        setIsValidatingPhoto(false);
+      }
+    },
+    [geo.latitude, geo.longitude, title, description]
+  );
 
   React.useEffect(() => {
     setCurrentUser(getStoredUser());
@@ -181,6 +251,7 @@ export default function LaporCameraPage() {
     const lng = geo.longitude || 112.6308;
     const alamatPerkiraan = title.trim() || "Klojen, Kota Malang, Jawa Timur";
 
+    let capturedImg = "";
     if (useWatermark) {
       try {
         const { dataUrl, metadata } = await burnForensicWatermark(canvas, {
@@ -190,23 +261,30 @@ export default function LaporCameraPage() {
           alamat: alamatPerkiraan,
           captureMode: "live_camera",
         });
+        capturedImg = dataUrl;
         setPreviewImage(dataUrl);
         setBase64Data(dataUrl);
         setForensicMetadata(metadata);
       } catch (e) {
         console.error("Watermark error:", e);
         const rawUrl = canvas.toDataURL("image/jpeg", 0.88);
+        capturedImg = rawUrl;
         setPreviewImage(rawUrl);
         setBase64Data(rawUrl);
       }
     } else {
       const rawUrl = canvas.toDataURL("image/jpeg", 0.88);
+      capturedImg = rawUrl;
       setPreviewImage(rawUrl);
       setBase64Data(rawUrl);
       setForensicMetadata(null);
     }
 
     stopCamera();
+    setIsSheetExpanded(true);
+    if (capturedImg) {
+      validatePhotoWithAi(capturedImg);
+    }
 
     // Auto-scroll sheet slightly into focus so user can immediately type details
     setTimeout(() => {
@@ -219,6 +297,9 @@ export default function LaporCameraPage() {
     setPreviewImage(null);
     setBase64Data(null);
     setForensicMetadata(null);
+    setAiValidation(null);
+    setErrorMessage(null);
+    setIsSheetExpanded(false);
     startCamera(cameraFacing);
   };
 
@@ -259,6 +340,7 @@ export default function LaporCameraPage() {
           const lng = geo.longitude || 112.6308;
           const alamatPerkiraan = title.trim() || "Klojen, Kota Malang, Jawa Timur";
 
+          let uploadedImg = "";
           if (useWatermark) {
             try {
               const res = await burnForensicWatermark(canvas, {
@@ -268,22 +350,29 @@ export default function LaporCameraPage() {
                 alamat: alamatPerkiraan,
                 captureMode: "upload_file",
               });
+              uploadedImg = res.dataUrl;
               setPreviewImage(res.dataUrl);
               setBase64Data(res.dataUrl);
               setForensicMetadata(res.metadata);
             } catch {
               const raw = canvas.toDataURL("image/jpeg", 0.88);
+              uploadedImg = raw;
               setPreviewImage(raw);
               setBase64Data(raw);
             }
           } else {
             const raw = canvas.toDataURL("image/jpeg", 0.88);
+            uploadedImg = raw;
             setPreviewImage(raw);
             setBase64Data(raw);
             setForensicMetadata(null);
           }
 
           stopCamera();
+          setIsSheetExpanded(true);
+          if (uploadedImg) {
+            validatePhotoWithAi(uploadedImg, file.name);
+          }
         };
       };
     } catch (err) {
@@ -299,6 +388,20 @@ export default function LaporCameraPage() {
       return;
     }
 
+    if (!previewImage && !base64Data) {
+      setErrorMessage("Silakan ambil atau pilih foto bukti sampah terlebih dahulu.");
+      return;
+    }
+
+    // STRICT AI REJECTION: If photo is not real waste, do not allow saving!
+    if (aiValidation && !aiValidation.is_valid_sampah) {
+      setErrorMessage(
+        aiValidation.alasan_validasi ||
+          "Laporan tidak dapat disimpan! AI Inspector mendeteksi bahwa foto bukan timbunan sampah atau saluran air valid."
+      );
+      return;
+    }
+
     setErrorMessage(null);
     setIsProcessing(true);
 
@@ -311,21 +414,36 @@ export default function LaporCameraPage() {
       const weather = await getLiveWeather(lat, lng);
 
       // 2. Multimodal AI analysis with Gemini
-      setProcessStep("Gemini 3.1 Multimodal menganalisis citra visual...");
-      const aiResult: AnalisisAiResult = await analyzeWasteWithGemini({
-        base64Image: base64Data || undefined,
-        mimeType: "image/jpeg",
-        title: title,
-        description: description,
-        alamatLokasi: title,
-        latitude: lat,
-        longitude: lng,
-        weather: weather,
-      });
+      setProcessStep("Gemini 3.1 Multimodal menganalisis & memvalidasi foto...");
+      const aiResult: AnalisisAiResult =
+        aiValidation ||
+        (await analyzeWasteWithGemini({
+          base64Image: base64Data || undefined,
+          mimeType: "image/jpeg",
+          title: title,
+          description: description,
+          alamatLokasi: title,
+          latitude: lat,
+          longitude: lng,
+          weather: weather,
+        }));
+
+      // Reject saving if AI determines the photo is NOT valid waste!
+      if (!aiResult.is_valid_sampah) {
+        setAiValidation(aiResult);
+        setErrorMessage(
+          aiResult.alasan_validasi ||
+            "Laporan tidak dapat disimpan! AI Inspector mendeteksi bahwa foto bukan timbunan sampah atau saluran air yang valid."
+        );
+        setIsProcessing(false);
+        return;
+      }
 
       // 3. Persist to Backend API & PostgreSQL Database
       setProcessStep("Menyimpan laporan ke database & radar publik...");
       const effectiveUserId = isGuest ? 1 : (currentUser?.id || 1);
+      const effectiveKategoriId = aiResult.kategori_id || parseInt(kategoriId, 10) || 1;
+
       const newReport = await createLaporanApi({
         user_id: effectiveUserId,
         foto_url:
@@ -334,12 +452,16 @@ export default function LaporCameraPage() {
         latitude: lat,
         longitude: lng,
         alamat_lokasi: title,
-        deskripsi: `${description ? description + " • " : ""}[Opsi Warga: ${citizenActionOption === "jual" ? "Jual ke Mitra Pengepul (Tunai)" : isGuest ? "Penjemputan Terbuka (Mode Tamu)" : "Sedekah Lingkungan (+100 Poin)"}]`,
-        kategori_id: parseInt(kategoriId, 10),
+        deskripsi: `${description ? description + " • " : ""}[Kategori AI: ${aiResult.kategori_nama}] [Opsi Warga: ${citizenActionOption === "jual" ? "Jual ke Mitra Pengepul (Tunai)" : isGuest ? "Penjemputan Terbuka (Mode Tamu)" : "Sedekah Lingkungan (+100 Poin)"}]`,
+        kategori_id: effectiveKategoriId,
         is_resiko_banjir: aiResult.persentase_sumbatan_aliran > 50,
         tipe_bahaya: aiResult.potensi_bahaya,
         metadata_forensik: forensicMetadata,
         analisis_ai: {
+          is_valid_sampah: aiResult.is_valid_sampah,
+          alasan_validasi: aiResult.alasan_validasi,
+          kategori_id: effectiveKategoriId,
+          kategori_nama: aiResult.kategori_nama,
           volume_sampah_m3: aiResult.volume_sampah_m3,
           persentase_sumbatan_aliran: aiResult.persentase_sumbatan_aliran,
           estimasi_berat_kg: aiResult.estimasi_berat_kg,
@@ -621,14 +743,16 @@ export default function LaporCameraPage() {
       <div
         ref={bottomSheetRef}
         className={cn(
-          "relative z-30 w-full max-w-2xl mx-auto bg-white rounded-t-[28px] shadow-[0_-12px_45px_rgba(0,0,0,0.5)] border-t border-slate-200/90 flex flex-col transition-all duration-300 ease-out",
-          isSheetExpanded ? "max-h-[84vh]" : "max-h-[50vh] sm:max-h-[55vh]"
+          "relative z-30 w-full max-w-2xl mx-auto bg-white rounded-t-[28px] shadow-[0_-12px_45px_rgba(0,0,0,0.5)] border-t border-slate-200/90 flex flex-col overflow-hidden transition-all duration-300 ease-out",
+          isSheetExpanded ? "max-h-[84vh]" : "max-h-[72px]"
         )}
       >
         {/* Drag / Click Handle Bar to Expand / Collapse */}
         <div
           onClick={() => setIsSheetExpanded(!isSheetExpanded)}
-          className="pt-2.5 pb-1 flex flex-col items-center justify-center flex-shrink-0 cursor-pointer group"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className="pt-2.5 pb-1 flex flex-col items-center justify-center flex-shrink-0 cursor-pointer group select-none"
           title={isSheetExpanded ? "Kecilkan panel" : "Perluas panel"}
         >
           <div className="w-12 h-1.5 bg-slate-300 rounded-full group-hover:bg-slate-400 transition-colors" />
@@ -637,7 +761,9 @@ export default function LaporCameraPage() {
         {/* Sheet Header */}
         <div
           onClick={() => setIsSheetExpanded(!isSheetExpanded)}
-          className="px-5 py-2 flex items-center justify-between border-b border-slate-100 flex-shrink-0 cursor-pointer"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className="px-5 py-2 flex items-center justify-between border-b border-slate-100 flex-shrink-0 cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-[#0EB29A]/10 text-[#0EB29A] flex items-center justify-center">
@@ -646,14 +772,23 @@ export default function LaporCameraPage() {
             <div>
               <h3 className="text-xs font-black text-[#2B3752]">Detail Titik Laporan</h3>
               <p className="text-[10px] text-slate-400">
-                {isSheetExpanded ? "Klik bar untuk perkecil" : "Scroll / klik bar untuk melihat formulir"}
+                {isSheetExpanded ? "Klik / geser ke bawah untuk perkecil" : "Klik / geser ke atas untuk isi formulir"}
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-bold text-[#0EB29A] bg-[#0EB29A]/10 px-2.5 py-1 rounded-full flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#0EB29A] animate-ping" />
-            AI Gemini Active
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-[#0EB29A] bg-[#0EB29A]/10 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0EB29A] animate-ping" />
+              AI Gemini Active
+            </span>
+            <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
+              {isSheetExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronUp className="h-3.5 w-3.5 text-[#0EB29A]" />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Scrollable Form Content */}
@@ -774,34 +909,134 @@ export default function LaporCameraPage() {
                 />
               </div>
 
-              {/* 2. Category Selection Pills */}
+              {/* 2. AI Automated Category & Waste Validation Card */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#2B3752]">
-                  Kategori Utama Sampah
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {KATEGORI_OPTIONS.map((kat) => (
-                    <button
-                      key={kat.id}
-                      type="button"
-                      onClick={() => setKategoriId(kat.id)}
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#2B3752] flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-[#0EB29A]" />
+                    <span>Kategori & Validasi AI Vision</span>
+                  </label>
+                  {aiValidation && (
+                    <span
                       className={cn(
-                        "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between",
-                        kategoriId === kat.id
-                          ? "border-[#0EB29A] bg-[#0EB29A]/10 text-[#0EB29A] font-bold shadow-xs"
-                          : "border-slate-200 hover:border-slate-300 text-slate-600 bg-slate-50/50"
+                        "text-[10px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1",
+                        aiValidation.is_valid_sampah
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-rose-50 text-rose-700 border-rose-200"
                       )}
                     >
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <span>{kat.icon}</span>
-                        <span className="truncate">{kat.label}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 mt-1 line-clamp-1">
-                        {kat.desc}
-                      </span>
-                    </button>
-                  ))}
+                      {aiValidation.is_valid_sampah ? (
+                        <>
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          <span>Terverifikasi Sampah ({aiValidation.confidence_score}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-3 w-3 text-rose-600" />
+                          <span>Ditolak: Bukan Sampah</span>
+                        </>
+                      )}
+                    </span>
+                  )}
                 </div>
+
+                {/* State A: Currently Validating with Spinner */}
+                {isValidatingPhoto && (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 text-xs flex items-center gap-3 animate-pulse">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#0EB29A] flex-shrink-0" />
+                    <div>
+                      <p className="font-bold text-[#2B3752]">AI Gemini Sedang Memvalidasi Foto...</p>
+                      <p className="text-[11px] text-slate-500">
+                        Memeriksa keaslian objek sampah & mengklasifikasi kategori secara otomatis.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* State B: Validated Real Waste */}
+                {!isValidatingPhoto && aiValidation && aiValidation.is_valid_sampah && (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white border border-emerald-200 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">
+                          {aiValidation.kategori_id === 1
+                            ? "🌊"
+                            : aiValidation.kategori_id === 2
+                            ? "📦"
+                            : aiValidation.kategori_id === 3
+                            ? "🍂"
+                            : aiValidation.kategori_id === 4
+                            ? "☣️"
+                            : "🛑"}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black text-[#2B3752]">
+                              {aiValidation.kategori_nama}
+                            </span>
+                            <span className="text-[9px] font-bold bg-[#0EB29A] text-white px-1.5 py-0.2 rounded-full">
+                              Auto AI
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-medium text-emerald-800">
+                            Dominan: {aiValidation.jenis_sampah_dominan}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[10px] text-slate-400 block font-semibold">Estimasi Vol</span>
+                        <span className="text-xs font-black text-[#2B3752]">
+                          {aiValidation.volume_sampah_m3} m³ (~{aiValidation.estimasi_berat_kg} kg)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/80 border border-emerald-100 text-[10.5px] text-slate-600 leading-relaxed flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                      <span>{aiValidation.alasan_validasi}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* State C: Rejected - NOT Waste */}
+                {!isValidatingPhoto && aiValidation && !aiValidation.is_valid_sampah && (
+                  <div className="p-3.5 rounded-2xl bg-rose-50/90 border-2 border-rose-300 space-y-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-7 w-7 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black text-rose-900">
+                          Foto Ditolak oleh AI Inspector
+                        </h4>
+                        <p className="text-[11px] text-rose-700 leading-snug">
+                          {aiValidation.alasan_validasi}
+                        </p>
+                        <p className="text-[10px] text-rose-600/90 font-medium pt-0.5">
+                          ⚠️ Laporan <strong>tidak dapat disimpan</strong> karena objek bukan timbunan sampah atau saluran air bermasalah.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRetake}
+                      className="w-full h-8 text-[11px] font-bold border-rose-300 text-rose-700 hover:bg-rose-100 rounded-lg cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 mr-1 text-rose-600" />
+                      <span>Ambil Ulang Foto Sampah Valid</span>
+                    </Button>
+                  </div>
+                )}
+
+                {/* State D: No photo yet (before capture) */}
+                {!isValidatingPhoto && !aiValidation && (
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-500 flex items-center gap-2.5">
+                    <Sparkles className="h-4 w-4 text-[#0EB29A] flex-shrink-0" />
+                    <span>
+                      <strong>Kategori Otomatis oleh AI</strong>: Ambil atau pilih foto bukti sampah, AI Gemini akan memvalidasi keaslian objek dan mengkategorikannya secara instan.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* 2b. Waste Value Estimator & Citizen Choice (Jual Tunai vs Sedekah Poin) */}
@@ -812,11 +1047,11 @@ export default function LaporCameraPage() {
                     <span>Estimasi Potensi Nilai Daur Ulang</span>
                   </div>
                   <span className="text-[11px] font-black text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
-                    {kategoriId === "2"
+                    {aiValidation?.nilai_ekonomi_estimasi
+                      ? `Rp ${aiValidation.nilai_ekonomi_estimasi.toLocaleString("id-ID")}`
+                      : kategoriId === "2"
                       ? "Rp 25.000 - Rp 60.000"
-                      : kategoriId === "1"
-                      ? "Rp 15.000 - Rp 35.000"
-                      : "Pembersihan Lingkungan"}
+                      : "Rp 15.000 - Rp 35.000"}
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800 leading-snug">
@@ -915,20 +1150,39 @@ export default function LaporCameraPage() {
               {/* 5. Submit Button */}
               <Button
                 type="submit"
-                variant="glow"
+                variant={aiValidation && !aiValidation.is_valid_sampah ? "outline" : "glow"}
                 size="lg"
-                disabled={isProcessing}
-                className="w-full h-12 rounded-xl text-sm font-bold shadow-xl shadow-[#0EB29A]/30 cursor-pointer"
+                disabled={
+                  isProcessing ||
+                  isValidatingPhoto ||
+                  (aiValidation ? !aiValidation.is_valid_sampah : false)
+                }
+                className={cn(
+                  "w-full h-12 rounded-xl text-sm font-bold shadow-xl transition-all",
+                  aiValidation && !aiValidation.is_valid_sampah
+                    ? "bg-rose-50 border-rose-300 text-rose-600 cursor-not-allowed opacity-90"
+                    : "shadow-[#0EB29A]/30 cursor-pointer"
+                )}
               >
                 {isProcessing ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>{processStep || "Menganalisis dengan Gemini AI..."}</span>
                   </div>
+                ) : isValidatingPhoto ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0EB29A]" />
+                    <span>AI Memvalidasi Objek Foto...</span>
+                  </div>
+                ) : aiValidation && !aiValidation.is_valid_sampah ? (
+                  <div className="flex items-center gap-2 text-rose-600">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Laporan Ditolak (Bukan Objek Sampah)</span>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
-                    <span>Kirim Laporan & Analisis AI</span>
+                    <span>Kirim Laporan Sampah Terverifikasi</span>
                   </div>
                 )}
               </Button>
