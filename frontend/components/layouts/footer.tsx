@@ -111,8 +111,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard" className="hover:text-[#0EB29A] transition-colors">
-                  Portal Warga & Pengepul
+                <Link href="/peta" className="hover:text-[#0EB29A] transition-colors">
+                  Radar Titik Sampah
                 </Link>
               </li>
             </ul>
@@ -121,7 +121,7 @@ export function Footer() {
 
         {/* Bottom Copyright */}
         <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[11px]">
-          <p>© 2026 {siteConfig.name} Team. Dikembangkan untuk Inovasi Berkelanjutan & Kompetisi Nasional.</p>
+          <p>© 2026 {siteConfig.name} Team.</p>
           <div className="flex items-center gap-1 text-slate-600">
             <span>Dibuat dengan</span>
             <Heart className="h-3 w-3 text-red-500 fill-current" />

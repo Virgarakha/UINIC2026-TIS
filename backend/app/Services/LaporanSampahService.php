@@ -188,13 +188,24 @@ class LaporanSampahService extends BaseService
     {
         return $this->transactional(function () use ($data, $userId): LaporanSampah {
             $hasAi = ! empty($data['analisis_ai']);
+            if ($hasAi && isset($data['analisis_ai']['is_valid_sampah']) && $data['analisis_ai']['is_valid_sampah'] === false) {
+                $reason = $data['analisis_ai']['alasan_validasi'] ?? 'Foto ditolak oleh AI: Objek dalam gambar tidak terdeteksi sebagai timbunan sampah atau sumbatan air yang valid.';
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'foto_url' => [$reason],
+                ]);
+            }
+
             $statusId = $data['status_id'] ?? null;
             if (! $statusId) {
                 $targetKode = $hasAi ? 'terverifikasi_ai' : 'menunggu_analisis';
                 $statusModel = StatusLaporan::where('kode', $targetKode)->first();
                 $statusId = $statusModel?->id ?? StatusLaporan::first()?->id ?? 1;
             }
-            $kategoriId = $data['kategori_id'] ?? null;
+            $rawKategoriId = $data['kategori_id'] ?? ($hasAi ? ($data['analisis_ai']['kategori_id'] ?? null) : null);
+            $kategoriId = $rawKategoriId;
+            if ($kategoriId && ! \App\Models\KategoriSampah::where('id', $kategoriId)->exists()) {
+                $kategoriId = $kategoriId == 5 ? 2 : (\App\Models\KategoriSampah::first()?->id ?? 1);
+            }
             $fotoUrl = $this->handleFotoUpload($data['foto_url']);
 
             $effectiveUserId = $userId ?? ($data['user_id'] ?? 1);

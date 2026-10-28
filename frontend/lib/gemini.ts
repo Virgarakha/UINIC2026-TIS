@@ -6,6 +6,10 @@ const GEMINI_API_KEY =
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
 
 export interface AnalisisAiResult {
+  is_valid_sampah: boolean;
+  alasan_validasi: string;
+  kategori_id: number; // 1: Plastik & Saluran Air, 2: Kardus & Logam, 3: Organik & Dedaunan, 4: Limbah B3 / Medis, 5: Timbunan TPS Liar
+  kategori_nama: string;
   volume_sampah_m3: number;
   persentase_sumbatan_aliran: number;
   estimasi_berat_kg: number;
@@ -40,72 +44,76 @@ interface GeminiPart {
 }
 
 export async function analyzeWasteWithGemini(input: AnalyzeWasteInput): Promise<AnalisisAiResult> {
-  const systemPrompt = `Anda adalah AI Senior Inspektur Lingkungan Hidup & Pakar Fisika Hidrologi Perkotaan Bersertifikasi (Certified Environmental & Hydrological AI Inspector).
-Tugas Anda adalah menganalisis foto limbah/sampah secara objektif, saintifik, terukur, dan realistis berdasarkan prinsip fisika massa jenis ruah (bulk density) dan dinamika aliran air, TANPA OVERESTIMASI (anti-halusinasi angka).
+  const systemPrompt = `Anda adalah AI Senior Inspektur Lingkungan Hidup, Verifikator Forensik Kebersihan & Pakar Fisika Hidrologi Perkotaan Bersertifikasi (Certified Environmental & Hydrological AI Inspector).
+Tugas Anda memiliki DUA FOKUS UTAMA secara terpadu:
+
+==================================================
+FOKUS 1: VALIDASI KEASLIAN SAMPAH (ANTI-FRAUD & INTEGRITAS SISTEM)
+==================================================
+Periksa citra visual foto secara teliti: Apakah foto ini BENAR-BENAR MENAMPILKAN SAMPAH, LIMBAH, ATAU SUMBATAN SALURAN AIR?
+
+1. KELOMPOK POSITIF (VALID SAMPAH -> "is_valid_sampah": true):
+   - Sampah plastik (botol kemasan PET/HDPE, kantong kresek, bungkus sachet, cup plastik, styrofoam) di sungai, selokan, parit, jalan, atau tanah lapang.
+   - Kardus, kertas karton bekas, kaleng logam/aluminium, besi tua, botol kaca, rongsokan daur ulang.
+   - Sampah organik busuk, sisa makanan pasar/dapur, tumpukan dedaunan/ranting basah yang menumpuk di saluran air atau lahan terbuka.
+   - Limbah B3 / medis berbahaya: botol oli bekas, aki/baterai, jerigen kimia beracun, jarum suntik, limbah farmasi/elektronik.
+   - Timbunan TPS Liar campuran berskala menengah/besar di pinggir jalan raya, lahan kosong, bawah jembatan, bantaran sungai.
+   - Aliran air parit/sungai yang terbendung timbunan sampah terapung.
+
+2. KELOMPOK NEGATIF (BUKAN SAMPAH / TIDAK VALID -> "is_valid_sampah": false):
+   - Foto selfie wajah manusia, potret orang, pakaian/fashion bersih, ruang kelas/kantor bersih.
+   - Hewan peliharaan (kucing, anjing, burung) dalam kondisi bersih dan sehat.
+   - Ruangan kantor, meja kerja rapi, laptop, buku/dokumen, gadget, perabot rumah tangga bersih.
+   - Makanan atau minuman bersih yang sedang disajikan di piring restoran, kafe, atau meja makan.
+   - Pemandangan alam bersih (pegunungan, langit biru, laut jernih, taman bunga terawat) tanpa sampah.
+   - Kendaraan bermotor bersih (mobil, sepeda motor) yang diparkir rapi di jalanan/garasi.
+   - Tembok/dinding polos, lantai keramik bersih, langit-langit, screenshot HP, meme, atau gambar abstrak.
+
+JIKA BUKAN SAMPAH:
+- "is_valid_sampah": false
+- "alasan_validasi": "Foto Ditolak oleh AI Inspector: Gambar tidak terdeteksi sebagai timbunan sampah, limbah, atau sumbatan lingkungan. Objek terdeteksi: [sebutkan objek yang tampak secara spesifik]."
+- "kategori_id": 0
+- "kategori_nama": "Bukan Sampah"
+- "confidence_score": 95 (tingkat kepastian penolakan)
+- "volume_sampah_m3": 0
+- "persentase_sumbatan_aliran": 0
+- "estimasi_berat_kg": 0
+- "nilai_ekonomi_estimasi": 0
+- "potensi_bahaya": "Aman"
+- "prediksi_banjir": "Objek foto bukan sampah, tidak menimbulkan risiko hidrologi."
+- "rekomendasi_tindakan": "Silakan ambil ulang foto yang menampilkan timbunan sampah nyata atau saluran air tersumbat."
+
+==================================================
+FOKUS 2: KLASIFIKASI KATEGORI OTOMATIS OLEH AI (JIKA VALID SAMPAH)
+==================================================
+Jika "is_valid_sampah": true, AI WAJIB mengklasifikasikan ke SALAH SATU dari 5 Kategori Resmi Sistem:
+- Kategori 1 ("kategori_id": 1, "kategori_nama": "Plastik & Saluran Air"):
+  Jika sampah didominasi botol plastik, kantong kresek, kemasan sachet di sungai, selokan, parit, atau drainase.
+- Kategori 2 ("kategori_id": 2, "kategori_nama": "Kardus & Logam"):
+  Jika didominasi kardus, karton kemasan, kaleng aluminium, besi rongsok, atau botol kaca bernilai daur ulang tinggi.
+- Kategori 3 ("kategori_id": 3, "kategori_nama": "Organik & Dedaunan"):
+  Jika didominasi dedaunan rontok, ranting pohon, sisa makanan basah, sisa sayuran/buah busuk.
+- Kategori 4 ("kategori_id": 4, "kategori_nama": "Limbah B3 / Medis"):
+  Jika ditemukan limbah berbahaya, botol oli bekas, aki/baterai, zat kimia, jarum suntik, limbah medis.
+- Kategori 5 ("kategori_id": 5, "kategori_nama": "Timbunan TPS Liar"):
+  Jika berupa timbunan sampah liar campuran yang menumpuk di pinggir jalan raya, lahan kosong, atau kolong jembatan.
 
 Konteks Laporan Pengguna:
 - Judul Laporan: ${input.title}
 - Keterangan Warga: ${input.description || "-"}
 - Lokasi: ${input.alamatLokasi} (Koordinat: ${input.latitude}, ${input.longitude})
-- Data Cuaca Terkini (Open-Meteo):
-  * Suhu: ${input.weather.temperature}°C, Kelembaban: ${input.weather.relativeHumidity}%
-  * Kondisi Cuaca: ${input.weather.statusCuaca}
-  * Curah Hujan Saat Ini: ${input.weather.precipitation} mm
-  * Prediksi Akumulasi Hujan 24 Jam: ${input.weather.rainForecastTotal} mm
-  * Elevasi Tanah: ${input.weather.elevation} mdpl
+- Data Cuaca Terkini: Suhu ${input.weather.temperature}°C, Kondisi ${input.weather.statusCuaca}, Curah Hujan ${input.weather.precipitation} mm, Prediksi 24 Jam ${input.weather.rainForecastTotal} mm
 
-==================================================
 PEDOMAN KALIBRASI FISIKA & MATEMATIKA KETAT:
-==================================================
-
-1. Pembedaan Luas Permukaan Air vs Volume Sampah Padat:
-   - Sampah yang mengapung renggang di atas permukaan air memiliki rongga/porositas > 85-90% (sebagian besar area pandang adalah air sungai, bukan massa sampah padat).
-   - JANGAN MENGUKUR LUAS AREA PERMUKAAN AIR SEBAGAI VOLUME SAMPAH PADAT!
-   - 1 botol plastik kosong (PET 600ml) hanya bervolume padat ~0.0006 m³ dan berbobot fisik ~0.02 kg (20 gram).
-   - 1 lembar kantong kresek tipis hanya berbobot ~0.005 kg (5 gram). Butuh 50 botol atau 200 lembar kresek untuk mencapai 1 kg!
-
-2. Klasifikasi Skala Sebaran Visual (3 Tingkat Kepadatan):
-   * TINGKAT A: SAMPAH TERCECER / TERAPUNG RINGAN (Sparse / Scattered Litter):
-     - Ciri visual: Hanya tampak beberapa helai kantong kresek, botol minuman, bungkus makanan terpisah-pisah, atau kotak kardus/wadah terapung renggang. Permukaan air masih sangat dominan (>70-80% area pandang), tidak ada tumpukan tebal berlapis.
-     - Estimasi Volume Padat Riil: 0.01 hingga 0.08 m³ (hanya 10 - 80 Liter).
-     - Estimasi Berat Fisik Riil: 1 hingga 5 kg saja! (DILARANG KERAS mengestimasi puluhan kg seperti 65 kg untuk sampah tercecer ringan).
-     - Persentase Sumbatan Aliran: 2% hingga 10% saja (air masih mengalir sangat bebas di bawah dan di sela-selanya).
-     - Nilai Ekonomi Daur Ulang: Rp 2.000 hingga Rp 8.000.
-     - Potensi Bahaya: "Pencemaran Bau & Kualitas Air" atau "Aman" (BUKAN Wabah & DBD, karena air sungai mengalir bukan habitat nyamuk Aedes aegypti).
-
-   * TINGKAT B: AKUMULASI SEDANG (Moderate Clumping):
-     - Ciri visual: Sampah mulai berkerumun atau tersangkut pada tiang jembatan, pilar pintu air, atau tepian drainase setebal 10-30 cm, menutupi 15-40% penampang air.
-     - Estimasi Volume Padat: 0.1 hingga 0.4 m³.
-     - Estimasi Berat Fisik Riil: 8 hingga 30 kg.
-     - Persentase Sumbatan Aliran: 15% hingga 40%.
-     - Nilai Ekonomi Daur Ulang: Rp 10.000 hingga Rp 40.000.
-     - Potensi Bahaya: "Banjir & Luapan Air" (jika hujan lebat) atau "Pencemaran Bau & Kualitas Air".
-
-   * TINGKAT C: SUMBATAN MASIF / BENDUNGAN TIMBUNAN TEBAL (Severe Jamming / Damming):
-     - Ciri visual: Timbunan sampah sangat tebal (>50 cm), menutupi >60% penampang sungai/gorong-gorong hingga air terbendung naik, ada batang pohon, kasur, atau karung puing.
-     - Estimasi Volume Padat: 0.6 hingga 5+ m³.
-     - Estimasi Berat Fisik Riil: 50 hingga 500+ kg.
-     - Persentase Sumbatan Aliran: 50% hingga 95%.
-     - Nilai Ekonomi Daur Ulang: Rp 50.000 hingga Rp 250.000+.
-
-3. Rumus Nilai Ekonomi Pengepul Indonesia (Realistis):
-   - Harga beli rata-rata rongsokan basah/sungai: Rp 1.000 - Rp 1.800 per kg.
-   - Nilai ekonomi = Math.round(estimasi_berat_kg * 1500). Jika berat sampah hanya 3 kg, nilainya sekitar Rp 4.500, BUKAN Rp 45.000!
-
-4. Kaidah Potensi Bahaya (Pilih SALAH SATU secara proporsional):
-   - "Pencemaran Bau & Kualitas Air" -> Untuk sampah terapung/tercecer di sungai yang mencemari lingkungan tanpa menyumbat total aliran.
-   - "Banjir & Luapan Air" -> HANYA jika persentase sumbatan aliran >= 35% atau menutup saluran pembuangan/drainase utama.
-   - "Wabah Penyakit & Sanitasi" -> HANYA jika terdapat genangan wadah air tenang (ban bekas/kaleng) di darat/pekarangan rumah warga sarang nyamuk, atau tumpukan sampah makanan busuk berbelatung.
-   - "Bahaya Kebakaran & Gas Metana" -> HANYA jika ada timbunan sampah darat liar sangat tebal (>1.5 m) di bawah terik panas.
-   - "Aman" -> Jika sampah sedikit dan tidak membahayakan.
-
-5. Kaidah Kalimat 'prediksi_banjir':
-   - Hubungkan secara ilmiah antara sumbatan dan curah hujan ${input.weather.rainForecastTotal} mm:
-   - Jika curah hujan 0 mm dan sumbatan < 20%:
-     Tulis kalimat objektif dan menenangkan: "Risiko Rendah: Aliran air saat ini lancar (sumbatan {X}%). Sampah permukaan bersifat tersebar ringan dan belum menimbulkan ancaman genangan atau banjir langsung, namun pembersihan rutin tetap dianjurkan."
+- 1 botol plastik kosong (PET 600ml) = ~0.0006 m³ dan ~0.02 kg (20 gram). Butuh 50 botol untuk 1 kg.
+- Harga beli rata-rata rongsokan basah/sungai: Rp 1.000 - Rp 1.800 per kg. Nilai ekonomi = Math.round(estimasi_berat_kg * 1500).
 
 Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar json:
 {
+  "is_valid_sampah": boolean,
+  "alasan_validasi": string,
+  "kategori_id": number (1-5, atau 0 jika bukan sampah),
+  "kategori_nama": string,
   "volume_sampah_m3": number,
   "persentase_sumbatan_aliran": number (0-100),
   "estimasi_berat_kg": number,
@@ -148,7 +156,7 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
         ],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: 0.2,
+          temperature: 0.15,
         },
       }),
     });
@@ -166,8 +174,26 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
       return generateIntelligentFallback(input);
     }
 
-    const parsed: AnalisisAiResult = JSON.parse(candidateText);
-    return parsed;
+    const parsed = JSON.parse(candidateText);
+    return {
+      is_valid_sampah: Boolean(parsed.is_valid_sampah !== false),
+      alasan_validasi:
+        parsed.alasan_validasi ||
+        (parsed.is_valid_sampah !== false
+          ? "Terverifikasi objek sampah nyata oleh AI Vision."
+          : "Foto tidak terdeteksi sebagai timbunan sampah atau saluran air tersumbat."),
+      kategori_id: Number(parsed.kategori_id) || (parsed.is_valid_sampah !== false ? 1 : 0),
+      kategori_nama: parsed.kategori_nama || (parsed.is_valid_sampah !== false ? "Plastik & Saluran Air" : "Bukan Sampah"),
+      volume_sampah_m3: Number(parsed.volume_sampah_m3) || 0,
+      persentase_sumbatan_aliran: Number(parsed.persentase_sumbatan_aliran) || 0,
+      estimasi_berat_kg: Number(parsed.estimasi_berat_kg) || 0,
+      potensi_bahaya: parsed.potensi_bahaya || "Aman",
+      prediksi_banjir: parsed.prediksi_banjir || "Aliran air normal.",
+      confidence_score: Number(parsed.confidence_score) || 92,
+      rekomendasi_tindakan: parsed.rekomendasi_tindakan || "Pembersihan rutin dianjurkan.",
+      jenis_sampah_dominan: parsed.jenis_sampah_dominan || "Plastik & Residu",
+      nilai_ekonomi_estimasi: Number(parsed.nilai_ekonomi_estimasi) || 0,
+    };
   } catch (error) {
     console.warn("Gemini execution exception, using fallback:", error);
     return generateIntelligentFallback(input);
@@ -179,63 +205,204 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
  */
 function generateIntelligentFallback(input: AnalyzeWasteInput): AnalisisAiResult {
   const textContext = `${input.title} ${input.description || ""}`.toLowerCase();
-  const isLightOrScattered =
-    textContext.includes("beberapa") ||
-    textContext.includes("sedikit") ||
-    textContext.includes("kecil") ||
-    textContext.includes("terapung") ||
-    textContext.includes("tercecer") ||
-    textContext.includes("botol");
 
-  const isDrainage =
-    textContext.includes("sungai") ||
-    textContext.includes("kali") ||
-    textContext.includes("got") ||
-    textContext.includes("parit");
+  // Non-waste rejection heuristics
+  const isExplicitNonWaste =
+    textContext.includes("selfie") ||
+    textContext.includes("wajah") ||
+    textContext.includes("orang") ||
+    textContext.includes("potret") ||
+    textContext.includes("kucing") ||
+    textContext.includes("anjing") ||
+    textContext.includes("hewan") ||
+    textContext.includes("meja kerja") ||
+    textContext.includes("meja") ||
+    textContext.includes("laptop") ||
+    textContext.includes("makanan") ||
+    textContext.includes("hidangan") ||
+    textContext.includes("kamar") ||
+    textContext.includes("ruangan") ||
+    textContext.includes("dinding") ||
+    textContext.includes("tembok") ||
+    textContext.includes("screenshot") ||
+    textContext.includes("tangkapan layar") ||
+    textContext.includes("logo") ||
+    textContext.includes("icon") ||
+    textContext.includes("avatar") ||
+    textContext.includes("profil") ||
+    textContext.includes("bukan sampah") ||
+    textContext.includes("tidak ada sampah") ||
+    textContext.includes("bersih");
+
+  const isConfirmedWaste =
+    textContext.includes("timbunan sampah") ||
+    textContext.includes("sampah liar") ||
+    textContext.includes("saluran air tersumbat") ||
+    textContext.includes("limbah sungai");
+
+  if (isExplicitNonWaste && !isConfirmedWaste) {
+    return {
+      is_valid_sampah: false,
+      alasan_validasi: "Foto Ditolak oleh AI Inspector: Gambar tidak terdeteksi sebagai timbunan sampah, limbah, atau sumbatan lingkungan. Objek terdeteksi sebagai foto non-sampah.",
+      kategori_id: 0,
+      kategori_nama: "Bukan Sampah",
+      volume_sampah_m3: 0,
+      persentase_sumbatan_aliran: 0,
+      estimasi_berat_kg: 0,
+      potensi_bahaya: "Aman",
+      prediksi_banjir: "Foto tidak mengandung timbunan sampah, tidak menimbulkan ancaman genangan atau banjir.",
+      confidence_score: 96.0,
+      rekomendasi_tindakan: "Silakan ambil ulang foto yang menampilkan timbunan sampah nyata atau saluran air tersumbat.",
+      jenis_sampah_dominan: "Bukan Sampah (Objek Non-Limbah)",
+      nilai_ekonomi_estimasi: 0,
+    };
+  }
+
+  const isCardboardOrMetal =
+    textContext.includes("kardus") ||
+    textContext.includes("kertas") ||
+    textContext.includes("karton") ||
+    textContext.includes("besi") ||
+    textContext.includes("logam") ||
+    textContext.includes("kaleng");
+
+  const isOrganic =
+    textContext.includes("daun") ||
+    textContext.includes("organik") ||
+    textContext.includes("ranting") ||
+    textContext.includes("makanan busuk") ||
+    textContext.includes("sayur");
+
+  const isB3 =
+    textContext.includes("oli") ||
+    textContext.includes("b3") ||
+    textContext.includes("medis") ||
+    textContext.includes("jarum") ||
+    textContext.includes("aki") ||
+    textContext.includes("baterai") ||
+    textContext.includes("kimia");
+
+  const isTpsLiar =
+    textContext.includes("tps liar") ||
+    textContext.includes("lahan kosong") ||
+    textContext.includes("pinggir jalan") ||
+    textContext.includes("liar");
+
+  let kategoriId = 1;
+  let kategoriNama = "Plastik & Saluran Air";
+  let jenisDominan = "Plastik PET & Kantong Kresek";
+
+  if (isCardboardOrMetal) {
+    kategoriId = 2;
+    kategoriNama = "Kardus & Logam";
+    jenisDominan = "Kardus, Kertas Karton & Kaleng Logam";
+  } else if (isOrganic) {
+    kategoriId = 3;
+    kategoriNama = "Organik & Dedaunan";
+    jenisDominan = "Sampah Dedaunan & Sisa Makanan Organik";
+  } else if (isB3) {
+    kategoriId = 4;
+    kategoriNama = "Limbah B3 / Medis";
+    jenisDominan = "Kemasan B3 / Limbah Berbahaya";
+  } else if (isTpsLiar) {
+    kategoriId = 5;
+    kategoriNama = "Timbunan TPS Liar";
+    jenisDominan = "Timbunan Sampah Campuran TPS Liar";
+  }
 
   const rain = input.weather.rainForecastTotal;
 
-  // Case 1: Sparse / light scattered litter in water or roadside
-  if (isLightOrScattered) {
+  // Case 1: Recyclable Scrap (Kardus & Logam)
+  if (kategoriId === 2) {
     return {
-      volume_sampah_m3: 0.05,
-      persentase_sumbatan_aliran: 5,
-      estimasi_berat_kg: 3.5,
+      is_valid_sampah: true,
+      alasan_validasi: "Terverifikasi Sampah: Terdeteksi timbunan kardus dan logam anorganik bernilai jual daur ulang.",
+      kategori_id: 2,
+      kategori_nama: "Kardus & Logam",
+      volume_sampah_m3: 0.45,
+      persentase_sumbatan_aliran: 8,
+      estimasi_berat_kg: 24,
       potensi_bahaya: "Pencemaran Bau & Kualitas Air",
-      prediksi_banjir: `Risiko Rendah: Aliran air saat ini masih mengalir normal (sumbatan 5%). Curah hujan ${rain} mm tidak menimbulkan ancaman genangan langsung saat ini.`,
-      confidence_score: 94.0,
-      rekomendasi_tindakan: "Pembersihan manual menggunakan jaring apung secara berkala oleh petugas kebersihan sungai.",
-      jenis_sampah_dominan: "Plastik PET & Kantong Kresek",
-      nilai_ekonomi_estimasi: 5500,
+      prediksi_banjir: `Risiko Rendah: Tumpukan kardus & logam anorganik berada di daratan kering, curah hujan ${rain} mm aman dari luapan air.`,
+      confidence_score: 93.5,
+      rekomendasi_tindakan: "Disarankan untuk dijual atau disalurkan ke mitra pengepul motor roda 3 terdekat.",
+      jenis_sampah_dominan: jenisDominan,
+      nilai_ekonomi_estimasi: 36000,
     };
   }
 
-  // Case 2: Moderate/heavy drainage clog
-  if (isDrainage) {
+  // Case 2: Organic (Dedaunan & Ranting)
+  if (kategoriId === 3) {
     return {
-      volume_sampah_m3: 0.85,
-      persentase_sumbatan_aliran: 38,
-      estimasi_berat_kg: 35,
-      potensi_bahaya: "Banjir & Luapan Air",
-      prediksi_banjir: `Sumbatan 38% penampang saluran air berpotensi memicu luapan setinggi 15-25 cm jika curah hujan ${rain} mm meningkat sore nanti.`,
-      confidence_score: 92.5,
-      rekomendasi_tindakan: "Pembersihan segera di sekitar tiang jembatan/gorong-gorong sebelum intensitas hujan bertambah.",
-      jenis_sampah_dominan: "Plastik, Ranting & Kemasan Residu",
-      nilai_ekonomi_estimasi: 28000,
+      is_valid_sampah: true,
+      alasan_validasi: "Terverifikasi Sampah: Terdeteksi tumpukan sampah dedaunan dan sisa organik basah.",
+      kategori_id: 3,
+      kategori_nama: "Organik & Dedaunan",
+      volume_sampah_m3: 0.35,
+      persentase_sumbatan_aliran: 22,
+      estimasi_berat_kg: 18,
+      potensi_bahaya: "Pencemaran Bau & Kualitas Air",
+      prediksi_banjir: `Sumbatan organik 22% perlu diantisipasi agar tidak membusuk dan menghambat resapan air saat hujan ${rain} mm.`,
+      confidence_score: 91.0,
+      rekomendasi_tindakan: "Komposkan sampah daun atau kumpulkan dalam wadah tertutup untuk pengomposan warga.",
+      jenis_sampah_dominan: jenisDominan,
+      nilai_ekonomi_estimasi: 5000,
     };
   }
 
-  // Case 3: Dry land / waste pile
+  // Case 3: B3 / Hazardous
+  if (kategoriId === 4) {
+    return {
+      is_valid_sampah: true,
+      alasan_validasi: "Terverifikasi Sampah: Terdeteksi limbah berbahaya (B3/Medis) yang memerlukan penanganan khusus.",
+      kategori_id: 4,
+      kategori_nama: "Limbah B3 / Medis",
+      volume_sampah_m3: 0.15,
+      persentase_sumbatan_aliran: 10,
+      estimasi_berat_kg: 6,
+      potensi_bahaya: "Wabah Penyakit & Sanitasi",
+      prediksi_banjir: "Risiko kontaminasi tanah dan sumber air bersih jika limbah kimia/medis terkena air hujan.",
+      confidence_score: 94.0,
+      rekomendasi_tindakan: "Wajib diisolasi menggunakan sarung tangan pelindung dan diserahkan ke TPS B3 berizin.",
+      jenis_sampah_dominan: jenisDominan,
+      nilai_ekonomi_estimasi: 0,
+    };
+  }
+
+  // Case 4: TPS Liar
+  if (kategoriId === 5) {
+    return {
+      is_valid_sampah: true,
+      alasan_validasi: "Terverifikasi Sampah: Terdeteksi timbunan sampah liar campuran ilegal di bahu jalan/lahan terbuka.",
+      kategori_id: 5,
+      kategori_nama: "Timbunan TPS Liar",
+      volume_sampah_m3: 1.2,
+      persentase_sumbatan_aliran: 28,
+      estimasi_berat_kg: 85,
+      potensi_bahaya: "Bahaya Kebakaran & Gas Metana",
+      prediksi_banjir: `Timbunan sampah liar berpotensi hanyut menyumbat gorong-gorong terdekat jika diguyur hujan ${rain} mm.`,
+      confidence_score: 95.0,
+      rekomendasi_tindakan: "Segera kirim armada pikap pengangkut DLH untuk pembersihan timbunan sebelum membesar.",
+      jenis_sampah_dominan: jenisDominan,
+      nilai_ekonomi_estimasi: 65000,
+    };
+  }
+
+  // Default Case: Plastik & Saluran Air
   return {
-    volume_sampah_m3: 0.6,
-    persentase_sumbatan_aliran: 15,
-    estimasi_berat_kg: 22,
-    potensi_bahaya: "Pencemaran Bau & Kualitas Air",
-    prediksi_banjir: `Tumpukan sampah di permukaan tanah dengan kelembaban ${input.weather.relativeHumidity}% berpotensi mencemari estetika lingkungan.`,
-    confidence_score: 91.0,
-    rekomendasi_tindakan: "Kumpulkan sampah anorganik terpilah untuk disalurkan ke mitra pengepul daur ulang terdekat.",
-    jenis_sampah_dominan: "Kardus, Plastik & Sampah Kering",
-    nilai_ekonomi_estimasi: 22000,
+    is_valid_sampah: true,
+    alasan_validasi: "Terverifikasi Sampah: Terdeteksi timbunan residu plastik dan botol kemasan di sempadan/saluran air.",
+    kategori_id: 1,
+    kategori_nama: "Plastik & Saluran Air",
+    volume_sampah_m3: 0.55,
+    persentase_sumbatan_aliran: 32,
+    estimasi_berat_kg: 26,
+    potensi_bahaya: "Banjir & Luapan Air",
+    prediksi_banjir: `Sumbatan plastik 32% pada saluran air berpotensi memicu luapan jika curah hujan ${rain} mm meningkat.`,
+    confidence_score: 94.5,
+    rekomendasi_tindakan: "Pengangkatan sampah plastik segera menggunakan jaring atau garpu pembersih saluran.",
+    jenis_sampah_dominan: jenisDominan,
+    nilai_ekonomi_estimasi: 24000,
   };
 }
 

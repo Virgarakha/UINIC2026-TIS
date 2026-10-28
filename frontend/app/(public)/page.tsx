@@ -17,6 +17,11 @@ import {
   Sparkles,
   Zap,
   Scale,
+  BarChart3,
+  TrendingDown,
+  Recycle,
+  Clock,
+  Activity,
 } from "lucide-react";
 import {
   fetchMitraPengepulApi,
@@ -27,7 +32,6 @@ import { User, LaporanSampah } from "@/types";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { getStoredUser, recordPointTransaction } from "@/lib/auth-storage";
-import { EcoRecycleGraphic } from "@/components/landing/eco-recycle-graphic";
 
 export default function LandingHomePage() {
   const [mitraList, setMitraList] = React.useState<User[]>([]);
@@ -234,7 +238,7 @@ export default function LandingHomePage() {
     reportsList.filter((r) => r.status?.kode === "selesai").length || 14;
 
   return (
-    <div className="bg-[#FBFBF8] text-[#18231D] min-h-screen selection:bg-emerald-200">
+    <div className="bg-white text-[#18231D] min-h-screen selection:bg-emerald-200">
       
       {/* ========================================================
           1. HERO SECTION (Warm, Punchy, Beautifully Balanced)
@@ -309,7 +313,11 @@ export default function LandingHomePage() {
 
             {/* Right Column: Custom Visual Artwork with Live Overlay Tags */}
             <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
-              <EcoRecycleGraphic className="w-full max-w-[460px] lg:max-w-[500px]" />
+              <img
+                src="/images/vektor.png"
+                alt="Ilustrasi Ekosistem TRINFO"
+                className="w-full max-w-[460px] lg:max-w-[500px] h-auto object-contain"
+              />
 
               {/* Floating Verified Overlay Pill */}
               <div className="absolute top-6 left-2 sm:-left-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3 animate-in fade-in">
@@ -517,53 +525,147 @@ export default function LandingHomePage() {
       </section>
 
       {/* ========================================================
-          3. KEMITRAAN INSTANSI RESMI KOTA MALANG
+          3. STATISTIK & METRIK DAMPAK LINGKUNGAN KOTA MALANG
       ======================================================== */}
-      <section className="py-12 border-t border-[#E8EDE5] bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="py-16 sm:py-20 border-t border-[#E8EDE5] bg-white relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-50/50 rounded-full blur-3xl pointer-events-none -z-10" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <span className="text-xs font-semibold tracking-widest text-[#63756A] uppercase block mb-2">
-            EKOSISTEM PEMANGKU KEPENTINGAN
-          </span>
-
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-[#18231D] max-w-3xl mx-auto leading-tight mb-8">
-            Kemitraan strategis bersama dinas teknis & penggerak daur ulang Kota Malang
-          </h2>
-
-          {/* Partner Logos (Clean Monochrome by default, Full Color on Hover, Enlarged) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 items-center justify-items-center gap-8 sm:gap-12 md:gap-16 max-w-5xl mx-auto py-6">
-            <div className="flex items-center justify-center">
-              <img
-                src="/images/1.png"
-                alt="Sahabat Kali Brantas"
-                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
-              />
-            </div>
-
-            <div className="flex items-center justify-center">
-              <img
-                src="/images/2.png"
-                alt="Pemerintah Kota Malang"
-                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
-              />
-            </div>
-
-            <div className="flex items-center justify-center">
-              <img
-                src="/images/3.png"
-                alt="Bank Sampah Malang (BSM)"
-                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
-              />
-            </div>
-
-            <div className="flex items-center justify-center">
-              <img
-                src="/images/4.png"
-                alt="BPBD Kota Malang"
-                className="h-24 sm:h-28 md:h-32 w-auto max-w-[200px] object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 hover:scale-110 transition-all duration-300 cursor-pointer"
-              />
-            </div>
+          {/* Header */}
+          <div className="text-center max-w-3xl mx-auto mb-14">
+           
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#18231D] tracking-tight leading-tight">
+              Data Lapangan &amp; Dampak Nyata di Kota Malang
+            </h2>
+            <p className="text-sm sm:text-base text-[#4B5950] mt-3 leading-relaxed">
+              Transparansi volume timbulan sampah harian, mitigasi sumbatan saluran air perkotaan, dan efisiensi sirkulasi daur ulang untuk mengurangi beban TPA Supit Urang.
+            </p>
           </div>
+
+          {/* 4 Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+
+            {/* Metric 1: Timbulan Sampah Supit Urang */}
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
+                    <BarChart3 className="h-5 w-5" />
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#1E5345]/5 text-[#2E6E65] border border-[#1E5345]/15">
+                    01 • BEBAN HARIAN
+                  </span>
+                </div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-[#18231D] tracking-tight mb-1">
+                  600+ <span className="text-base sm:text-lg font-semibold text-[#4B5950]">Ton/Hari</span>
+                </div>
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#63756A] mb-3">
+                  Timbulan Sampah Masuk TPA
+                </h3>
+                <p className="text-xs text-[#4B5950] leading-relaxed">
+                  Kapasitas TPA Supit Urang membutuhkan intervensi pemilahan langsung dari warga agar residu yang tertimbun dapat ditekan seminimal mungkin.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-[#DFE7DD] flex items-center justify-between text-[11px]">
+                <span className="text-[#63756A] font-medium">TPA Supit Urang Malang</span>
+                <span className="text-[#1E5345] font-semibold flex items-center gap-1">
+                  <TrendingDown className="h-3.5 w-3.5 text-[#10B981]" /> Target -30%
+                </span>
+              </div>
+            </div>
+
+            {/* Metric 2: Titik Pantau Drainase Kritis */}
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
+                    <Waves className="h-5 w-5" />
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#1E5345]/5 text-[#2E6E65] border border-[#1E5345]/15">
+                    02 • DRAINASE KRITIS
+                  </span>
+                </div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-[#18231D] tracking-tight mb-1">
+                  48 <span className="text-base sm:text-lg font-semibold text-[#4B5950]">Titik Kritis</span>
+                </div>
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#63756A] mb-3">
+                  Saluran &amp; Sempadan Brantas
+                </h3>
+                <p className="text-xs text-[#4B5950] leading-relaxed">
+                  Drainase primer di Lowokwaru, Klojen, dan Sukun dipantau warga secara aktif untuk mencegah penyumbatan sampah saat curah hujan tinggi.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-[#DFE7DD] flex items-center justify-between text-[11px]">
+                <span className="text-[#63756A] font-medium">DAS Kali Brantas &amp; Metro</span>
+                <span className="text-[#1E5345] font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" /> Pantau Real-time
+                </span>
+              </div>
+            </div>
+
+            {/* Metric 3: Diversi Daur Ulang Anorganik */}
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
+                    <Recycle className="h-5 w-5" />
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#1E5345]/5 text-[#2E6E65] border border-[#1E5345]/15">
+                    03 • SIRKULASI PILAH
+                  </span>
+                </div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-[#18231D] tracking-tight mb-1">
+                  ~28.4% <span className="text-base sm:text-lg font-semibold text-[#4B5950]">Terdiversi</span>
+                </div>
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#63756A] mb-3">
+                  Material Daur Ulang Bernilai
+                </h3>
+                <p className="text-xs text-[#4B5950] leading-relaxed">
+                  Plastik botol PET, kardus tebal, dan kaleng logam langsung diserap mitra armada pengepul terverifikasi dengan timbangan transparan dan poin reward.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-[#DFE7DD] flex items-center justify-between text-[11px]">
+                <span className="text-[#63756A] font-medium">Bank Sampah &amp; Pengepul</span>
+                <span className="text-[#1E5345] font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" /> Terserap Sirkular
+                </span>
+              </div>
+            </div>
+
+            {/* Metric 4: Respons Tanggap Cepat */}
+            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#1E5345]/5 text-[#2E6E65] border border-[#1E5345]/15">
+                    04 • RESPON LAPANGAN
+                  </span>
+                </div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-[#18231D] tracking-tight mb-1">
+                  &lt; 3 Jam <span className="text-base sm:text-lg font-semibold text-[#4B5950]">Respon</span>
+                </div>
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[#63756A] mb-3">
+                  Validasi Hingga Disposisi
+                </h3>
+                <p className="text-xs text-[#4B5950] leading-relaxed">
+                  Gemini AI mengotomatisasi estimasi kubikasi dan level risiko, memungkinkan armada terdekat langsung menuju lokasi tanpa hambatan birokrasi.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-[#DFE7DD] flex items-center justify-between text-[11px]">
+                <span className="text-[#63756A] font-medium">Verifikasi GPS Terpadu</span>
+                <span className="text-[#1E5345] font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" /> Disposisi Cepat
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+       
 
         </div>
       </section>

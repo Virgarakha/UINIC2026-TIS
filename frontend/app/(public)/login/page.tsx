@@ -52,11 +52,7 @@ export default function LoginPage() {
       setSuccessMessage(`Berhasil masuk sebagai ${user.name}! Mengalihkan...`);
 
       setTimeout(() => {
-        if (user.role === "pengepul") {
-          router.push("/peta");
-        } else {
-          router.push("/dashboard");
-        }
+        router.push("/peta");
       }, 700);
     } catch (err: any) {
       setErrorMessage(err.message || "Gagal masuk. Periksa kembali email dan kata sandi.");
@@ -94,11 +90,7 @@ export default function LoginPage() {
         setStoredSession(user, res.token);
         setSuccessMessage(`Mode Demo Aktif: Masuk sebagai ${user.name}`);
         setTimeout(() => {
-          if (demoRole === "pengepul") {
-            router.push("/peta");
-          } else {
-            router.push("/dashboard");
-          }
+          router.push("/peta");
         }, 500);
       })
       .catch((err) => {
@@ -225,11 +217,7 @@ export default function LoginPage() {
             </div>
 
             {/* Security Footnote */}
-            <div className="pt-8 text-center">
-              <span className="text-[11px] text-slate-400">
-                Secured by <strong className="text-slate-600 font-bold">✦ EcoPatrol AI</strong>
-              </span>
-            </div>
+           
 
           </form>
 
@@ -240,13 +228,13 @@ export default function LoginPage() {
           <div className="relative rounded-[32px] overflow-hidden shadow-2xl h-[620px] bg-slate-900 group">
             {/* Hero Photo matching reference style */}
             <img
-              src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&auto=format&fit=crop&q=80"
+              src="/images/login.png"
               alt="EcoPatrol Community"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              className="w-full h-full object-cover  transition-transform duration-700"
             />
 
             {/* Dark gradient overlay for readable text at bottom */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent pointer-events-none" />
 
             {/* Inspiring quote matching reference image typography */}
             <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10 text-white">

@@ -258,119 +258,98 @@ export default function LaporanSayaPage() {
   return (
     <div className="min-h-screen bg-[#FBFBF8] text-[#18231D] pb-24 md:pb-16">
       
-      {/* 1. Header Section with Dark Forest Gradient */}
-      <div className="bg-[#18231D] text-white pt-8 pb-12 px-4 sm:px-6 lg:px-8 border-b border-emerald-950/40 relative overflow-hidden">
-        {/* Decorative backdrop glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#0EB29A]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="max-w-6xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-black uppercase tracking-wider border border-emerald-500/30">
-                  {isGuest ? "Citizen Waste Radar • Pemantauan Terbuka" : "Citizen Waste-to-Cash Portal • Realtime Radar"}
-                </span>
-                <span className="text-xs text-slate-400">• Malang Raya</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
-                {isGuest ? "Laporan Warga" : "Laporan & Pelacakan Saya"}
+      {/* 1. Header Section (Clean, Editorial, Unified Brand Aesthetic) */}
+      <div className="bg-white border-b border-[#E8EDE5] pt-8 pb-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-[#E8EDE5]">
+            <div className="max-w-2xl">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#18231D]">
+                {isGuest ? "Laporan Sampah & Saluran Warga" : "Laporan & Pelacakan Saya"}
               </h1>
-              <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
-                {isGuest
-                  ? "Pantau langsung laporan kebersihan lingkungan seluruh warga, verifikasi citra visual AI Gemini, serta transparansi penjemputan armada."
-                  : "Pantau langsung status verifikasi AI Gemini, pergerakan armada penjemput sampah, estimasi uang tunai/poin reward, dan transparansi foto bersih."}
+              <p className="text-sm text-[#4B5950] mt-2 leading-relaxed">
+                Transparansi pelaporan titik sumbatan saluran air, estimasi volume material daur ulang bernilai ekonomis, dan pemantauan penjemputan armada Kota Malang.
               </p>
             </div>
 
-            {/* User Profile Card & Action CTA */}
-            <div className="flex flex-wrap items-center gap-3">
+            {/* Header Actions */}
+            <div className="flex items-center gap-3 shrink-0">
               {isGuest ? (
-                <div className="flex items-center gap-3">
-                  <Link href="/login">
-                    <button
-                      type="button"
-                      className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-xs font-bold text-white transition-all flex items-center gap-2 cursor-pointer shadow-xs"
-                    >
-                      <LogIn className="h-4 w-4 text-emerald-300" />
-                      <span>Masuk Akun</span>
-                    </button>
-                  </Link>
-                </div>
+                <Link href="/login">
+                  <button
+                    type="button"
+                    className="px-4 py-2.5 rounded-xl border border-[#DFE7DD] bg-white hover:bg-slate-50 text-xs font-semibold text-[#18231D] transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+                  >
+                    <LogIn className="h-4 w-4 text-[#1E5345]" />
+                    <span>Masuk Akun</span>
+                  </button>
+                </Link>
               ) : (
-                <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-md">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#0EB29A] to-emerald-400 text-[#18231D] font-black text-sm flex items-center justify-center shadow-xs">
+                <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-[#FAFBF9] border border-[#DFE7DD]">
+                  <div className="h-8 w-8 rounded-lg bg-[#1E5345] text-white font-bold text-xs flex items-center justify-center">
                     {user?.name?.charAt(0) || "U"}
                   </div>
                   <div>
-                    <span className="text-xs font-bold block text-white leading-tight">
+                    <span className="text-xs font-semibold block text-[#18231D] leading-tight">
                       {user?.name}
                     </span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] text-emerald-300 font-semibold uppercase">
-                        {user?.role}
-                      </span>
-                      <span className="text-white/40 text-[10px]">•</span>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-300">
-                        <Coins className="h-3 w-3" />
-                        <span>{user?.poin || user?.poin_reward || 0} Poin</span>
-                      </div>
-                    </div>
+                    <span className="text-[11px] font-semibold text-[#1E5345] flex items-center gap-1 mt-0.5">
+                      <Coins className="h-3 w-3 text-amber-500" />
+                      {user?.poin || user?.poin_reward || 0} Poin Reward
+                    </span>
                   </div>
                 </div>
               )}
 
               <Link href="/lapor">
-                <Button className="h-11 px-5 rounded-2xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] hover:opacity-95 text-white font-bold text-xs shadow-lg shadow-[#0EB29A]/30 gap-2 cursor-pointer border border-emerald-400/30 active:scale-95 transition-all">
+                <Button className="h-10 px-5 rounded-xl bg-[#1E5345] hover:bg-[#153D32] text-white font-semibold text-xs shadow-sm gap-2 cursor-pointer transition-all active:scale-98">
                   <Camera className="h-4 w-4" />
                   <span>+ Lapor Baru</span>
                 </Button>
               </Link>
             </div>
-
           </div>
 
-          {/* 4 Stat Overview Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-8">
+          {/* 4 Clean Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
             
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center text-white">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAFBF9] border border-[#DFE7DD] flex items-center gap-3.5">
+              <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 text-[#1E5345] flex items-center justify-center shrink-0">
                 <Layers className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[11px] text-slate-300 font-medium">Total Laporan</p>
-                <p className="text-lg sm:text-xl font-black text-white">{totalCount} Titik</p>
+                <p className="text-[11px] font-semibold text-[#63756A] uppercase tracking-wider">Total Laporan</p>
+                <p className="text-xl sm:text-2xl font-bold text-[#18231D] tracking-tight">{totalCount} <span className="text-xs font-medium text-[#63756A]">Titik</span></p>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-[#0EB29A]/30 text-emerald-300 flex items-center justify-center">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAFBF9] border border-[#DFE7DD] flex items-center gap-3.5">
+              <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 text-[#1E5345] flex items-center justify-center shrink-0">
                 <Truck className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[11px] text-slate-300 font-medium">Sedang Dijemput</p>
-                <p className="text-lg sm:text-xl font-black text-emerald-300">{onProcessCount} Armada</p>
+                <p className="text-[11px] font-semibold text-[#63756A] uppercase tracking-wider">Dalam Proses</p>
+                <p className="text-xl sm:text-2xl font-bold text-[#18231D] tracking-tight">{onProcessCount} <span className="text-xs font-medium text-[#63756A]">Armada</span></p>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-emerald-500/30 text-emerald-300 flex items-center justify-center">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAFBF9] border border-[#DFE7DD] flex items-center gap-3.5">
+              <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 text-[#1E5345] flex items-center justify-center shrink-0">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[11px] text-slate-300 font-medium">Selesai & Bersih</p>
-                <p className="text-lg sm:text-xl font-black text-white">{completedCount} Tuntas</p>
+                <p className="text-[11px] font-semibold text-[#63756A] uppercase tracking-wider">Tuntas Bersih</p>
+                <p className="text-xl sm:text-2xl font-bold text-[#18231D] tracking-tight">{completedCount} <span className="text-xs font-medium text-[#63756A]">Lokasi</span></p>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAFBF9] border border-[#DFE7DD] flex items-center gap-3.5">
+              <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 text-[#1E5345] flex items-center justify-center shrink-0">
                 <Coins className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[11px] text-slate-300 font-medium">Nilai Cuan Daur Ulang</p>
-                <p className="text-base sm:text-lg font-black text-amber-300">
+                <p className="text-[11px] font-semibold text-[#63756A] uppercase tracking-wider">Estimasi Daur Ulang</p>
+                <p className="text-base sm:text-xl font-bold text-[#18231D] tracking-tight">
                   Rp {totalEconomicValue.toLocaleString("id-ID")}
                 </p>
               </div>
@@ -382,24 +361,24 @@ export default function LaporanSayaPage() {
       </div>
 
       {/* 2. Main Content Viewport */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Public Radar Informational Banner */}
+        {/* Guest Informational Callout (if guest) */}
         {isGuest && (
-          <div className="mb-4 p-4 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="mb-6 p-4 rounded-2xl bg-white border border-[#DFE7DD] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#0EB29A] text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-xs">
-                🌿
+              <div className="h-9 w-9 rounded-xl bg-[#1E5345]/10 text-[#1E5345] flex items-center justify-center shrink-0">
+                <UserCheck className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-bold text-emerald-950">Akses Radar Publik Seluruh Warga</p>
-                <p className="text-[11.5px] text-emerald-800/90 mt-0.5 leading-relaxed">
-                  Halaman ini menampilkan seluruh <strong>Laporan Warga</strong> secara publik dan transparan. Untuk mengumpulkan poin reward setiap kali melapor serta menukarkan voucher, silakan masuk ke akun Anda.
+                <p className="text-xs font-semibold text-[#18231D]">Mode Pemantauan Terbuka Warga</p>
+                <p className="text-xs text-[#4B5950] mt-0.5 leading-relaxed">
+                  Data laporan ini ditampilkan secara transparan untuk pengawasan bersama. Masuk ke akun Anda untuk mendapatkan poin reward setiap kali melapor.
                 </p>
               </div>
             </div>
-            <Link href="/login" className="flex-shrink-0">
-              <Button size="sm" className="rounded-xl bg-[#0EB29A] hover:bg-[#2E6E65] text-white text-xs font-bold">
+            <Link href="/login" className="shrink-0">
+              <Button size="sm" className="rounded-xl bg-[#1E5345] hover:bg-[#153D32] text-white text-xs font-semibold">
                 Masuk Akun
               </Button>
             </Link>
@@ -407,18 +386,18 @@ export default function LaporanSayaPage() {
         )}
 
         {/* Search & Filter Bar */}
-        <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 border border-slate-200/80 mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
           
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          {/* Filter Segmented Controls */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab("semua")}
               className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+                "px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                 activeTab === "semua"
                   ? "bg-[#18231D] text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  : "bg-white text-[#4B5950] border border-[#DFE7DD] hover:bg-slate-50"
               )}
             >
               Semua ({totalCount})
@@ -427,53 +406,52 @@ export default function LaporanSayaPage() {
               type="button"
               onClick={() => setActiveTab("proses")}
               className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5",
+                "px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5",
                 activeTab === "proses"
-                  ? "bg-[#0EB29A] text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#18231D] text-white shadow-xs"
+                  : "bg-white text-[#4B5950] border border-[#DFE7DD] hover:bg-slate-50"
               )}
             >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-              </span>
-              <span>Proses Jemput ({onProcessCount})</span>
+              <Truck className="h-3.5 w-3.5 text-[#10B981]" />
+              <span>Dalam Proses ({onProcessCount})</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("selesai")}
               className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+                "px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5",
                 activeTab === "selesai"
-                  ? "bg-emerald-700 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#18231D] text-white shadow-xs"
+                  : "bg-white text-[#4B5950] border border-[#DFE7DD] hover:bg-slate-50"
               )}
             >
-              Selesai Bersih ({completedCount})
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" />
+              <span>Tuntas Bersih ({completedCount})</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("banjir")}
               className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+                "px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5",
                 activeTab === "banjir"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#18231D] text-white shadow-xs"
+                  : "bg-white text-[#4B5950] border border-[#DFE7DD] hover:bg-slate-50"
               )}
             >
-              Kritis Banjir ({reports.filter((r) => r.is_resiko_banjir).length})
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+              <span>Saluran Rawan ({reports.filter((r) => r.is_resiko_banjir).length})</span>
             </button>
           </div>
 
           {/* Search Input */}
-          <div className="relative min-w-[220px] sm:min-w-[280px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <div className="relative min-w-[240px] sm:min-w-[300px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8C9B90]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari lokasi atau jenis sampah..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#18231D] focus:outline-none focus:border-[#0EB29A] focus:bg-white transition-all placeholder:text-slate-400"
+              placeholder="Cari lokasi atau kategori sampah..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-[#DFE7DD] text-xs text-[#18231D] focus:outline-none focus:border-[#1E5345] focus:ring-1 focus:ring-[#1E5345] transition-all placeholder:text-[#8C9B90]"
             />
           </div>
 
@@ -482,21 +460,21 @@ export default function LaporanSayaPage() {
         {/* 3. Report Cards List */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
-            <RefreshCw className="h-8 w-8 animate-spin text-[#0EB29A]" />
-            <p className="text-xs font-bold">Memuat radar pelaporan Anda...</p>
+            <RefreshCw className="h-8 w-8 animate-spin text-[#1E5345]" />
+            <p className="text-xs font-semibold text-[#63756A]">Memuat data laporan wilayah...</p>
           </div>
         ) : filteredReports.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs max-w-lg mx-auto">
-            <div className="h-16 w-16 rounded-3xl bg-emerald-50 text-[#0EB29A] flex items-center justify-center mx-auto mb-4 border border-emerald-100">
-              <Camera className="h-8 w-8" />
+          <div className="bg-white rounded-3xl p-12 text-center border border-[#DFE7DD] shadow-xs max-w-lg mx-auto">
+            <div className="h-14 w-14 rounded-2xl bg-[#1E5345]/10 text-[#1E5345] flex items-center justify-center mx-auto mb-4">
+              <Camera className="h-6 w-6" />
             </div>
-            <h3 className="text-base font-extrabold text-[#18231D]">Belum Ada Laporan Ditemukan</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-              Anda belum memiliki laporan pada filter ini. Mulai foto timbunan sampah bernilai ekonomi atau sumbatan saluran air untuk mendapatkan cuan & poin.
+            <h3 className="text-base font-bold text-[#18231D]">Belum Ada Laporan Ditemukan</h3>
+            <p className="text-xs text-[#63756A] mt-1 max-w-sm mx-auto leading-relaxed">
+              Tidak ada data laporan pada filter ini. Mulai ambil foto titik timbunan sampah atau sumbatan saluran air untuk penanganan cepat.
             </p>
             <Link href="/lapor" className="inline-block mt-5">
-              <Button className="bg-[#18231D] hover:bg-[#25362D] text-white font-bold text-xs rounded-xl px-5 py-2.5">
-                Buat Laporan Pertama (+50 Poin)
+              <Button className="bg-[#1E5345] hover:bg-[#153D32] text-white font-semibold text-xs rounded-xl px-5 py-2.5">
+                Buat Laporan Baru (+50 Poin)
               </Button>
             </Link>
           </div>
@@ -507,17 +485,18 @@ export default function LaporanSayaPage() {
               const isOtw = report.status?.kode === "sedang_dibersihkan" || report.status?.kode === "siap_diambil_pengepul";
               const economicValue = report.analisis_ai?.nilai_ekonomi_estimasi || 35000;
               const weightKg = report.analisis_ai?.estimasi_berat_kg || 15;
+              const volumeM3 = report.analisis_ai?.volume_sampah_m3 || 0.8;
               const isJualOption = report.deskripsi?.toLowerCase().includes("jual ke mitra") || !report.deskripsi?.toLowerCase().includes("sedekah");
 
               return (
                 <div
                   key={report.id}
-                  className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition-all group"
+                  className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DFE7DD] shadow-2xs hover:border-[#1E5345]/40 hover:shadow-md transition-all group"
                 >
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     
-                    {/* Left: Report Image Thumbnail with Status Overlays */}
-                    <div className="lg:col-span-3 relative rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200/80 group-hover:border-emerald-300 transition-colors">
+                    {/* Left: Report Image Thumbnail with Clean Subtle Badges */}
+                    <div className="lg:col-span-3 relative rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 border border-[#DFE7DD] group-hover:border-[#1E5345]/30 transition-colors">
                       <img
                         src={
                           report.foto_url && (report.foto_url.startsWith("http") || report.foto_url.startsWith("/"))
@@ -532,148 +511,140 @@ export default function LaporanSayaPage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       
-                      {/* Top Badges */}
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 pointer-events-none">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-black/70 backdrop-blur-md text-white border border-white/20">
-                          ID #{report.id}
+                      {/* Top ID badge */}
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 pointer-events-none">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/75 backdrop-blur-xs text-white">
+                          #{report.id}
                         </span>
                         {report.is_resiko_banjir && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600/90 text-white backdrop-blur-md shadow-xs flex items-center gap-1">
-                            <span>🌊 Siaga Banjir</span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-600/90 text-white backdrop-blur-xs flex items-center gap-1">
+                            <span>Siaga Banjir</span>
                           </span>
                         )}
                       </div>
 
-                      {/* Bottom Status Ribbon */}
-                      <div className="absolute bottom-0 inset-x-0 p-2.5 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-center justify-between text-white text-[11px] font-bold">
-                        <span className="truncate">{report.kategori?.nama || "Sampah Daur Ulang"}</span>
-                        <span className="text-emerald-300 font-black">±{weightKg} kg</span>
+                      {/* Bottom Weight & Volume Strip */}
+                      <div className="absolute bottom-0 inset-x-0 px-3 py-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-center justify-between text-white text-[11px] font-medium">
+                        <span className="truncate">{report.kategori?.nama || "Daur Ulang"}</span>
+                        <span className="font-semibold text-emerald-300">±{weightKg} kg</span>
                       </div>
                     </div>
 
-                    {/* Middle: Details & 5-Step Mini Stepper */}
-                    <div className="lg:col-span-6 flex flex-col justify-between space-y-3.5">
+                    {/* Middle: Details & Clean Progress Pipeline */}
+                    <div className="lg:col-span-6 flex flex-col justify-between space-y-4">
                       <div>
-                        {/* Location & Time */}
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span className="flex items-center gap-1 font-semibold text-slate-700">
-                            <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            {formatDate(report.created_at)}
+                        {/* Meta header: Category Pill + Timestamp & Author */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <span className="px-2.5 py-0.5 rounded-md bg-[#FAFBF9] border border-[#DFE7DD] text-[#4B5950] font-semibold text-[11px]">
+                            {report.kategori?.nama || "Kategori Umum"}
                           </span>
-                          <span>•</span>
-                          <span className="truncate max-w-[200px]">{report.pelapor?.name || "Budi Santoso"}</span>
+                          
+                          <div className="flex items-center gap-1.5 text-xs text-[#63756A]">
+                            <Clock className="h-3.5 w-3.5 text-[#8C9B90]" />
+                            <span>{formatDate(report.created_at)}</span>
+                            <span>•</span>
+                            <span className="font-medium text-[#18231D] truncate max-w-[150px]">
+                              {report.pelapor?.name || "Warga Pelapor"}
+                            </span>
+                          </div>
                         </div>
 
-                        <h3 className="text-base sm:text-lg font-black text-[#18231D] mt-1 leading-snug">
+                        {/* Location Title */}
+                        <h3 className="text-base sm:text-lg font-bold text-[#18231D] leading-snug">
                           {report.alamat_lokasi}
                         </h3>
 
-                        <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                        {/* Description */}
+                        <p className="text-xs sm:text-sm text-[#4B5950] mt-1.5 line-clamp-2 leading-relaxed">
                           {report.deskripsi}
                         </p>
                       </div>
 
-                      {/* 5-Step Horizontal Tracker Stepper */}
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] font-bold">
-                          <div className="flex items-center gap-1.5">
-                            <Truck className="h-3.5 w-3.5 text-[#0EB29A]" />
-                            <span className="text-slate-800">
-                              {isCompleted
-                                ? "Status: Tuntas Bersih & Terangkut"
+                      {/* Clean Progress Pipeline Stepper */}
+                      <div className="pt-3 border-t border-[#DFE7DD]/70">
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-[#18231D]">Status Penanganan</span>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-md text-[10px] font-semibold border",
+                              isCompleted
+                                ? "bg-emerald-50 text-[#1E5345] border-emerald-200"
                                 : isOtw
-                                ? "Status: Armada OTW ke Lokasi Anda"
-                                : "Status: Menunggu Penjemputan Mitra"}
+                                ? "bg-teal-50 text-teal-800 border-teal-200"
+                                : "bg-amber-50 text-amber-800 border-amber-200"
+                            )}>
+                              {isCompleted ? "Tuntas Bersih" : isOtw ? "Armada Bergerak" : "Verifikasi AI"}
                             </span>
                           </div>
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
-                            isCompleted
-                              ? "bg-emerald-100 text-emerald-800"
-                              : isOtw
-                              ? "bg-teal-100 text-teal-800 animate-pulse"
-                              : "bg-amber-100 text-amber-800"
-                          )}>
-                            {isCompleted ? "Selesai" : isOtw ? "Dalam Perjalanan" : "Diverifikasi AI"}
-                          </span>
+
+                          {/* Driver assigned notice */}
+                          {(isOtw || isCompleted) && (
+                            <span className="text-[11px] text-[#63756A] font-medium hidden sm:inline-flex items-center gap-1.5">
+                              <Truck className="h-3.5 w-3.5 text-[#1E5345]" />
+                              <span>Pak Slamet (Truk N 8472 AB)</span>
+                            </span>
+                          )}
                         </div>
 
-                        {/* Visual Progress Bar */}
-                        <div className="grid grid-cols-5 gap-1 pt-1">
-                          <div className="h-1.5 rounded-full bg-emerald-500" title="1. Diterima" />
-                          <div className="h-1.5 rounded-full bg-emerald-500" title="2. Verifikasi AI" />
-                          <div className={cn("h-1.5 rounded-full", (isOtw || isCompleted) ? "bg-emerald-500" : "bg-slate-200")} title="3. Driver Ditugaskan" />
-                          <div className={cn("h-1.5 rounded-full", isCompleted ? "bg-emerald-500" : isOtw ? "bg-emerald-500 animate-pulse" : "bg-slate-200")} title="4. Armada OTW" />
-                          <div className={cn("h-1.5 rounded-full", isCompleted ? "bg-emerald-500" : "bg-slate-200")} title="5. Tuntas Bersih" />
-                        </div>
-                        <div className="flex justify-between text-[9px] text-slate-400 font-medium">
-                          <span>Diterima</span>
-                          <span>AI Valid</span>
-                          <span>Driver</span>
-                          <span>OTW</span>
-                          <span>Bersih</span>
+                        {/* Visual Timeline Track */}
+                        <div className="space-y-1.5">
+                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#2E6E65] to-[#10B981] rounded-full transition-all duration-500"
+                              style={{
+                                width: isCompleted ? "100%" : isOtw ? "75%" : "40%",
+                              }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-[#8C9B90]">
+                            <span className="font-medium text-[#18231D]">1. Masuk</span>
+                            <span className="font-medium text-[#18231D]">2. Validasi AI</span>
+                            <span className={isOtw || isCompleted ? "font-medium text-[#18231D]" : ""}>3. Disposisi Driver</span>
+                            <span className={isCompleted ? "font-semibold text-[#1E5345]" : ""}>4. Selesai</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Driver Info Pill (if assigned) */}
-                      {(isOtw || isCompleted) && (
-                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-xs">
-                          <div className="flex items-center gap-2">
-                            <div className="h-6 w-6 rounded-full bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center">
-                              🚛
-                            </div>
-                            <div>
-                              <span className="font-bold text-emerald-950 block text-[11px] leading-tight">
-                                Pak Slamet (Mitra DLH)
-                              </span>
-                              <span className="text-[10px] text-emerald-700">Truk Bak N 8472 AB • ⭐ 4.9</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold text-emerald-800">
-                            {isCompleted ? "Tuntas Bersih ✓" : "ETA: ~6 Menit"}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Right: Value Calculation & Action Buttons */}
-                    <div className="lg:col-span-3 flex flex-col justify-between h-full space-y-4 lg:border-l lg:border-slate-100 lg:pl-5">
+                    <div className="lg:col-span-3 flex flex-col justify-between h-full space-y-4 lg:border-l lg:border-[#DFE7DD] lg:pl-6 pt-4 lg:pt-0 border-t lg:border-t-0 border-[#DFE7DD]">
                       
-                      {/* Cuan / Poin Box */}
-                      <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
-                            {isJualOption ? "Estimasi Jual Tunai" : "Sedekah Lingkungan"}
+                      {/* Valuation Box */}
+                      <div className="p-4 rounded-2xl bg-[#FAFBF9] border border-[#DFE7DD]">
+                        <div className="flex items-center justify-between text-xs text-[#63756A] mb-1">
+                          <span className="font-semibold text-[10px] uppercase tracking-wider">
+                            {isJualOption ? "Estimasi Nilai Jual" : "Sedekah Lingkungan"}
                           </span>
                           <Coins className="h-3.5 w-3.5 text-amber-600" />
                         </div>
-                        <p className="text-xl font-black text-amber-950 mt-1">
+                        <div className="text-xl font-bold text-[#18231D] tracking-tight">
                           Rp {economicValue.toLocaleString("id-ID")}
-                        </p>
-                        <p className="text-[10px] text-amber-800 mt-0.5">
-                          {isJualOption ? "💵 Dibayar tunai saat angkut" : "🎁 Ditukar +100 EcoPoints"}
+                        </div>
+                        <p className="text-[11px] text-[#63756A] mt-1 font-medium">
+                          {isJualOption ? "💵 Dibayar tunai saat penimbangan" : "🎁 Konversi +100 Poin reward"}
                         </p>
                       </div>
 
                       {/* Action CTAs */}
-                      <div className="flex flex-col gap-2 pt-1">
+                      <div className="flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedTrackerReport(report);
                             setIsTrackerModalOpen(true);
                           }}
-                          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] hover:opacity-95 text-white font-bold text-xs shadow-md shadow-[#0EB29A]/20 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                          className="w-full py-2.5 px-4 rounded-xl bg-[#1E5345] hover:bg-[#153D32] text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98 cursor-pointer"
                         >
                           <Truck className="h-3.5 w-3.5" />
-                          <span>Lacak Status Realtime</span>
+                          <span>Lacak Detail Laporan</span>
                         </button>
 
                         <Link
                           href={`/peta?id=${report.id}`}
-                          className="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200 shadow-2xs flex items-center justify-center gap-1.5 transition-colors"
+                          className="w-full py-2 px-4 rounded-xl bg-white hover:bg-slate-50 text-[#18231D] font-semibold text-xs border border-[#DFE7DD] flex items-center justify-center gap-2 transition-all hover:border-[#1E5345]/50 shadow-2xs"
                         >
-                          <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                          <MapPin className="h-3.5 w-3.5 text-[#1E5345]" />
                           <span>Buka di Peta Radar</span>
                         </Link>
                       </div>

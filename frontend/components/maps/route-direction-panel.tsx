@@ -410,7 +410,8 @@ export function RouteDirectionPanel({
                 <ExternalLink className="h-2.5 w-2.5 text-slate-400" />
               </button>
 
-              {activeStatus === "idle" && (
+              {/* Only registered pengepul can start pickup mission or collect waste */}
+              {user?.role === "pengepul" && activeStatus === "idle" && (
                 <button
                   onClick={handleStartTask}
                   className="py-2 px-3 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-black shadow-md shadow-[#0EB29A]/30 flex items-center gap-1.5 cursor-pointer"
@@ -420,7 +421,7 @@ export function RouteDirectionPanel({
                 </button>
               )}
 
-              {activeStatus === "otw" && (
+              {user?.role === "pengepul" && activeStatus === "otw" && (
                 isWithin100Meters ? (
                   <button
                     onClick={() => {
@@ -451,7 +452,7 @@ export function RouteDirectionPanel({
                 )
               )}
 
-              {activeStatus === "tahap_pengambilan" && (
+              {user?.role === "pengepul" && activeStatus === "tahap_pengambilan" && (
                 <button
                   onClick={() => onOpenVerificationModal?.(report)}
                   className="py-2 px-3 rounded-xl bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white text-xs font-black shadow-md shadow-[#0EB29A]/30 flex items-center gap-1.5 cursor-pointer"
