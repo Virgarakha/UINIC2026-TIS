@@ -358,12 +358,7 @@ function RegisterContent() {
             </p>
 
             {/* Security Footnote */}
-            <div className="pt-6 text-center">
-              <span className="text-[11px] text-slate-400">
-                Secured by <strong className="text-slate-600 font-bold">✦ EcoPatrol AI</strong>
-              </span>
-            </div>
-
+           
           </form>
 
         </div>
