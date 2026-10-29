@@ -137,6 +137,28 @@ export function Navbar() {
             >
               Poin & Hadiah
             </Link>
+            <span className="text-slate-300 text-xs">•</span>
+            <Link
+              href="/docs"
+              className={cn(
+                "px-3.5 py-1.5 text-xs font-extrabold rounded-full transition-all flex items-center gap-1",
+                pathname.startsWith("/docs")
+                  ? "bg-[#1E5345] text-white shadow-2xs"
+                  : "text-slate-600 hover:text-[#18231D]"
+              )}
+            >
+              <span>Dokumentasi</span>
+              <span
+                className={cn(
+                  "px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider",
+                  pathname.startsWith("/docs")
+                    ? "bg-white/20 text-white"
+                    : "bg-emerald-100 text-emerald-800"
+                )}
+              >
+                API
+              </span>
+            </Link>
           </nav>
 
           {/* Right: Actions */}

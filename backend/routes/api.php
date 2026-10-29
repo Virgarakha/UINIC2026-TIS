@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ApiDeveloperController;
 use App\Http\Controllers\Api\V1\LaporanController;
 use App\Http\Controllers\Api\V1\PengepulUlasanController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -72,3 +73,15 @@ Route::post('/user/profile', [UserController::class, 'updateProfile'])->name('us
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
 });
+
+// Developer API Subscriptions, Keys & Usage Logs (Public with token or user_id fallback)
+Route::prefix('developer')->name('developer.')->group(function () {
+    Route::get('/subscription', [ApiDeveloperController::class, 'getSubscription'])->name('subscription.get');
+    Route::post('/subscription', [ApiDeveloperController::class, 'subscribe'])->name('subscription.post');
+    Route::get('/keys', [ApiDeveloperController::class, 'getKeys'])->name('keys.index');
+    Route::post('/keys', [ApiDeveloperController::class, 'createKey'])->name('keys.create');
+    Route::delete('/keys/{id}', [ApiDeveloperController::class, 'revokeKey'])->name('keys.revoke');
+    Route::post('/keys/{id}/regenerate', [ApiDeveloperController::class, 'regenerateKey'])->name('keys.regenerate');
+    Route::get('/logs', [ApiDeveloperController::class, 'getLogs'])->name('logs.index');
+});
+

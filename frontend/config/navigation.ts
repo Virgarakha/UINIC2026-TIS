@@ -34,6 +34,12 @@ export const publicNavItems: NavItem[] = [
     href: "/edukasi",
     iconName: "BookOpen",
   },
+  {
+    title: "Dokumentasi API",
+    href: "/docs",
+    iconName: "Code2",
+    badge: "v1.0",
+  },
 ];
 
 export const dashboardNavItems: NavItem[] = [
