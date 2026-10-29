@@ -2,10 +2,7 @@ export const getBackendBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "");
   }
-  if (typeof window !== "undefined") {
-    return `http://${window.location.hostname}:8000`;
-  }
-  return "http://localhost:8000";
+  return "https://itbs-alkautsar.cloud";
 };
 
 export const siteConfig = {

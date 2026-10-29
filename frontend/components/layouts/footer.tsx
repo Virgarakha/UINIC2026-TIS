@@ -96,14 +96,12 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a
-                  href="http://localhost:8000/api/v1/users"
-                  target="_blank"
-                  rel="noreferrer"
+                <Link
+                  href="/dokumentasi-api"
                   className="hover:text-[#0EB29A] transition-colors"
                 >
-                  REST API v1 Gateway
-                </a>
+                  Dokumentasi &amp; Gateway API
+                </Link>
               </li>
               <li>
                 <Link href="/edukasi" className="hover:text-[#0EB29A] transition-colors">
