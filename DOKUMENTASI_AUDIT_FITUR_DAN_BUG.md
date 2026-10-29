@@ -49,7 +49,7 @@ Berikut adalah daftar seluruh modul dan fitur yang telah diuji dan berjalan dari
 ### C. Modul Citizen Waste Radar & Peta Interaktif Spasial (`/peta`)
 | Fitur | Status | Verifikasi & Perilaku Sistem |
 | :--- | :---: | :--- |
-| **Rendering Peta Leaflet & Marker GIS** | Berjalan Normal | Marker laporan sampah dikelompokkan dengan pin kustom sesuai kategori dan level urgensi. |
+| **Rendering Peta Leaflet & Marker GIS** | Berjalan Normal | Marker laporan sampah dikelompokkan dengan pin kustom sesuai kategori dan level urgensi. Lingkaran radius bahaya (*hazard buffer zones*) bekerja dinamis dan adaptif: hanya muncul pada titik sampah aktif berisiko tinggi dan **otomatis hilang seketika saat sampah telah diambil / tuntas dibersihkan** oleh armada. Tombol toggle *Zona Bahaya Bencana* tersedia di menu lapisan peta. |
 | **Filter Multi-Kategori** | Berjalan Normal | Filter realtime: *Semua*, *Proses Jemput*, *Selesai Bersih*, *Kritis Banjir*, dan *Kardus & Logam (Cuan)*. |
 | **Detail Titik Sampah (Place Drawer)** | Berjalan Normal | Menampilkan timeline progres penanganan (Diterima -> Validasi AI -> Driver OTW -> Bersih), foto before/after, estimasi nilai rupiah daur ulang, dan persentase potensi sumbatan drainase. |
 | **Kolom Tanggapan & Diskusi Komunitas** | Berjalan Normal | Komentar antar warga dan timbal balik tanggapan petugas dapat dikirimkan dan tersimpan ke database. |

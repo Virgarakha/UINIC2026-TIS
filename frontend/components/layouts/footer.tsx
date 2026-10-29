@@ -108,7 +108,7 @@ export function Footer() {
                   className="hover:text-[#0EB29A] transition-colors"
                 >
                   Dokumentasi &amp; Gateway API
-                </Link>
+                </a>
               </li>
               <li>
                 <Link href="/edukasi" className="hover:text-[#0EB29A] transition-colors">

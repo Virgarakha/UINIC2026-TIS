@@ -740,7 +740,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   const [showHeatmap, setShowHeatmap] = React.useState<boolean>(false);
   const [showHazardZones, setShowHazardZones] = React.useState<boolean>(true);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = React.useState<boolean>(false);
-  const [warnings, setWarnings] = React.useState<PeringatanDini[]>(MOCK_PERINGATAN_DINI);
+  const [warnings, setWarnings] = React.useState<PeringatanDini[]>([]);
   const heatmapLayerRef = React.useRef<any>(null);
   const hazardLayersRef = React.useRef<any[]>([]);
 
@@ -790,8 +790,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
     // Also fetch active early warning disaster broadcasts
     fetchPeringatanDiniApi().then((warns) => {
-      if (isMounted && warns && warns.length > 0) {
-        setWarnings(warns);
+      if (isMounted) {
+        setWarnings(Array.isArray(warns) ? warns : []);
       }
     });
 
@@ -1055,7 +1055,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     };
   }, [showHeatmap, filteredReports]);
 
-  // Synchronize Geofenced Hazard Pulse Circles & Danger Buffers
+  // Synchronize Geofenced Hazard Danger Circles & Buffers (Strictly for ACTIVE, UNCOMPLETED reports)
   React.useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !isMapReady) return;
@@ -1068,6 +1068,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
     });
     hazardLayersRef.current = [];
 
+    // If hazard zone toggle is turned off, do not draw
     if (!showHazardZones) return;
 
     import("leaflet").then((leafletModule) => {
@@ -1076,129 +1077,125 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
       const newLayers: any[] = [];
 
-      // Consolidate hazard targets from warnings and high-risk reports
+      // CRUCIAL: Hazard radius ONLY matches ACTIVE, UNCOMPLETED reports.
+      // If the trash is taken / completed / cleaned, its radius automatically DISAPPEARS!
       const activeHazardTargets: Array<{
         id: number | string;
         lat: number;
         lng: number;
-        level: string;
+        level: "AWAS" | "SIAGA" | "WASPADA";
         tipeBahaya: string;
         radiusMeters: number;
         lokasi: string;
-        report?: LaporanSampah;
+        report: LaporanSampah;
       }> = [];
 
-      // 1. Prioritize active warning broadcasts (omit completed / pulled reports)
-      warnings.forEach((w) => {
-        // Skip inactive warning broadcasts
-        if (w.status_aktif === false || (w as any).is_aktif === false) return;
-
-        const matchedReport =
-          reports.find((r) => r.id === w.laporan_id) ||
-          w.laporan ||
-          MOCK_LAPORAN_SAMPAH.find((r) => r.id === w.laporan_id);
-
-        // If the associated report is already completed/cleaned by pengepul, hide the radius
-        if (matchedReport && isReportCompleted(matchedReport)) return;
-        if (w.laporan && isReportCompleted(w.laporan)) return;
-
-        const lat =
-          matchedReport?.latitude ||
-          (w.id === 1 ? -7.9826 : w.id === 2 ? -7.9712 : -7.9901);
-        const lng =
-          matchedReport?.longitude ||
-          (w.id === 1 ? 112.6308 : w.id === 2 ? 112.6342 : 112.6219);
-        const radius = w.radius_terdampak_meter || 500;
-        const loc = matchedReport?.alamat_lokasi || "Wilayah Kota Malang";
-
-        activeHazardTargets.push({
-          id: `warn_${w.id}`,
-          lat,
-          lng,
-          level: w.level_peringatan || "AWAS",
-          tipeBahaya: w.tipe_bahaya || "Bencana Sampah",
-          radiusMeters: radius,
-          lokasi: loc,
-          report: matchedReport,
-        });
-      });
-
-      // 2. Also detect critical flood/hazard reports that are still active (not completed)
       reports.forEach((r) => {
+        // 1. If trash is already picked up / cleaned, NO RADIUS AT ALL!
         if (isReportCompleted(r)) return;
 
-        if (r.is_resiko_banjir || r.tipe_bahaya) {
-          const alreadyCovered = activeHazardTargets.some(
-            (t) =>
-              t.report?.id === r.id ||
-              (Math.abs(t.lat - r.latitude) < 0.0001 && Math.abs(t.lng - r.longitude) < 0.0001)
-          );
-          if (!alreadyCovered) {
-            activeHazardTargets.push({
-              id: `rep_${r.id}`,
-              lat: r.latitude,
-              lng: r.longitude,
-              level: r.is_resiko_banjir ? "AWAS" : "SIAGA",
-              tipeBahaya: r.tipe_bahaya || "Potensi Banjir",
-              radiusMeters: r.is_resiko_banjir ? 800 : 400,
-              lokasi: r.alamat_lokasi,
-              report: r,
-            });
+        // 2. Check if this uncompleted report has hazard risk
+        const matchedWarning = warnings.find(
+          (w) => w.laporan_id === r.id && w.status_aktif !== false
+        );
+
+        const persentase = r.analisis_ai?.persentase_sumbatan_aliran || 0;
+        const potensi = (r.analisis_ai?.potensi_bahaya || "").toLowerCase();
+        const hasFloodRisk =
+          r.is_resiko_banjir ||
+          Boolean(r.tipe_bahaya) ||
+          persentase >= 45 ||
+          potensi.includes("banjir") ||
+          potensi.includes("luap");
+        const hasHealthOrFireRisk =
+          potensi.includes("wabah") ||
+          potensi.includes("dbd") ||
+          potensi.includes("metana") ||
+          potensi.includes("bakar");
+
+        if (matchedWarning || hasFloodRisk || hasHealthOrFireRisk) {
+          let level: "AWAS" | "SIAGA" | "WASPADA" = "SIAGA";
+          if (matchedWarning?.level_peringatan) {
+            level = matchedWarning.level_peringatan as any;
+          } else if (persentase >= 65 || r.is_resiko_banjir) {
+            level = "AWAS";
+          } else if (potensi.includes("waspada") || potensi.includes("metana")) {
+            level = "WASPADA";
           }
+
+          let radiusMeters = 400;
+          if (matchedWarning?.radius_terdampak_meter) {
+            radiusMeters = matchedWarning.radius_terdampak_meter;
+          } else if (level === "AWAS") {
+            radiusMeters = 600;
+          } else if (level === "SIAGA") {
+            radiusMeters = 400;
+          } else {
+            radiusMeters = 300;
+          }
+
+          const tipeBahaya =
+            matchedWarning?.tipe_bahaya ||
+            r.tipe_bahaya ||
+            r.analisis_ai?.potensi_bahaya ||
+            (level === "AWAS" ? "Banjir & Luapan Air" : "Sumbatan Saluran Air");
+
+          activeHazardTargets.push({
+            id: `rep_${r.id}`,
+            lat: r.latitude,
+            lng: r.longitude,
+            level,
+            tipeBahaya,
+            radiusMeters,
+            lokasi: r.alamat_lokasi,
+            report: r,
+          });
         }
       });
 
+      // Render dynamic circles and pill badges matching real active waste
       activeHazardTargets.forEach((t) => {
         const isAwas = t.level === "AWAS";
-        const color = isAwas ? "#ef4444" : "#f59e0b";
+        const isWaspada = t.level === "WASPADA";
+        const color = isAwas ? "#ef4444" : isWaspada ? "#f97316" : "#f59e0b";
 
-        // Circle 1 & 2: Hide circles when zoomed far out (zoom < 11) to prevent map clutter
-        if (mapZoom >= 11) {
-          const outerCircle = L.circle([t.lat, t.lng], {
-            radius: t.radiusMeters,
-            color,
-            fillColor: color,
-            fillOpacity: isAwas ? 0.12 : 0.08,
-            weight: mapZoom >= 13 ? 2 : 1.2,
-            dashArray: "6, 8",
-          }).addTo(map);
+        // Circle 1: Outer Buffer Perimeter (Animated dashed border)
+        const outerCircle = L.circle([t.lat, t.lng], {
+          radius: t.radiusMeters,
+          color,
+          fillColor: color,
+          fillOpacity: isAwas ? 0.12 : 0.08,
+          weight: 2,
+          dashArray: "6, 8",
+        }).addTo(map);
 
-          const innerCircle = L.circle([t.lat, t.lng], {
-            radius: Math.round(t.radiusMeters * 0.35),
-            color,
-            fillColor: color,
-            fillOpacity: isAwas ? 0.24 : 0.16,
-            weight: 1.5,
-          }).addTo(map);
+        // Circle 2: Inner Core Critical Perimeter (35% of total radius)
+        const innerCircle = L.circle([t.lat, t.lng], {
+          radius: Math.round(t.radiusMeters * 0.35),
+          color,
+          fillColor: color,
+          fillOpacity: isAwas ? 0.24 : 0.16,
+          weight: 1.5,
+        }).addTo(map);
 
-          if (t.report) {
-            (outerCircle as any)._targetReportId = t.report.id;
-            (innerCircle as any)._targetReportId = t.report.id;
-          }
+        (outerCircle as any)._targetReportId = t.report.id;
+        (innerCircle as any)._targetReportId = t.report.id;
 
-          newLayers.push(outerCircle, innerCircle);
-        }
+        newLayers.push(outerCircle, innerCircle);
 
         // Floating Tag on the top perimeter of the hazard zone
-        // Dynamic Zoom Levels:
-        // - Zoom < 12: HILANG (Completely hidden to prevent visual clutter across province/island)
-        // - Zoom 12-13: MENGECIL (Compact mini-badge e.g. "🔥 SIAGA")
-        // - Zoom >= 14: LENGKAP (Full prominent badge e.g. "🔥 SIAGA: Bahaya Kebakaran & Gas Metana (400m)")
-        if (mapZoom >= 12) {
+        if (mapZoom >= 11) {
           const isCompact = mapZoom < 14;
           const latOffset = (t.radiusMeters / 111000) * (isCompact ? 0.98 : 0.96);
 
-          // Hazard icon / emoji based on tipeBahaya
-          const hazardLower = (t.tipeBahaya || "").toLowerCase();
           let hazardIconSymbol = "⚠️";
-          if (hazardLower.includes("api") || hazardLower.includes("kebakaran") || hazardLower.includes("metana")) {
-            hazardIconSymbol = "🔥";
-          } else if (hazardLower.includes("banjir") || hazardLower.includes("luapan")) {
+          const lower = t.tipeBahaya.toLowerCase();
+          if (lower.includes("banjir") || lower.includes("luap") || lower.includes("air")) {
             hazardIconSymbol = "🌊";
-          } else if (hazardLower.includes("wabah") || hazardLower.includes("dbd")) {
+          } else if (lower.includes("metana") || lower.includes("bakar") || lower.includes("api")) {
+            hazardIconSymbol = "🔥";
+          } else if (lower.includes("wabah") || lower.includes("dbd") || lower.includes("sampah")) {
             hazardIconSymbol = "☣️";
-          } else if (hazardLower.includes("bau") || hazardLower.includes("toksik")) {
-            hazardIconSymbol = "💨";
           }
 
           const labelContent = isCompact
@@ -1214,6 +1211,8 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                 } rounded-full ${
                   isAwas
                     ? "bg-gradient-to-r from-rose-600 via-rose-700 to-red-800 shadow-rose-950/60"
+                    : isWaspada
+                    ? "bg-gradient-to-r from-orange-500 to-amber-600 shadow-orange-950/60"
                     : "bg-gradient-to-r from-amber-500 via-orange-600 to-amber-700 shadow-amber-950/60"
                 } text-white font-black shadow-xl border ${
                   isCompact ? "border-white/80" : "border-2 border-white"
@@ -1237,13 +1236,10 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             zIndexOffset: 650,
           }).addTo(map);
 
-          if (t.report) {
-            (tagMarker as any)._targetReportId = t.report.id;
-
-            tagMarker.on("click", () => {
-              setSelectedReport(t.report!);
-            });
-          }
+          (tagMarker as any)._targetReportId = t.report.id;
+          tagMarker.on("click", () => {
+            setSelectedReport(t.report);
+          });
 
           newLayers.push(tagMarker);
         }
@@ -1260,7 +1256,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       });
       hazardLayersRef.current = [];
     };
-  }, [showHazardZones, warnings, reports, isMapReady, mapZoom]);
+  }, [showHazardZones, reports, warnings, isMapReady, mapZoom]);
 
   // Synchronize Markers
   React.useEffect(() => {
@@ -2976,7 +2972,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                 Analisis Kepadatan & Risiko
               </span>
 
-              {/* Hazard Buffer Zones Toggle */}
+              {/* Dynamic Hazard Buffer Zones Toggle */}
               <button
                 type="button"
                 onClick={() => setShowHazardZones(!showHazardZones)}
@@ -3000,7 +2996,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                   </div>
                   <div>
                     <span className="text-xs font-bold block leading-tight">Zona Bahaya Bencana</span>
-                    <span className="text-[10px] text-slate-500">Radius luapan & metana</span>
+                    <span className="text-[10px] text-slate-500">Radius luapan & sumbatan</span>
                   </div>
                 </div>
 
