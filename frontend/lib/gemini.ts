@@ -3,7 +3,59 @@ import { WeatherData } from "./weather";
 const GEMINI_API_KEY =
   process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+/**
+ * Resilient Gemini models pool with automatic failover.
+ * If a model returns 503 (high demand) or 429, the system instantly fails over to the next candidate model.
+ */
+export const GEMINI_MODELS = [
+  "gemini-3-flash-preview",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.6-flash",
+  "gemini-3.1-flash-lite",
+];
+
+async function callGeminiWithFailover(payload: unknown): Promise<string> {
+  let lastErrorText = "";
+  for (const model of GEMINI_MODELS) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (response.status === 503 || response.status === 429) {
+        const errText = await response.text();
+        console.warn(`[Gemini Failover] Model ${model} returned HTTP ${response.status} (High Demand). Switching to next candidate model in pool...`);
+        lastErrorText = `${model} ${response.status}: ${errText}`;
+        continue;
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[Gemini Failover] Model ${model} returned HTTP ${response.status}. Trying next model...`);
+        lastErrorText = `${model} ${response.status}: ${errText}`;
+        continue;
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        return text;
+      }
+    } catch (err) {
+      console.warn(`[Gemini Failover] Network error on ${model}:`, err);
+      lastErrorText = String(err);
+    }
+  }
+
+  throw new Error(`All Gemini models in failover pool failed: ${lastErrorText}`);
+}
 
 export interface AnalisisAiResult {
   is_valid_sampah: boolean;
@@ -143,36 +195,17 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
       text: systemPrompt,
     });
 
-    const response = await fetch(GEMINI_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: parts,
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.15,
+    const candidateText = await callGeminiWithFailover({
+      contents: [
+        {
+          parts: parts,
         },
-      }),
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.15,
+      },
     });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn("Gemini API error, using intelligent fallback:", errText);
-      return generateIntelligentFallback(input);
-    }
-
-    const data = await response.json();
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!candidateText) {
-      return generateIntelligentFallback(input);
-    }
 
     const parsed = JSON.parse(candidateText);
     return {
@@ -509,25 +542,13 @@ Output WAJIB berupa JSON murni dengan format persis:
   }
 
   try {
-    const response = await fetch(GEMINI_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          temperature: 0.1,
-          response_mime_type: "application/json",
-        },
-      }),
+    const rawText = await callGeminiWithFailover({
+      contents: [{ parts }],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) throw new Error("Empty AI response");
 
     const parsed = JSON.parse(rawText) as CleanlinessAiResult;
     return {

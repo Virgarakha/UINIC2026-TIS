@@ -80,5 +80,6 @@ class DatabaseSeeder extends Seeder
 
         // 4. Seed Realistic Reports, AI Analysis & Operasional Data
         $this->call(LaporanSampahSeeder::class);
+        $this->call(Laporan100JawaSeeder::class);
     }
 }

@@ -522,7 +522,7 @@ export default function LaporCameraPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col overflow-hidden select-none">
+    <div className="fixed inset-0 z-[60] bg-black overflow-hidden select-none">
       {/* Hidden file input for photo upload */}
       <input
         ref={fileInputRef}
@@ -589,7 +589,7 @@ export default function LaporCameraPage() {
       {/* ========================================================================= */}
       {/* 2. FULL-SCREEN CAMERA VIEWFINDER (Live Video or Snapped Photo Preview)    */}
       {/* ========================================================================= */}
-      <div className="relative flex-1 w-full bg-slate-950 overflow-hidden flex items-center justify-center">
+      <div className="absolute inset-0 w-full h-full bg-slate-950 overflow-hidden flex items-center justify-center z-10">
         {previewImage ? (
           /* Snapped / Uploaded Photo Preview */
           <div className="relative w-full h-full">
@@ -663,9 +663,16 @@ export default function LaporCameraPage() {
         )}
 
         {/* ======================================================================= */}
-        {/* SHUTTER / SNAP CONTROLS (Floating Over the Bottom of Viewfinder)         */}
+        {/* SHUTTER / SNAP CONTROLS (Floating Over the Viewfinder)                  */}
         {/* ======================================================================= */}
-        <div className="absolute bottom-4 inset-x-0 z-20 flex items-center justify-center gap-8 pointer-events-auto">
+        <div
+          className={cn(
+            "absolute bottom-22 sm:bottom-24 inset-x-0 z-20 flex items-center justify-center gap-8 pointer-events-auto transition-all duration-300",
+            isSheetExpanded
+              ? "opacity-0 pointer-events-none translate-y-6"
+              : "opacity-100 pointer-events-auto translate-y-0"
+          )}
+        >
           {!previewImage ? (
             <>
               {/* Pick from Gallery Button */}
@@ -737,59 +744,83 @@ export default function LaporCameraPage() {
         </div>
       </div>
 
+      {/* Dim backdrop over full camera feed when sheet is expanded on desktop/mobile */}
+      {isSheetExpanded && (
+        <div
+          onClick={() => setIsSheetExpanded(false)}
+          className="absolute inset-0 z-25 bg-black/35 backdrop-blur-[1px] cursor-pointer transition-opacity animate-in fade-in duration-200"
+          title="Klik area kamera untuk mengecilkan formulir"
+        />
+      )}
+
       {/* ========================================================================= */}
       {/* 3. SCROLLABLE BOTTOM SHEET ("di bottom bisa discroll ada title, dll itu")  */}
       {/* ========================================================================= */}
-      <div
-        ref={bottomSheetRef}
-        className={cn(
-          "relative z-30 w-full max-w-2xl mx-auto bg-white rounded-t-[28px] shadow-[0_-12px_45px_rgba(0,0,0,0.5)] border-t border-slate-200/90 flex flex-col overflow-hidden transition-all duration-300 ease-out",
-          isSheetExpanded ? "max-h-[84vh]" : "max-h-[72px]"
-        )}
-      >
-        {/* Drag / Click Handle Bar to Expand / Collapse */}
+      <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none flex flex-col items-center justify-end px-0 sm:px-4">
         <div
-          onClick={() => setIsSheetExpanded(!isSheetExpanded)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          className="pt-2.5 pb-1 flex flex-col items-center justify-center flex-shrink-0 cursor-pointer group select-none"
-          title={isSheetExpanded ? "Kecilkan panel" : "Perluas panel"}
+          ref={bottomSheetRef}
+          className={cn(
+            "pointer-events-auto w-full max-w-2xl bg-white rounded-t-[28px] shadow-[0_-12px_45px_rgba(0,0,0,0.5)] border-t border-slate-200/90 flex flex-col overflow-hidden transition-all duration-300 ease-out",
+            isSheetExpanded ? "max-h-[84vh] sm:max-h-[80vh]" : "max-h-[72px]"
+          )}
         >
-          <div className="w-12 h-1.5 bg-slate-300 rounded-full group-hover:bg-slate-400 transition-colors" />
-        </div>
+          {/* Drag / Click Handle Bar to Expand / Collapse */}
+          <div
+            onClick={() => setIsSheetExpanded(!isSheetExpanded)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="pt-2.5 pb-1 flex flex-col items-center justify-center flex-shrink-0 cursor-pointer group select-none"
+            title={isSheetExpanded ? "Kecilkan panel" : "Perluas panel"}
+          >
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full group-hover:bg-slate-400 transition-colors" />
+          </div>
 
-        {/* Sheet Header */}
-        <div
-          onClick={() => setIsSheetExpanded(!isSheetExpanded)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          className="px-5 py-2 flex items-center justify-between border-b border-slate-100 flex-shrink-0 cursor-pointer select-none group"
-        >
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-[#0EB29A]/10 text-[#0EB29A] flex items-center justify-center">
-              <Sparkles className="h-4 w-4" />
+          {/* Sheet Header */}
+          <div
+            onClick={() => setIsSheetExpanded(!isSheetExpanded)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="px-5 py-2 flex items-center justify-between border-b border-slate-100 flex-shrink-0 cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-[#0EB29A]/10 text-[#0EB29A] flex items-center justify-center">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-[#2B3752]">Detail Titik Laporan</h3>
+                <p className="text-[10px] text-slate-400">
+                  {isSheetExpanded ? "Klik / geser ke bawah untuk perkecil" : "Klik / geser ke atas untuk isi formulir"}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xs font-black text-[#2B3752]">Detail Titik Laporan</h3>
-              <p className="text-[10px] text-slate-400">
-                {isSheetExpanded ? "Klik / geser ke bawah untuk perkecil" : "Klik / geser ke atas untuk isi formulir"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-[#0EB29A] bg-[#0EB29A]/10 px-2.5 py-1 rounded-full flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#0EB29A] animate-ping" />
-              AI Gemini Active
-            </span>
-            <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
-              {isSheetExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronUp className="h-3.5 w-3.5 text-[#0EB29A]" />
+            <div className="flex items-center gap-2">
+              {previewImage && isSheetExpanded && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRetake();
+                  }}
+                  className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer mr-1"
+                  title="Foto Ulang"
+                >
+                  <RefreshCw className="h-3 w-3 text-[#0EB29A]" />
+                  <span>Foto Ulang</span>
+                </button>
               )}
+              <span className="text-[10px] font-bold text-[#0EB29A] bg-[#0EB29A]/10 px-2.5 py-1 rounded-full flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#0EB29A] animate-ping" />
+                AI Gemini Active
+              </span>
+              <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
+                {isSheetExpanded ? (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronUp className="h-3.5 w-3.5 text-[#0EB29A]" />
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Scrollable Form Content */}
         <div className="overflow-y-auto p-5 pb-8 space-y-4 flex-1">
@@ -1189,6 +1220,7 @@ export default function LaporCameraPage() {
             </form>
           )}
         </div>
+      </div>
       </div>
 
       {/* Citizen Live Delivery Tracker Modal */}
