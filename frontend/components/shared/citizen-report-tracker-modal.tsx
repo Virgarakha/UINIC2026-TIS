@@ -100,7 +100,7 @@ export function CitizenReportTrackerModal({
   const steps = [
     {
       title: "Laporan Diterima",
-      desc: "Foto & koordinat GPS tercatat di sistem radar EcoPatrol",
+      desc: "Foto & koordinat GPS tercatat di sistem radar Trinfo",
       time: formatDate(report.created_at),
       icon: MapPin,
       isDone: currentStep >= 0,
@@ -192,8 +192,8 @@ export function CitizenReportTrackerModal({
             currentStep >= 4
               ? "bg-emerald-50 border-emerald-200 text-emerald-900"
               : currentStep >= 2
-              ? "bg-teal-50 border-teal-200 text-teal-900"
-              : "bg-slate-50 border-slate-200 text-slate-800"
+                ? "bg-teal-50 border-teal-200 text-teal-900"
+                : "bg-slate-50 border-slate-200 text-slate-800"
           )}>
             <div className="flex items-center gap-3">
               <div className={cn(
@@ -207,10 +207,10 @@ export function CitizenReportTrackerModal({
                   {currentStep >= 4
                     ? "Penjemputan Selesai • Area Bebas Sampah"
                     : currentStep >= 3
-                    ? "Truk Sedang Menuju Lokasi Anda"
-                    : currentStep >= 2
-                    ? "Tugas Dijadwalkan ke Mitra Pengepul"
-                    : "Laporan Sedang Diproses Sistem AI"}
+                      ? "Truk Sedang Menuju Lokasi Anda"
+                      : currentStep >= 2
+                        ? "Tugas Dijadwalkan ke Mitra Pengepul"
+                        : "Laporan Sedang Diproses Sistem AI"}
                 </p>
                 <p className="text-[11px] opacity-80 mt-0.5">
                   {currentStep >= 4
@@ -296,8 +296,8 @@ export function CitizenReportTrackerModal({
                         st.isDone
                           ? "bg-emerald-500 text-white shadow-xs shadow-emerald-500/40"
                           : st.isActive
-                          ? "bg-[#0EB29A] text-white ring-4 ring-[#0EB29A]/20 animate-pulse"
-                          : "bg-slate-100 text-slate-400 border border-slate-200"
+                            ? "bg-[#0EB29A] text-white ring-4 ring-[#0EB29A]/20 animate-pulse"
+                            : "bg-slate-100 text-slate-400 border border-slate-200"
                       )}
                     >
                       <Icon className="h-3 w-3 stroke-[2.5]" />

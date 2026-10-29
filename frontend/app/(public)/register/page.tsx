@@ -143,10 +143,10 @@ function RegisterContent() {
   return (
     <div className="min-h-screen bg-white text-[#18231D] flex items-center justify-center p-4 sm:p-8 lg:p-12">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-start py-4">
-        
+
         {/* Left Column: Clean Minimalist Form */}
         <div className="lg:col-span-6 flex flex-col justify-center max-w-md mx-auto w-full">
-          
+
           {/* Brand Logo */}
           <Link href="/" className="inline-block mb-8" title="Kembali ke Beranda">
             <img
@@ -208,7 +208,7 @@ function RegisterContent() {
 
           {/* Registration Form */}
           <form onSubmit={handleRegister} className="space-y-3.5">
-            
+
             {/* Full Name */}
             <div>
               <input
@@ -343,8 +343,8 @@ function RegisterContent() {
                 {isLoading
                   ? "Creating account..."
                   : role === "pengepul"
-                  ? "Daftar Sebagai Mitra Pengepul"
-                  : "Sign up"}
+                    ? "Daftar Sebagai Mitra Pengepul"
+                    : "Sign up"}
               </button>
             </div>
 
@@ -357,7 +357,7 @@ function RegisterContent() {
             </p>
 
             {/* Security Footnote */}
-           
+
           </form>
 
         </div>
@@ -368,7 +368,7 @@ function RegisterContent() {
             {/* Hero Photo */}
             <img
               src="images/register.png"
-              alt="EcoPatrol Community"
+              alt="Trinfo Community"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
 

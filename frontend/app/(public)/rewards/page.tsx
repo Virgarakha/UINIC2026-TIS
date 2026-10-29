@@ -92,7 +92,7 @@ export default function RewardsPage() {
           setCatalog(mapped);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setIsLoadingCatalog(false));
   }, []);
 
@@ -121,10 +121,10 @@ export default function RewardsPage() {
           user_id: user?.id,
           alamat_pengiriman: alamatKirim
             ? {
-                penerima: penerimaNama,
-                telepon: penerimaTelepon,
-                alamat: alamatKirim,
-              }
+              penerima: penerimaNama,
+              telepon: penerimaTelepon,
+              alamat: alamatKirim,
+            }
             : undefined,
         });
       } catch (err) {
@@ -225,8 +225,8 @@ export default function RewardsPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       {/* Page Header */}
       <div>
-       
-       
+
+
         <h1 className="text-3xl font-black text-[#2B3752]">
           Katalog Penukaran Hadiah Aksi Lingkungan
         </h1>
@@ -849,7 +849,7 @@ export default function RewardsPage() {
               <span>Akses Reward Terkunci</span>
             </div>
             <p className="text-slate-600 leading-relaxed">
-              Sesuai kebijakan platform EcoPatrol, penukaran hadiah voucher PLN, pulsa, dan sembako hanya berlaku untuk warga yang memiliki akun terdaftar dan terverifikasi.
+              Sesuai kebijakan platform Trinfo, penukaran hadiah voucher PLN, pulsa, dan sembako hanya berlaku untuk warga yang memiliki akun terdaftar dan terverifikasi.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 pt-2">

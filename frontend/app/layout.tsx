@@ -31,8 +31,8 @@ export const metadata: Metadata = {
     "Daur Ulang",
     "Clean Environment",
   ],
-  authors: [{ name: "Tim Pengembang EcoPatrol" }],
-  creator: "EcoPatrol",
+  authors: [{ name: "Tim Pengembang Trinfo" }],
+  creator: "Trinfo",
   openGraph: {
     type: "website",
     locale: "id_ID",

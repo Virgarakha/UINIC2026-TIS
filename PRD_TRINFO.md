@@ -761,7 +761,7 @@ flowchart LR
 Kumpulan informasi non-kode yang harus dilengkapi secara manual oleh tim penyusun sebelum naskah proposal resmi diajukan ke dewan juri UINIC 8.0:
 
 1. **Informasi Identitas Tim & Perguruan Tinggi**:
-   - [ ] Nama Tim Pengembang: **PERLU DIISI MANUAL** *(Contoh: Tim EcoPatrol Dev / Universitas ...)*
+   - [ ] Nama Tim Pengembang: **PERLU DIISI MANUAL** *(Contoh: Tim Trinfo Dev / Universitas ...)*
    - [ ] Susunan Anggota Tim & Program Studi: **PERLU DIISI MANUAL** *(Ketua Tim, Frontend Developer, Backend Developer, UI/UX Designer)*
    - [ ] Nama Dosen Pembimbing & NIP/NIDN: **PERLU DIISI MANUAL**
 2. **Tautan Resmi & Deployment**:

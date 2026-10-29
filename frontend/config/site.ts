@@ -11,14 +11,14 @@ export const siteConfig = {
   tagline: "Trash Information System - Platform Cerdas Pemantauan Sampah Berbasis AI",
   description:
     "Solusi crowdsourcing warga terintegrasi AI Vision & sensor hidrologi untuk pencegahan banjir, pemilahan sampah bernilai ekonomis, dan perlindungan sanitasi lingkungan.",
-  url: "https://ecopatrol.id",
+  url: "https://Trinfo.id",
   logo: "/images/logo.png",
   logoText: "/images/logo-text.png",
   ogImage: "/images/logo-text.png",
   get links() {
     const base = getBackendBaseUrl();
     return {
-      github: "https://github.com/uinic08/ecopatrol",
+      github: "https://github.com/uinic08/Trinfo",
       apiDocs: `${base}/api/documentation`,
       backendAdmin: `${base}/admin/dashboard`,
     };
