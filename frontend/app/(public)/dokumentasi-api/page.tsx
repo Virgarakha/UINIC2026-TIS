@@ -317,10 +317,7 @@ $laporanList = $response->json('data');`,
           
           <div className="max-w-3xl">
             {/* Pill Tag */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1E5345]/10 text-[#1E5345] text-xs font-semibold uppercase tracking-wider mb-4 border border-[#1E5345]/15">
-              <Terminal className="h-3.5 w-3.5" />
-              <span>TRINFO DEVELOPER PLATFORM • REST API V1</span>
-            </div>
+           
 
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#18231D] leading-[1.12] mb-5">
