@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   Plus,
+  Camera,
   Compass,
   Layers,
   Locate,
@@ -902,6 +903,9 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
         streetTiles.addTo(map);
         mapInstanceRef.current = map;
+        if (typeof window !== "undefined") {
+          (window as any).leafletMap = map;
+        }
         setIsMapReady(true);
 
         const updateZoom = () => {
@@ -1148,60 +1152,101 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         const isAwas = t.level === "AWAS";
         const color = isAwas ? "#ef4444" : "#f59e0b";
 
-        // Circle 1: Outer Buffer Perimeter (Animated dashed border)
-        const outerCircle = L.circle([t.lat, t.lng], {
-          radius: t.radiusMeters,
-          color,
-          fillColor: color,
-          fillOpacity: isAwas ? 0.12 : 0.08,
-          weight: 2,
-          dashArray: "6, 8",
-        }).addTo(map);
+        // Circle 1 & 2: Hide circles when zoomed far out (zoom < 11) to prevent map clutter
+        if (mapZoom >= 11) {
+          const outerCircle = L.circle([t.lat, t.lng], {
+            radius: t.radiusMeters,
+            color,
+            fillColor: color,
+            fillOpacity: isAwas ? 0.12 : 0.08,
+            weight: mapZoom >= 13 ? 2 : 1.2,
+            dashArray: "6, 8",
+          }).addTo(map);
 
-        // Circle 2: Inner Core Critical Perimeter (35% of total radius)
-        const innerCircle = L.circle([t.lat, t.lng], {
-          radius: Math.round(t.radiusMeters * 0.35),
-          color,
-          fillColor: color,
-          fillOpacity: isAwas ? 0.24 : 0.16,
-          weight: 1.5,
-        }).addTo(map);
+          const innerCircle = L.circle([t.lat, t.lng], {
+            radius: Math.round(t.radiusMeters * 0.35),
+            color,
+            fillColor: color,
+            fillOpacity: isAwas ? 0.24 : 0.16,
+            weight: 1.5,
+          }).addTo(map);
 
-        // Floating Tag on the top perimeter of the hazard zone
-        // 1 degree latitude ~= 111,000 meters
-        const latOffset = (t.radiusMeters / 111000) * 0.96;
-        const tagIcon = L.divIcon({
-          className: "custom-hazard-tag-marker",
-          html: `
-            <div style="transform: translate(-50%, -100%);">
-              <div class="px-2.5 py-1 rounded-full ${
-                isAwas ? "bg-rose-600 shadow-rose-600/50" : "bg-amber-600 shadow-amber-600/50"
-              } text-white text-[10px] font-black shadow-lg border-2 border-white flex items-center gap-1.5 whitespace-nowrap cursor-pointer hover:scale-105 transition-transform">
-                <span class="inline-block w-2 h-2 rounded-full bg-white animate-ping"></span>
-                <span>${t.level}: ${t.tipeBahaya} (${t.radiusMeters}m)</span>
-              </div>
-            </div>
-          `,
-          iconSize: [0, 0],
-          iconAnchor: [0, 0],
-        });
+          if (t.report) {
+            (outerCircle as any)._targetReportId = t.report.id;
+            (innerCircle as any)._targetReportId = t.report.id;
+          }
 
-        const tagMarker = L.marker([t.lat + latOffset, t.lng], {
-          icon: tagIcon,
-          zIndexOffset: 350,
-        }).addTo(map);
-
-        if (t.report) {
-          (outerCircle as any)._targetReportId = t.report.id;
-          (innerCircle as any)._targetReportId = t.report.id;
-          (tagMarker as any)._targetReportId = t.report.id;
-
-          tagMarker.on("click", () => {
-            setSelectedReport(t.report!);
-          });
+          newLayers.push(outerCircle, innerCircle);
         }
 
-        newLayers.push(outerCircle, innerCircle, tagMarker);
+        // Floating Tag on the top perimeter of the hazard zone
+        // Dynamic Zoom Levels:
+        // - Zoom < 12: HILANG (Completely hidden to prevent visual clutter across province/island)
+        // - Zoom 12-13: MENGECIL (Compact mini-badge e.g. "🔥 SIAGA")
+        // - Zoom >= 14: LENGKAP (Full prominent badge e.g. "🔥 SIAGA: Bahaya Kebakaran & Gas Metana (400m)")
+        if (mapZoom >= 12) {
+          const isCompact = mapZoom < 14;
+          const latOffset = (t.radiusMeters / 111000) * (isCompact ? 0.98 : 0.96);
+
+          // Hazard icon / emoji based on tipeBahaya
+          const hazardLower = (t.tipeBahaya || "").toLowerCase();
+          let hazardIconSymbol = "⚠️";
+          if (hazardLower.includes("api") || hazardLower.includes("kebakaran") || hazardLower.includes("metana")) {
+            hazardIconSymbol = "🔥";
+          } else if (hazardLower.includes("banjir") || hazardLower.includes("luapan")) {
+            hazardIconSymbol = "🌊";
+          } else if (hazardLower.includes("wabah") || hazardLower.includes("dbd")) {
+            hazardIconSymbol = "☣️";
+          } else if (hazardLower.includes("bau") || hazardLower.includes("toksik")) {
+            hazardIconSymbol = "💨";
+          }
+
+          const labelContent = isCompact
+            ? `${hazardIconSymbol} ${t.level}`
+            : `${hazardIconSymbol} ${t.level}: ${t.tipeBahaya} (${t.radiusMeters}m)`;
+
+          const tagIcon = L.divIcon({
+            className: "custom-hazard-tag-marker",
+            html: `
+              <div style="position: relative; display: inline-flex; width: max-content; transform: translate(-50%, -100%); pointer-events: auto;">
+                <div class="inline-flex items-center gap-1.5 ${
+                  isCompact ? "px-2 py-0.5 text-[9px]" : "px-3 py-1.5 text-[11px]"
+                } rounded-full ${
+                  isAwas
+                    ? "bg-gradient-to-r from-rose-600 via-rose-700 to-red-800 shadow-rose-950/60"
+                    : "bg-gradient-to-r from-amber-500 via-orange-600 to-amber-700 shadow-amber-950/60"
+                } text-white font-black shadow-xl border ${
+                  isCompact ? "border-white/80" : "border-2 border-white"
+                } whitespace-nowrap cursor-pointer hover:scale-105 active:scale-95 transition-all select-none">
+                  <span class="relative flex ${isCompact ? "h-1.5 w-1.5" : "h-2.5 w-2.5"} items-center justify-center flex-shrink-0">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80"></span>
+                    <span class="relative inline-flex rounded-full ${isCompact ? "h-1 w-1" : "h-1.5 w-1.5"} bg-white shadow-xs"></span>
+                  </span>
+                  <span class="drop-shadow-sm font-black tracking-wide">
+                    ${labelContent}
+                  </span>
+                </div>
+              </div>
+            `,
+            iconSize: [0, 0],
+            iconAnchor: [0, 0],
+          });
+
+          const tagMarker = L.marker([t.lat + latOffset, t.lng], {
+            icon: tagIcon,
+            zIndexOffset: 650,
+          }).addTo(map);
+
+          if (t.report) {
+            (tagMarker as any)._targetReportId = t.report.id;
+
+            tagMarker.on("click", () => {
+              setSelectedReport(t.report!);
+            });
+          }
+
+          newLayers.push(tagMarker);
+        }
       });
 
       hazardLayersRef.current = newLayers;
@@ -1215,7 +1260,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       });
       hazardLayersRef.current = [];
     };
-  }, [showHazardZones, warnings, reports, isMapReady]);
+  }, [showHazardZones, warnings, reports, isMapReady, mapZoom]);
 
   // Synchronize Markers
   React.useEffect(() => {
@@ -1276,18 +1321,27 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           activeArmadaList.some((t) => t.laporan_id === rep.id) ||
           rep.status?.kode === "siap_diambil_pengepul";
         const isPengepulRole = user?.role === "pengepul";
-        const showShockwave = isDispatched && isPengepulRole;
+        // Shockwave only runs when zoomed in enough to prevent covering entire islands/countries
+        const showShockwave = isDispatched && isPengepulRole && mapZoom >= 13;
+        const showAddressPill = mapZoom >= 14 || isSelected;
+        const showNearbyBadge = nearbyCount > 0 && (mapZoom >= 13 || isSelected);
+        const pinScaleClass =
+          mapZoom <= 7 ? "scale-60" : mapZoom <= 10 ? "scale-75" : mapZoom <= 12 ? "scale-90" : "scale-100";
 
         // Precision Map Pin: 40px wide, 48px tall, sharp needle tip anchored precisely at [20, 48]
         const markerHtml = `
-          <div class="relative flex flex-col items-center cursor-pointer group select-none">
-            <!-- Floating Address Pill above the pin head -->
-            <div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#2B3752]/95 backdrop-blur-xs text-white text-[10px] font-bold whitespace-nowrap shadow-md max-w-[150px] truncate border border-slate-700/50 pointer-events-auto transition-transform group-hover:scale-105">
-              ${rep.alamat_lokasi}
-            </div>
+          <div class="relative flex flex-col items-center cursor-pointer group select-none ${pinScaleClass} transition-transform">
+            <!-- Floating Address Pill above the pin head (only shown when zoomed in or selected) -->
+            ${
+              showAddressPill
+                ? `<div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#2B3752]/95 backdrop-blur-xs text-white text-[10px] font-bold whitespace-nowrap shadow-md max-w-[150px] truncate border border-slate-700/50 pointer-events-auto transition-transform group-hover:scale-105">
+                    ${rep.alamat_lokasi}
+                  </div>`
+                : ""
+            }
 
             ${
-              nearbyCount > 0
+              showNearbyBadge
                 ? `<div class="absolute -top-12 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full bg-[#0EB29A] text-white text-[8px] font-bold shadow-xs whitespace-nowrap border border-white/60">${nearbyCount + 1} titik berdekatan</div>`
                 : ""
             }
@@ -1393,7 +1447,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         markersRef.current[rep.id] = marker;
       });
     });
-  }, [filteredReports, selectedReport, isMapReady, dispatchedReportIds, user?.role, roleViewMode, activeArmadaList]);
+  }, [filteredReports, selectedReport, isMapReady, dispatchedReportIds, user?.role, roleViewMode, activeArmadaList, mapZoom]);
 
   // Invalidate map size when drawers toggle to ensure tiles remain seamless
   React.useEffect(() => {
@@ -2831,16 +2885,16 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             selectedReport ? "hidden" : "hidden sm:flex"
           )}
         >
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2.5 h-14 px-5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white font-bold text-sm shadow-2xl shadow-[#0EB29A]/40 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white"
-            title="Laporkan Titik Timbunan Sampah Baru (GPS & AI)"
+          <Link
+            href="/lapor"
+            className="flex items-center gap-2.5 h-14 px-5 rounded-full bg-gradient-to-r from-[#0EB29A] to-[#2E6E65] text-white font-bold text-sm shadow-2xl shadow-[#0EB29A]/40 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white group"
+            title="Buka Kamera Pelaporan Sampah (AI Vision & GPS)"
           >
-            <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center">
-              <Plus className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
+              <Camera className="h-4.5 w-4.5" />
             </div>
-            <span className="tracking-tight">Lapor Sampah</span>
-          </button>
+            <span className="tracking-tight font-bold">Lapor Sampah</span>
+          </Link>
         </div>
       )}
 

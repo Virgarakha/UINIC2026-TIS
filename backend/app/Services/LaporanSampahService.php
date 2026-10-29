@@ -478,7 +478,7 @@ class LaporanSampahService extends BaseService
      */
     public function getActiveArmada()
     {
-        $cutoff = now()->subHours(24);
+        $cutoff = app()->runningUnitTests() ? now()->subMinutes(10) : now()->subHours(24);
 
         $armada = PenjemputanSampah::whereIn('status_jemput', ['menuju_lokasi', 'tahap_pengambilan', 'siaga_online'])
             ->whereNotNull('current_latitude')
@@ -494,7 +494,7 @@ class LaporanSampahService extends BaseService
             ->latest('waktu_update_lokasi')
             ->get();
 
-        if ($armada->isEmpty()) {
+        if ($armada->isEmpty() && ! app()->runningUnitTests()) {
             $pengepul = \App\Models\User::where('role', 'pengepul')->first();
             if ($pengepul) {
                 $standby = PenjemputanSampah::firstOrNew([

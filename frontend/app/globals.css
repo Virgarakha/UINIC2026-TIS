@@ -82,9 +82,11 @@ body {
 }
 
 .custom-gmap-pin,
-.gmaps-origin-beacon {
+.gmaps-origin-beacon,
+.custom-hazard-tag-marker {
   background: transparent !important;
   border: none !important;
+  overflow: visible !important;
 }
 
 /* Custom Leaflet Popup for Collector Truck (Anchored Above the Vehicle) */
