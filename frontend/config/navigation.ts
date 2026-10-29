@@ -36,7 +36,7 @@ export const publicNavItems: NavItem[] = [
   },
   {
     title: "Dokumentasi API",
-    href: "/dokumentasi-api",
+    href: "/docs",
     iconName: "Code2",
     badge: "v1.0",
   },

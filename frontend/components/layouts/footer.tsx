@@ -96,8 +96,15 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <Link
-                  href="/dokumentasi-api"
+                <Link href="/docs" className="hover:text-[#0EB29A] transition-colors font-bold text-[#0EB29A]">
+                  Dokumentasi API & SDK
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="http://localhost:8000/api/v1/users"
+                  target="_blank"
+                  rel="noreferrer"
                   className="hover:text-[#0EB29A] transition-colors"
                 >
                   Dokumentasi &amp; Gateway API
