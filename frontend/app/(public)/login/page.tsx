@@ -102,10 +102,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-white text-[#18231D] flex items-center justify-center p-4 sm:p-8 lg:p-12">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center">
-        
+
         {/* Left Column: Minimalist Form */}
         <div className="lg:col-span-6 flex flex-col justify-center max-w-md mx-auto w-full">
-          
+
           {/* Brand Logo matching Innovasis placement */}
           <Link href="/" className="inline-block mb-8 sm:mb-12" title="Kembali ke Beranda">
             <img
@@ -137,7 +137,7 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            
+
             {/* Email Input */}
             <div>
               <input
@@ -217,7 +217,7 @@ export default function LoginPage() {
             </div>
 
             {/* Security Footnote */}
-           
+
 
           </form>
 
@@ -229,7 +229,7 @@ export default function LoginPage() {
             {/* Hero Photo matching reference style */}
             <img
               src="/images/login.png"
-              alt="EcoPatrol Community"
+              alt="Trinfo Community"
               className="w-full h-full object-cover  transition-transform duration-700"
             />
 

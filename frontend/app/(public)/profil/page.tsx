@@ -194,12 +194,12 @@ export default function ProfilPage() {
           <ArrowLeft className="h-4 w-4" />
           <span>Kembali ke Beranda</span>
         </Link>
-       
+
         <h1 className="text-2xl sm:text-3xl font-black text-[#2B3752]">
           Profil Akun & Buku Besar Poin
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-          Pantau status keanggotaan lingkungan, mutasi perolehan reward, dan voucher aktif Anda di platform EcoPatrol.
+          Pantau status keanggotaan lingkungan, mutasi perolehan reward, dan voucher aktif Anda di platform Trinfo.
         </p>
       </div>
 
@@ -213,7 +213,7 @@ export default function ProfilPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg sm:text-xl font-black text-[#2B3752]">{user?.name || "Pengguna Belum Masuk"}</h2>
-            
+
             </div>
 
             <p className="text-xs text-slate-500">{user?.email || "Belum ada sesi login aktif"}</p>
@@ -376,7 +376,7 @@ export default function ProfilPage() {
         </div>
       </div>
 
-     
+
 
       {/* Point Transaction Ledger (Buku Besar Mutasi Poin) */}
       <div className="space-y-4">
@@ -445,10 +445,10 @@ export default function ProfilPage() {
                               entry.tipe === "lapor_sampah"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 : entry.tipe === "sedekah_sampah"
-                                ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                : entry.tipe === "penjemputan_mitra"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : entry.tipe === "penjemputan_mitra"
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200"
                             )}
                           >
                             {entry.tipe.replace(/_/g, " ")}

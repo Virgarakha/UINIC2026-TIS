@@ -52,7 +52,7 @@ const ALL_GUIDES: GuideItem[] = [
       "Pisahkan kardus dari kemasan makanan yang berminyak.",
       "Pipihkan botol plastik PET dan lepaskan tutupnya untuk menghemat volume wadah.",
       "Kumpulkan kaleng aluminium dan besi bekas dalam karung kering.",
-      "Buka menu Peta EcoPatrol dan tekan 'Minta Penjemputan Armada' untuk mencairkan saldo cuan.",
+      "Buka menu Peta Trinfo dan tekan 'Minta Penjemputan Armada' untuk mencairkan saldo cuan.",
     ],
     actionPrompt: "Pilah sekarang & jadwalkan penjemputan mitra armada!",
   },
@@ -67,7 +67,7 @@ const ALL_GUIDES: GuideItem[] = [
     steps: [
       "Periksa saluran parit di depan tempat tinggal setiap 2 minggu sekali.",
       "Gunakan jaring saringan kasar pada mulut gorong-gorong pemukiman.",
-      "Jika menemukan timbunan sampah liar di aliran sungai, ambil foto melalui kamera EcoPatrol.",
+      "Jika menemukan timbunan sampah liar di aliran sungai, ambil foto melalui kamera Trinfo.",
       "AI akan memverifikasi tingkat sumbatan dan langsung menerbitkan peringatan siaga ke warga sekitar.",
     ],
     actionPrompt: "Ambil foto saluran air tersumbat untuk mitigasi banjir darurat!",
@@ -98,7 +98,7 @@ const ALL_GUIDES: GuideItem[] = [
     steps: [
       "Kuras dan tutup tempat penampungan air secara teratur (metode 3M Plus).",
       "Daur ulang wadah plastik bekas, botol, dan ban bekas agar tidak menampung air hujan.",
-      "Gunakan fitur Sedekah Lingkungan di EcoPatrol untuk menyerahkan sampah wadah ke pengepul daur ulang.",
+      "Gunakan fitur Sedekah Lingkungan di Trinfo untuk menyerahkan sampah wadah ke pengepul daur ulang.",
     ],
     actionPrompt: "Bersihkan sarang jentik nyamuk & raih bonus poin ganda!",
   },
@@ -125,7 +125,7 @@ const QUIZ_QUESTIONS: QuizQuestion[] = [
     explanation: "Benar! Fermentasi sampah organik menghasilkan gas metana yang mudah meledak jika terkena panas terik matahari.",
   },
   {
-    question: "Jenis sampah manakah yang memiliki nilai ekonomi tinggi dan siap dijemput oleh mitra armada pengepul EcoPatrol?",
+    question: "Jenis sampah manakah yang memiliki nilai ekonomi tinggi dan siap dijemput oleh mitra armada pengepul Trinfo?",
     options: ["Kardus tebal & Botol Plastik PET", "Sisa makanan basah berkuah", "Daun kering lapuk", "Kaca pecah kecil"],
     correctIndex: 0,
     explanation: "Tepat sekali! Kardus kemasan dan botol PET adalah bahan baku daur ulang bernilai tinggi yang langsung bernilai uang/poin.",

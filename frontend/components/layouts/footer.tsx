@@ -107,8 +107,8 @@ export function Footer() {
                   rel="noreferrer"
                   className="hover:text-[#0EB29A] transition-colors"
                 >
-                  REST API v1 Gateway
-                </a>
+                  Dokumentasi &amp; Gateway API
+                </Link>
               </li>
               <li>
                 <Link href="/edukasi" className="hover:text-[#0EB29A] transition-colors">

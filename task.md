@@ -1,6 +1,6 @@
-# Rangkuman Task & Perubahan Sistem EcoPatrol
+# Rangkuman Task & Perubahan Sistem Trinfo
 
-Dokumen ini memuat daftar 10 task dan perubahan utama yang telah diimplementasikan pada sistem EcoPatrol:
+Dokumen ini memuat daftar 10 task dan perubahan utama yang telah diimplementasikan pada sistem Trinfo:
 
 1. **Peningkatan Akurasi Geolocation GPS Satelit**
    - **Deskripsi:** Mengatasi kendala lokasi pengguna yang meleset jauh akibat IP/Wi-Fi geolocation bawaan browser.
@@ -80,4 +80,3 @@ Dokumen ini memuat daftar 10 task dan perubahan utama yang telah diimplementasik
       - Menambahkan tombol pintas cepat *"Maps"* di bilah navigasi ponsel bawah (*compact mobile bar*) agar sopir dapat langsung meluncurkan Google Maps di jalan.
       - Menyematkan tombol cepat *"Maps"* dan banner informasi navigasi di laci detail laporan `place-detail-drawer.tsx`.
     - **File Terkait:** `frontend/lib/routing.ts`, `frontend/components/maps/place-detail-drawer.tsx`, `frontend/components/maps/route-direction-panel.tsx`.
-

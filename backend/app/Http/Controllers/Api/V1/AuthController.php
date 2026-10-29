@@ -45,7 +45,7 @@ class AuthController extends BaseApiController
                 'reviewer_name' => 'Koordinator DLH Kota Malang',
                 'reviewer_role' => 'Dinas Lingkungan Hidup',
                 'rating' => 5,
-                'komentar' => 'Mitra armada resmi terverifikasi program EcoPatrol UINIC08.',
+                'komentar' => 'Mitra armada resmi terverifikasi program Trinfo UINIC08.',
             ]);
         }
 

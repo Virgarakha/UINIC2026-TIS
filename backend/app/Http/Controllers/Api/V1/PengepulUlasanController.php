@@ -48,7 +48,7 @@ class PengepulUlasanController extends BaseApiController
         ]);
 
         $reviewerId = $request->user()?->id ?? $validated['warga_id'] ?? null;
-        $reviewerName = $validated['reviewer_name'] ?? $request->user()?->name ?? 'Warga EcoPatrol';
+        $reviewerName = $validated['reviewer_name'] ?? $request->user()?->name ?? 'Warga Trinfo';
         $reviewerRole = $validated['reviewer_role'] ?? 'Warga Pelapor';
 
         // 1. Create review record
