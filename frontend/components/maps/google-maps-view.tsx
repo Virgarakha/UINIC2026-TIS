@@ -338,6 +338,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   const mapInstanceRef = React.useRef<LeafletMap | null>(null);
   const markersRef = React.useRef<Record<number, LeafletMarker>>({});
   const [mapZoom, setMapZoom] = React.useState<number>(14);
+  const [mapViewVersion, setMapViewVersion] = React.useState<number>(0);
   const routeLayersRef = React.useRef<{
     polylineBorder?: any;
     polylineTraversed?: any;
@@ -908,11 +909,15 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         }
         setIsMapReady(true);
 
-        const updateZoom = () => {
-          if (map) setMapZoom(map.getZoom());
+        const handleViewChange = () => {
+          if (map) {
+            setMapZoom(map.getZoom());
+            setMapViewVersion((v) => v + 1);
+          }
         };
-        map.on("zoom", updateZoom);
-        map.on("zoomend", updateZoom);
+        // ONLY update zoom & bounds on zoomend and moveend to guarantee 60fps smooth touch gestures
+        map.on("zoomend", handleViewChange);
+        map.on("moveend", handleViewChange);
         setMapZoom(map.getZoom());
 
         const handleUserDrag = () => {
@@ -1153,8 +1158,14 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         }
       });
 
+      // Viewport culling: only render hazard circles and badges within or near the visible screen
+      const bounds = map.getBounds ? map.getBounds().pad(0.3) : null;
+      const visibleHazardTargets = bounds
+        ? activeHazardTargets.filter((t) => bounds.contains([t.lat, t.lng]))
+        : activeHazardTargets;
+
       // Render dynamic circles and clean editorial GIS badges matching real active waste
-      activeHazardTargets.forEach((t) => {
+      visibleHazardTargets.forEach((t) => {
         const isAwas = t.level === "AWAS";
         const isWaspada = t.level === "WASPADA";
 
@@ -1190,7 +1201,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
 
         newLayers.push(outerCircle, innerCircle);
 
-        // Floating Tag on the top perimeter of the hazard zone
+        // Floating Tag on the top perimeter of the hazard zone (Solid background, zero GPU blur overhead)
         if (mapZoom >= 11) {
           const isCompact = mapZoom < 14;
           const latOffset = (t.radiusMeters / 111000) * (isCompact ? 0.98 : 0.96);
@@ -1200,7 +1211,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
             html: isCompact
               ? `
                 <div style="position: relative; display: inline-flex; width: max-content; transform: translate(-50%, -100%); pointer-events: auto;">
-                  <div style="margin-bottom: 5px;" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/95 backdrop-blur-md border ${cardBorder} shadow-sm hover:shadow-md text-[#18231D] transition-all cursor-pointer select-none">
+                  <div style="margin-bottom: 5px;" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border ${cardBorder} shadow-xs text-[#18231D] transition-all cursor-pointer select-none">
                     <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${badgeBg} ${badgeTextColor} text-[9px] font-bold uppercase tracking-wider">
                       <span class="h-1.5 w-1.5 rounded-full ${dotColor}"></span>
                       <span>${t.level}</span>
@@ -1214,7 +1225,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
               `
               : `
                 <div style="position: relative; display: inline-flex; width: max-content; transform: translate(-50%, -100%); pointer-events: auto;">
-                  <div style="margin-bottom: 6px;" class="group inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border ${cardBorder} shadow-md hover:shadow-lg text-[#18231D] transition-all cursor-pointer select-none">
+                  <div style="margin-bottom: 6px;" class="group inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white border ${cardBorder} shadow-sm text-[#18231D] transition-all cursor-pointer select-none">
                     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md ${badgeBg} ${badgeTextColor} text-[10px] font-bold tracking-wider uppercase">
                       <span class="h-1.5 w-1.5 rounded-full ${dotColor}"></span>
                       <span>${t.level}</span>
@@ -1222,7 +1233,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                     <span class="text-xs font-semibold text-[#18231D] tracking-tight">
                       ${t.tipeBahaya}
                     </span>
-                    <span class="text-[10px] font-mono font-medium text-[#63756A] bg-slate-100/90 px-1.5 py-0.5 rounded-md border border-slate-200/70">
+                    <span class="text-[10px] font-mono font-medium text-[#63756A] bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200/70">
                       ${t.radiusMeters}m
                     </span>
                     <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rotate-45 border-r border-b ${cardBorder}"></div>
@@ -1258,7 +1269,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
       });
       hazardLayersRef.current = [];
     };
-  }, [showHazardZones, reports, warnings, isMapReady, mapZoom]);
+  }, [showHazardZones, reports, warnings, isMapReady, mapZoom, mapViewVersion]);
 
   // Synchronize Markers
   React.useEffect(() => {
@@ -1281,7 +1292,39 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         alert: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 drop-shadow-xs"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`,
       };
 
-      filteredReports.forEach((rep) => {
+      // Viewport culling: only render markers currently inside or near screen viewport (+ selected report)
+      const bounds = map.getBounds ? map.getBounds().pad(0.25) : null;
+      const visibleReports = bounds
+        ? filteredReports.filter(
+            (rep) =>
+              (selectedReport && selectedReport.id === rep.id) ||
+              bounds.contains([rep.latitude, rep.longitude])
+          )
+        : filteredReports;
+
+      // Efficient nearby counts calculation for visible reports only
+      const nearbyMap = new Map<number, number>();
+      if (visibleReports.length <= 100) {
+        for (let i = 0; i < visibleReports.length; i++) {
+          let count = 0;
+          const r1 = visibleReports[i];
+          for (let j = 0; j < visibleReports.length; j++) {
+            if (i !== j) {
+              const r2 = visibleReports[j];
+              if (
+                Math.abs(r1.latitude - r2.latitude) < 0.0015 &&
+                Math.abs(r1.longitude - r2.longitude) < 0.0015 &&
+                getDistanceMeters(r1.latitude, r1.longitude, r2.latitude, r2.longitude) <= 100
+              ) {
+                count++;
+              }
+            }
+          }
+          nearbyMap.set(r1.id, count);
+        }
+      }
+
+      visibleReports.forEach((rep) => {
         const isSelected = selectedReport?.id === rep.id;
         const hazardStr = (rep.tipe_bahaya || "").toLowerCase();
 
@@ -1306,12 +1349,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           pinBgColor = "#e11d48";
         }
 
-        // Check for neighboring reports within 100 meters
-        const nearbyCount = filteredReports.filter(
-          (other) =>
-            other.id !== rep.id &&
-            getDistanceMeters(rep.latitude, rep.longitude, other.latitude, other.longitude) <= 100
-        ).length;
+        const nearbyCount = nearbyMap.get(rep.id) || 0;
 
         const isDispatched =
           dispatchedReportIds.includes(rep.id) ||
@@ -1329,10 +1367,10 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         // Precision Map Pin: 40px wide, 48px tall, sharp needle tip anchored precisely at [20, 48]
         const markerHtml = `
           <div class="relative flex flex-col items-center cursor-pointer group select-none ${pinScaleClass} transition-transform">
-            <!-- Floating Address Pill above the pin head (only shown when zoomed in or selected) -->
+            <!-- Floating Address Pill above the pin head (Solid background, zero GPU blur overhead) -->
             ${
               showAddressPill
-                ? `<div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-[#2B3752]/95 backdrop-blur-xs text-white text-[10px] font-bold whitespace-nowrap shadow-md max-w-[150px] truncate border border-slate-700/50 pointer-events-auto transition-transform group-hover:scale-105">
+                ? `<div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#2B3752] text-white text-[10px] font-bold whitespace-nowrap shadow-xs max-w-[150px] truncate border border-slate-700/60 pointer-events-auto">
                     ${rep.alamat_lokasi}
                   </div>`
                 : ""
@@ -1344,59 +1382,23 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
                 : ""
             }
 
-            <!-- Selection Ring / Ping -->
+            <!-- Selection Ring -->
             ${
               isSelected
-                ? '<span class="animate-ping absolute top-0 left-1/2 -translate-x-1/2 inline-flex h-9 w-9 rounded-full bg-red-400 opacity-60 pointer-events-none"></span>'
+                ? '<span class="absolute -top-1 -left-1 inline-flex h-11 w-11 rounded-full border-2 border-rose-500 pointer-events-none animate-pulse"></span>'
                 : ""
             }
 
             ${
               showShockwave
                 ? `
-                <style>
-                  @keyframes shockwave-ring {
-                    0% {
-                      transform: translate(-50%, -50%) scale(0.2);
-                      opacity: 0.95;
-                    }
-                    50% {
-                      opacity: 0.45;
-                    }
-                    100% {
-                      transform: translate(-50%, -50%) scale(3.5);
-                      opacity: 0;
-                    }
-                  }
-                  .shockwave-ring-1 {
-                    animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite !important;
-                    transform-origin: center center;
-                  }
-                  .shockwave-ring-2 {
-                    animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite 0.8s !important;
-                    transform-origin: center center;
-                  }
-                  .shockwave-ring-3 {
-                    animation: shockwave-ring 2.4s cubic-bezier(0.1, 0.45, 0.3, 1) infinite 1.6s !important;
-                    transform-origin: center center;
-                  }
-                </style>
-
-                <!-- Green Transparent Shockwave (Gelombang Kejut Hijau Transparan Pengepul) -->
-                <div class="absolute bottom-0 left-1/2 pointer-events-none z-0">
-                  <div class="shockwave-ring-1 absolute top-0 left-0 w-28 h-28 rounded-full border-2 border-emerald-400/90 bg-emerald-500/25 shadow-[0_0_30px_rgba(16,185,129,0.7)]"></div>
-                  <div class="shockwave-ring-2 absolute top-0 left-0 w-44 h-44 rounded-full border-2 border-emerald-400/70 bg-emerald-400/15 shadow-[0_0_45px_rgba(52,211,153,0.5)]"></div>
-                  <div class="shockwave-ring-3 absolute top-0 left-0 w-60 h-60 rounded-full border border-emerald-300/50 bg-emerald-300/10 shadow-[0_0_60px_rgba(110,231,183,0.35)]"></div>
-                  <div class="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-emerald-400/60 blur-xs animate-pulse"></div>
-                </div>
+                <!-- Lightweight Emerald Ripple Ring (GPU-friendly, no style injection or heavy blur) -->
+                <div class="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-8 h-8 rounded-full border-2 border-emerald-500/70 bg-emerald-500/20 pointer-events-none"></div>
 
                 <!-- High-Priority Order Dispatch Tag Above the Pin -->
-                <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-[#0EB29A] text-white text-[9.5px] font-black uppercase tracking-wider shadow-xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap animate-bounce z-20">
-                  <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                  </span>
-                  <span>⚡ PERMINTAAN JEMPUT</span>
+                <div class="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider shadow-xs border border-white flex items-center gap-1 whitespace-nowrap z-20">
+                  <span class="inline-flex h-1.5 w-1.5 rounded-full bg-white"></span>
+                  <span>⚡ JEMPUT</span>
                 </div>
               `
                 : ""
@@ -1445,7 +1447,7 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         markersRef.current[rep.id] = marker;
       });
     });
-  }, [filteredReports, selectedReport, isMapReady, dispatchedReportIds, user?.role, roleViewMode, activeArmadaList, mapZoom]);
+  }, [filteredReports, selectedReport, isMapReady, dispatchedReportIds, user?.role, roleViewMode, mapZoom, mapViewVersion]);
 
   // Invalidate map size when drawers toggle to ensure tiles remain seamless
   React.useEffect(() => {
