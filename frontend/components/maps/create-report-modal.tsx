@@ -54,6 +54,7 @@ export function CreateReportModal({
   const [aiValidation, setAiValidation] = React.useState<AnalisisAiResult | null>(null);
   const [isValidatingPhoto, setIsValidatingPhoto] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const validationSeqRef = React.useRef(0);
 
   // Photo & Forensic state
   const [photoMode, setPhotoMode] = React.useState<"camera" | "upload">("camera");
@@ -144,6 +145,7 @@ export function CreateReportModal({
   // Automatic AI verification and categorization function
   const validatePhotoWithAi = React.useCallback(
     async (imageBase64: string, hintFileName?: string) => {
+      const currentSeq = ++validationSeqRef.current;
       setIsValidatingPhoto(true);
       setErrorMessage(null);
       try {
@@ -161,7 +163,14 @@ export function CreateReportModal({
           longitude: lng,
           weather: weather,
         });
+
+        // Drop stale responses
+        if (currentSeq !== validationSeqRef.current) {
+          return null;
+        }
+
         setAiValidation(res);
+        setErrorMessage(null); // Clear form error banner so no contradictory messages appear
 
         if (res.is_valid_sampah) {
           if (res.kategori_id) {
@@ -170,17 +179,17 @@ export function CreateReportModal({
           if (!title.trim() && res.jenis_sampah_dominan) {
             setTitle(`Timbunan ${res.jenis_sampah_dominan}`);
           }
-        } else {
-          setErrorMessage(
-            res.alasan_validasi ||
-              "Foto ditolak oleh AI Inspector: Objek bukan timbunan sampah atau saluran air tersumbat."
-          );
         }
         return res;
       } catch (err) {
-        console.error("AI Photo validation error:", err);
+        if (currentSeq === validationSeqRef.current) {
+          console.error("AI Photo validation error:", err);
+        }
+        return null;
       } finally {
-        setIsValidatingPhoto(false);
+        if (currentSeq === validationSeqRef.current) {
+          setIsValidatingPhoto(false);
+        }
       }
     },
     [geo.latitude, geo.longitude, title, description]
@@ -243,6 +252,8 @@ export function CreateReportModal({
       setForensicMetadata(null);
     }
 
+    setErrorMessage(null);
+    setAiValidation(null);
     stopCamera();
     if (capturedImg) {
       validatePhotoWithAi(capturedImg);
@@ -254,6 +265,9 @@ export function CreateReportModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    validationSeqRef.current++;
+    setErrorMessage(null);
+    setAiValidation(null);
     setMimeType("image/jpeg");
 
     try {
@@ -608,6 +622,7 @@ export function CreateReportModal({
                     <button
                       type="button"
                       onClick={() => {
+                        validationSeqRef.current++;
                         setPreviewImage(null);
                         setBase64Data(null);
                         setForensicMetadata(null);
@@ -696,7 +711,11 @@ export function CreateReportModal({
                     <button
                       type="button"
                       onClick={handleCaptureFromCamera}
-                      className="h-12 w-12 rounded-full bg-white border-4 border-[#0EB29A] flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                      disabled={!isCameraActive || isValidatingPhoto}
+                      className={cn(
+                        "h-12 w-12 rounded-full bg-white border-4 border-[#0EB29A] flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform cursor-pointer",
+                        (!isCameraActive || isValidatingPhoto) && "opacity-40 pointer-events-none"
+                      )}
                       title="Jepret Foto Sekarang"
                     >
                       <div className="h-8 w-8 rounded-full bg-[#0EB29A]" />
@@ -920,6 +939,7 @@ export function CreateReportModal({
                     type="button"
                     variant="outline"
                     onClick={() => {
+                      validationSeqRef.current++;
                       setPreviewImage(null);
                       setBase64Data(null);
                       setForensicMetadata(null);

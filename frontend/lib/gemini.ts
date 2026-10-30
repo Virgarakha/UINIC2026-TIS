@@ -239,20 +239,24 @@ Periksa citra visual foto secara teliti: Apakah foto ini BENAR-BENAR MENAMPILKAN
    - Pemandangan alam bersih (pegunungan, langit biru, laut jernih, taman bunga terawat) tanpa sampah.
    - Kendaraan bermotor bersih (mobil, sepeda motor) yang diparkir rapi di jalanan/garasi.
    - Tembok/dinding polos, lantai keramik bersih, langit-langit, screenshot HP, meme, atau gambar abstrak.
+   - Area privat dalam rumah, dapur rumah tangga, area memasak (kompor gas/listrik, panci, wajan, peralatan makan, kulkas, meja dapur, perabot rumah tangga), MESKIPUN di bawahnya ada sisa sampah domestik / plastik sachet / kresek di lantai dapur.
+     ATURAN MUTLAK LINGKUNGAN PUBLIK TRINFO:
+     Sistem TRINFO dikhususkan untuk kedaruratan & kebersihan lingkungan PUBLIK (aliran sungai, saluran drainase pemukiman/got pinggir jalan, TPS liar di lahan terbuka/kolong jembatan, dan fasilitas publik).
+     TRINFO BUKAN layanan asisten rumah tangga atau pembersih dapur pribadi warga. Sampah domestik di dalam dapur rumah tangga atau di bawah kompor adalah area privat warga dan WAJIB DITOLAK ("is_valid_sampah": false).
 
-JIKA BUKAN SAMPAH:
+JIKA BUKAN SAMPAH / AREA PRIVAT DOMESTIK:
 - "is_valid_sampah": false
-- "alasan_validasi": "Foto Ditolak oleh AI Inspector: Gambar tidak terdeteksi sebagai timbunan sampah, limbah, atau sumbatan lingkungan. Objek terdeteksi: [sebutkan objek yang tampak secara spesifik]."
+- "alasan_validasi": "Foto Ditolak oleh AI Inspector: Gambar terdeteksi berada di dalam area rumah tangga/dapur privat (tampak kompor/peralatan masak). Sistem TRINFO difokuskan untuk timbunan sampah lingkungan publik, TPS liar, dan saluran drainase perkotaan." (atau jelaskan objek non-sampah secara spesifik).
 - "kategori_id": 0
-- "kategori_nama": "Bukan Sampah"
-- "confidence_score": 95 (tingkat kepastian penolakan)
+- "kategori_nama": "Bukan Sampah Publik"
+- "confidence_score": 96 (tingkat kepastian penolakan)
 - "volume_sampah_m3": 0
 - "persentase_sumbatan_aliran": 0
 - "estimasi_berat_kg": 0
 - "nilai_ekonomi_estimasi": 0
 - "potensi_bahaya": "Aman"
-- "prediksi_banjir": "Objek foto bukan sampah, tidak menimbulkan risiko hidrologi."
-- "rekomendasi_tindakan": "Silakan ambil ulang foto yang menampilkan timbunan sampah nyata atau saluran air tersumbat."
+- "prediksi_banjir": "Objek berada di area dalam rumah / bukan sampah lingkungan luar, tidak menimbulkan risiko hidrologi."
+- "rekomendasi_tindakan": "Silakan ambil ulang foto yang menampilkan timbunan sampah di area luar/publik seperti selokan pemukiman, bantaran sungai, atau TPS liar."
 
 ==================================================
 FOKUS 2: KLASIFIKASI KATEGORI OTOMATIS OLEH AI (JIKA VALID SAMPAH)
@@ -292,7 +296,7 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
   "rekomendasi_tindakan": string,
   "jenis_sampah_dominan": string,
   "nilai_ekonomi_estimasi": number
-}`;
+} `;
 
   try {
     const parts: GeminiPart[] = [];
@@ -325,9 +329,29 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
     });
 
     const parsed = JSON.parse(candidateText);
-    const isValid = Boolean(parsed.is_valid_sampah !== false);
+    
+    // Robust boolean coercion
+    const rawValid = parsed.is_valid_sampah;
+    const isExplicitlyTrue =
+      rawValid === true ||
+      rawValid === "true" ||
+      rawValid === 1 ||
+      rawValid === "1";
+
+    const alasanLower = String(parsed.alasan_validasi || "").toLowerCase();
+    const isExplicitlyRejected =
+      alasanLower.includes("ditolak") ||
+      alasanLower.includes("bukan sampah") ||
+      alasanLower.includes("tidak terdeteksi") ||
+      alasanLower.includes("area privat") ||
+      alasanLower.includes("kompor") ||
+      alasanLower.includes("dapur") ||
+      parsed.kategori_id === 0 ||
+      String(parsed.kategori_nama || "").toLowerCase().includes("bukan sampah");
+
+    const isValid = isExplicitlyTrue && !isExplicitlyRejected;
     const safeKategoriId = isValid ? normalizeKategoriId(parsed.kategori_id, parsed.kategori_nama) : 0;
-    const safeKategoriNama = isValid ? getKategoriNama(safeKategoriId) : "Bukan Sampah";
+    const safeKategoriNama = isValid ? getKategoriNama(safeKategoriId) : "Bukan Sampah Publik";
 
     return {
       is_valid_sampah: isValid,
@@ -335,7 +359,7 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
         parsed.alasan_validasi ||
         (isValid
           ? "Terverifikasi objek sampah nyata oleh AI Vision."
-          : "Foto tidak terdeteksi sebagai timbunan sampah atau saluran air tersumbat."),
+          : "Foto tidak terdeteksi sebagai timbunan sampah lingkungan publik."),
       kategori_id: safeKategoriId,
       kategori_nama: safeKategoriNama,
       volume_sampah_m3: Number(parsed.volume_sampah_m3) || 0,
@@ -343,9 +367,11 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
       estimasi_berat_kg: Number(parsed.estimasi_berat_kg) || 0,
       potensi_bahaya: normalizeHazardType(parsed.potensi_bahaya),
       prediksi_banjir: parsed.prediksi_banjir || "Aliran air normal.",
-      confidence_score: Number(parsed.confidence_score) || 92,
+      confidence_score: Number(parsed.confidence_score) || (isValid ? 92 : 96),
       rekomendasi_tindakan: parsed.rekomendasi_tindakan || "Pembersihan rutin dianjurkan.",
-      jenis_sampah_dominan: parsed.jenis_sampah_dominan || "Plastik & Residu Campuran",
+      jenis_sampah_dominan: isValid
+        ? (parsed.jenis_sampah_dominan || "Plastik & Residu Campuran")
+        : "Objek Non-Sampah / Area Domestik",
       nilai_ekonomi_estimasi: Number(parsed.nilai_ekonomi_estimasi) || 0,
     };
   } catch (error) {
@@ -386,6 +412,10 @@ function generateIntelligentFallback(input: AnalyzeWasteInput): AnalisisAiResult
     textContext.includes("profil") ||
     textContext.includes("bukan sampah") ||
     textContext.includes("tidak ada sampah") ||
+    textContext.includes("kompor") ||
+    textContext.includes("dapur") ||
+    textContext.includes("panci") ||
+    textContext.includes("wajan") ||
     textContext.includes("bersih");
 
   const isConfirmedWaste =
@@ -397,9 +427,9 @@ function generateIntelligentFallback(input: AnalyzeWasteInput): AnalisisAiResult
   if (isExplicitNonWaste && !isConfirmedWaste) {
     return {
       is_valid_sampah: false,
-      alasan_validasi: "Foto Ditolak oleh AI Inspector: Gambar tidak terdeteksi sebagai timbunan sampah, limbah, atau sumbatan lingkungan. Objek terdeteksi sebagai foto non-sampah.",
+      alasan_validasi: "Foto Ditolak oleh AI Inspector: Gambar terdeteksi berada di dalam area rumah tangga/dapur privat (tampak kompor/peralatan masak). TRINFO difokuskan untuk timbunan sampah lingkungan publik, TPS liar, dan saluran drainase perkotaan.",
       kategori_id: 0,
-      kategori_nama: "Bukan Sampah",
+      kategori_nama: "Bukan Sampah Publik",
       volume_sampah_m3: 0,
       persentase_sumbatan_aliran: 0,
       estimasi_berat_kg: 0,
