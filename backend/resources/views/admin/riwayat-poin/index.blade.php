@@ -111,7 +111,7 @@
     </div>
 
     <div class="d-flex justify-content-end mt-3">
-        {{ $riwayatList->links() }}
+        {{ $riwayatList->links('pagination::bootstrap-5') }}
     </div>
 </div>
 @endsection

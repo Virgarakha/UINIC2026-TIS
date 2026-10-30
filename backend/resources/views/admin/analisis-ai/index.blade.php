@@ -132,7 +132,10 @@
     @endforelse
 </div>
 
-<div class="d-flex justify-content-end mt-4">
-    {{ $analisisList->links() }}
-</div>
+<!-- Pagination Toolbar -->
+@if($analisisList->hasPages())
+    <div class="synto-card p-3 mt-4">
+        {{ $analisisList->links('pagination::bootstrap-5') }}
+    </div>
+@endif
 @endsection

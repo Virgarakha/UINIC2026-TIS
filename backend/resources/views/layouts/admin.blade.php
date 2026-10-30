@@ -255,16 +255,37 @@
             border: 1px solid #cbd5e1;
             margin-left: 6px;
         }
+        .pagination {
+            margin-bottom: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
         .page-link {
-            border-radius: 6px !important;
+            border-radius: 8px !important;
             margin: 0 2px;
-            font-size: 13px;
+            font-size: 12.5px;
+            font-weight: 600;
             color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 6px 12px;
+            transition: all 0.2s ease;
+        }
+        .page-link:hover {
+            background-color: #f1f5f9;
+            color: var(--synto-primary);
+            border-color: #cbd5e1;
         }
         .page-item.active .page-link {
-            background-color: var(--synto-primary);
-            border-color: var(--synto-primary);
-            color: #fff;
+            background-color: var(--synto-primary) !important;
+            border-color: var(--synto-primary) !important;
+            color: #fff !important;
+            box-shadow: 0 2px 6px rgba(14, 178, 154, 0.3);
+        }
+        .page-item.disabled .page-link {
+            color: #94a3b8;
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
         }
     </style>
 
