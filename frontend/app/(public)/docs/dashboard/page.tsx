@@ -439,7 +439,7 @@ export default function DeveloperDashboardPage() {
             <button
               onClick={() =>
                 handleCopy(
-                  `curl -X GET "http://localhost:8000/api/v1/laporan" \\\n  -H "Accept: application/json" \\\n  -H "X-API-KEY: ${primaryApiKey}"`,
+                  `curl -X GET "https://itbs-alkautsar.cloud/api/v1/laporan" \\\n  -H "Accept: application/json" \\\n  -H "X-API-KEY: ${primaryApiKey}"`,
                   "quickstart"
                 )
               }
@@ -461,7 +461,7 @@ export default function DeveloperDashboardPage() {
 
           <div className="p-4 rounded-2xl bg-slate-900 text-emerald-300/90 font-mono text-xs overflow-x-auto leading-relaxed border border-slate-800">
             <pre>
-{`curl -X GET "http://localhost:8000/api/v1/laporan" \\
+{`curl -X GET "https://itbs-alkautsar.cloud/api/v1/laporan" \\
   -H "Accept: application/json" \\
   -H "X-API-KEY: ${primaryApiKey}"`}
             </pre>

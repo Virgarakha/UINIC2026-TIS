@@ -345,7 +345,7 @@ export default function ProfilPage() {
         <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3 text-[#2B3752]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              {isGuest ? "Laporan Warga" : isPengepul ? "Misi Armada" : "Laporan Saya"}
+              {isGuest ? "Laporan Warga" : isPengepul ? "Misi Armada" : "Laporan Warga"}
             </span>
             <div className="h-8 w-8 rounded-xl bg-[#2B3752]/5 text-[#2B3752] flex items-center justify-center">
               {isPengepul ? <Truck className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
@@ -368,7 +368,7 @@ export default function ProfilPage() {
                 size="sm"
                 className="w-full text-xs font-bold"
               >
-                <span>{isGuest ? "Pantau Laporan Warga" : isPengepul ? "Buka Radar Jemput" : "Kelola Laporan Saya"}</span>
+                <span>{isGuest ? "Pantau Laporan Warga" : isPengepul ? "Buka Radar Jemput" : "Lihat Laporan Warga"}</span>
                 <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </Link>

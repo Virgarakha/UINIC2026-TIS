@@ -88,31 +88,7 @@ export function Navbar() {
               Peta Radar
             </Link>
             <span className="text-slate-300 text-xs">•</span>
-            {!user || isGuestUser(user) ? (
-              <Link
-                href="/laporan-saya"
-                className={cn(
-                  "px-3.5 py-1.5 text-xs font-extrabold rounded-full transition-all",
-                  pathname.startsWith("/laporan-saya")
-                    ? "bg-[#1E5345] text-white shadow-2xs"
-                    : "text-slate-600 hover:text-[#18231D]"
-                )}
-              >
-                Laporan Warga
-              </Link>
-            ) : user?.role === "warga" ? (
-              <Link
-                href="/laporan-saya"
-                className={cn(
-                  "px-3.5 py-1.5 text-xs font-extrabold rounded-full transition-all",
-                  pathname.startsWith("/laporan-saya")
-                    ? "bg-[#1E5345] text-white shadow-2xs"
-                    : "text-slate-600 hover:text-[#18231D]"
-                )}
-              >
-                Laporan Saya
-              </Link>
-            ) : (
+            {user?.role === "pengepul" ? (
               <Link
                 href="/peringatan"
                 className={cn(
@@ -123,6 +99,18 @@ export function Navbar() {
                 )}
               >
                 Peringatan Dini
+              </Link>
+            ) : (
+              <Link
+                href="/laporan-saya"
+                className={cn(
+                  "px-3.5 py-1.5 text-xs font-extrabold rounded-full transition-all",
+                  pathname.startsWith("/laporan-saya")
+                    ? "bg-[#1E5345] text-white shadow-2xs"
+                    : "text-slate-600 hover:text-[#18231D]"
+                )}
+              >
+                Laporan Warga
               </Link>
             )}
             <span className="text-slate-300 text-xs">•</span>

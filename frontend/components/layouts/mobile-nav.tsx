@@ -28,11 +28,9 @@ export function MobileNav({ onLaporClick, className }: MobileNavProps = {}) {
     { title: "Beranda", href: "/", icon: Home },
     { title: "Radar", href: "/peta", icon: Compass },
     { title: "Lapor", href: "/lapor", icon: Camera, isAction: true },
-    isGuest
-      ? { title: "Laporan Warga", href: "/laporan-saya", icon: ClipboardList }
-      : isWarga
-      ? { title: "Laporan Saya", href: "/laporan-saya", icon: ClipboardList }
-      : { title: "Siaga", href: "/peringatan", icon: ShieldAlert },
+    isPengepul
+      ? { title: "Siaga", href: "/peringatan", icon: ShieldAlert }
+      : { title: "Laporan Warga", href: "/laporan-saya", icon: ClipboardList },
     { title: "Rewards", href: "/rewards", icon: Gift },
   ];
 

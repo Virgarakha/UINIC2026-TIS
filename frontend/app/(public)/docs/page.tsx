@@ -70,11 +70,11 @@ const ENDPOINTS: EndpointDoc[] = [
       { name: "password", type: "string", required: true, desc: "Kata sandi pengguna (min 8 karakter)." },
       { name: "device_name", type: "string", required: false, desc: "Label nama token/perangkat (default: api-token)." },
     ],
-    curlExample: `curl -X POST "http://localhost:8000/api/v1/auth/login" \\
+    curlExample: `curl -X POST "https://itbs-alkautsar.cloud/api/v1/auth/login" \\
   -H "Content-Type: application/json" \\
   -H "Accept: application/json" \\
   -d '{"email":"pengepul@ecocitizen.id","password":"password"}'`,
-    jsExample: `const res = await fetch("http://localhost:8000/api/v1/auth/login", {
+    jsExample: `const res = await fetch("https://itbs-alkautsar.cloud/api/v1/auth/login", {
   method: "POST",
   headers: { "Content-Type": "application/json", "Accept": "application/json" },
   body: JSON.stringify({ email: "pengepul@ecocitizen.id", password: "password" })
@@ -83,7 +83,7 @@ const data = await res.json();
 console.log(data.data.token);`,
     pythonExample: `import requests
 
-url = "http://localhost:8000/api/v1/auth/login"
+url = "https://itbs-alkautsar.cloud/api/v1/auth/login"
 payload = {"email": "pengepul@ecocitizen.id", "password": "password"}
 headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
@@ -114,10 +114,10 @@ print(response.json()["data"]["token"])`,
       { name: "lng", type: "float", required: false, desc: "Longitude pusat radar (misal: 112.6308)." },
       { name: "radius_km", type: "float", required: false, desc: "Radius jangkauan pencarian (misal: 5.0)." },
     ],
-    curlExample: `curl -X GET "http://localhost:8000/api/v1/laporan?radius_km=5&lat=-7.9826&lng=112.6308" \\
+    curlExample: `curl -X GET "https://itbs-alkautsar.cloud/api/v1/laporan?radius_km=5&lat=-7.9826&lng=112.6308" \\
   -H "Accept: application/json" \\
   -H "X-API-KEY: trinfo_live_d8a4f912e73c84b162590ab31e84c902"`,
-    jsExample: `const res = await fetch("http://localhost:8000/api/v1/laporan?radius_km=5", {
+    jsExample: `const res = await fetch("https://itbs-alkautsar.cloud/api/v1/laporan?radius_km=5", {
   headers: {
     "Accept": "application/json",
     "X-API-KEY": "trinfo_live_d8a4f912e73c84b162590ab31e84c902"
@@ -127,7 +127,7 @@ const { data } = await res.json();
 console.log(data);`,
     pythonExample: `import requests
 
-url = "http://localhost:8000/api/v1/laporan"
+url = "https://itbs-alkautsar.cloud/api/v1/laporan"
 headers = {"X-API-KEY": "trinfo_live_d8a4f912e73c84b162590ab31e84c902"}
 params = {"radius_km": 5, "lat": -7.9826, "lng": 112.6308}
 
@@ -171,7 +171,7 @@ print(res.json()["data"])`,
       { name: "kategori_id", type: "integer", required: true, desc: "ID kategori sampah (1=Plastik, 2=Organik, dll)." },
       { name: "metadata_forensik", type: "object", required: false, desc: "Payload JSON verifikasi AI & GPS anti-fraud." },
     ],
-    curlExample: `curl -X POST "http://localhost:8000/api/v1/laporan" \\
+    curlExample: `curl -X POST "https://itbs-alkautsar.cloud/api/v1/laporan" \\
   -H "Content-Type: application/json" \\
   -H "Accept: application/json" \\
   -H "Authorization: Bearer <TOKEN>" \\
@@ -182,7 +182,7 @@ print(res.json()["data"])`,
     "deskripsi": "Sumbatan aliran sungai bawah jembatan Klojen",
     "kategori_id": 1
   }'`,
-    jsExample: `const res = await fetch("http://localhost:8000/api/v1/laporan", {
+    jsExample: `const res = await fetch("https://itbs-alkautsar.cloud/api/v1/laporan", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -200,7 +200,7 @@ const result = await res.json();
 console.log(result.data.id);`,
     pythonExample: `import requests
 
-url = "http://localhost:8000/api/v1/laporan"
+url = "https://itbs-alkautsar.cloud/api/v1/laporan"
 headers = {"Authorization": "Bearer YOUR_SANCTUM_TOKEN"}
 payload = {
     "latitude": -7.9826,
@@ -233,10 +233,10 @@ print(res.json())`,
     title: "Feed Early Warning Multi-Bahaya",
     description: "Mengambil daftar siaga dini bahaya banjir, luapan air, dan wabah sanitasi berdasarkan kalkulasi sensor hidrologi & AI.",
     requiresAuth: false,
-    curlExample: `curl -X GET "http://localhost:8000/api/v1/peringatan-dini" \\
+    curlExample: `curl -X GET "https://itbs-alkautsar.cloud/api/v1/peringatan-dini" \\
   -H "Accept: application/json" \\
   -H "X-API-KEY: trinfo_live_d8a4f912e73c84b162590ab31e84c902"`,
-    jsExample: `const res = await fetch("http://localhost:8000/api/v1/peringatan-dini", {
+    jsExample: `const res = await fetch("https://itbs-alkautsar.cloud/api/v1/peringatan-dini", {
   headers: { "X-API-KEY": "trinfo_live_d8a4f912e73c84b162590ab31e84c902" }
 });
 const alerts = await res.json();
@@ -244,7 +244,7 @@ console.log(alerts.data);`,
     pythonExample: `import requests
 
 res = requests.get(
-    "http://localhost:8000/api/v1/peringatan-dini",
+    "https://itbs-alkautsar.cloud/api/v1/peringatan-dini",
     headers={"X-API-KEY": "trinfo_live_d8a4f912e73c84b162590ab31e84c902"}
 )
 print(res.json()["data"])`,
@@ -273,13 +273,13 @@ print(res.json()["data"])`,
     title: "Posisi GPS Live Armada Truk Mitra",
     description: "Mengambil koordinat telemetri langsung armada truk pengepul yang sedang online atau dalam rute penjemputan sampah.",
     requiresAuth: false,
-    curlExample: `curl -X GET "http://localhost:8000/api/v1/penjemputan/armada-aktif" \\
+    curlExample: `curl -X GET "https://itbs-alkautsar.cloud/api/v1/penjemputan/armada-aktif" \\
   -H "Accept: application/json"`,
-    jsExample: `const res = await fetch("http://localhost:8000/api/v1/penjemputan/armada-aktif");
+    jsExample: `const res = await fetch("https://itbs-alkautsar.cloud/api/v1/penjemputan/armada-aktif");
 const armada = await res.json();
 console.log(armada.data);`,
     pythonExample: `import requests
-res = requests.get("http://localhost:8000/api/v1/penjemputan/armada-aktif")
+res = requests.get("https://itbs-alkautsar.cloud/api/v1/penjemputan/armada-aktif")
 print(res.json()["data"])`,
     responseExample: {
       success: true,
@@ -475,9 +475,9 @@ export default function DocsPage() {
               <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
                 <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Base URL API Gateway</span>
                 <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 text-emerald-400 font-mono text-xs">
-                  <span className="truncate">http://localhost:8000/api/v1</span>
+                  <span className="truncate">https://itbs-alkautsar.cloud/api/v1</span>
                   <button
-                    onClick={() => handleCopy("http://localhost:8000/api/v1", "base_url")}
+                    onClick={() => handleCopy("https://itbs-alkautsar.cloud/api/v1", "base_url")}
                     className="p-1 hover:text-white transition-colors"
                     title="Salin Base URL"
                   >

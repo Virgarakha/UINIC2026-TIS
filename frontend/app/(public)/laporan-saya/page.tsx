@@ -265,7 +265,7 @@ export default function LaporanSayaPage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-[#E8EDE5]">
             <div className="max-w-2xl">
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#18231D]">
-                {isGuest ? "Laporan Sampah & Saluran Warga" : "Laporan & Pelacakan"}
+                Laporan & Pelacakan
               </h1>
               <p className="text-sm text-[#4B5950] mt-2 leading-relaxed">
                 Transparansi pelaporan titik sumbatan saluran air, estimasi volume material daur ulang bernilai ekonomis, dan pemantauan penjemputan armada Kota Malang.

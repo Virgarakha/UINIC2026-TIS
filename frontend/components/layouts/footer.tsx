@@ -102,7 +102,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="http://localhost:8000/api/v1/users"
+                  href="https://itbs-alkautsar.cloud/api/v1/users"
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#0EB29A] transition-colors"
