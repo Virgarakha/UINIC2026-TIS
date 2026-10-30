@@ -58,7 +58,7 @@ export function getStoredToken(): string | null {
 export function setStoredSession(user: User, token?: string): void {
   if (typeof window === "undefined") return;
   try {
-    if (user.id === 1 || user.is_guest) {
+    if (user.is_guest || (user.id === 1 && user.email === "tamu@ecocitizen.id")) {
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new CustomEvent("uinic_auth_changed", { detail: null }));

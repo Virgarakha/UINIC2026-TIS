@@ -394,12 +394,12 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
         token_type: "Bearer",
       };
     }
-    if (email === "admin@uinic.com" || email.includes("admin")) {
+    if (email === "admin@gmail.com" || email.includes("admin")) {
       return {
         user: {
           id: 99,
           name: "Admin DLH",
-          email: "admin@uinic.com",
+          email: "admin@gmail.com",
           role: "admin",
           poin: 500,
           poin_reward: 500,

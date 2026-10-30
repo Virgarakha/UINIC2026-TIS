@@ -79,13 +79,21 @@
             </a>
             <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2" aria-labelledby="userMenuDropdown">
                 <li class="px-3 py-2 border-bottom">
-                    <span class="fw-bold d-block" style="font-size: 13px;">Admin UINIC</span>
-                    <small class="text-muted" style="font-size: 11px;">admin@uinic.com</small>
+                    <span class="fw-bold d-block" style="font-size: 13px;">Admin DLH</span>
+                    <small class="text-muted" style="font-size: 11px;">admin@gmail.com</small>
                 </li>
                 <li><a class="dropdown-item py-2" href="{{ route('admin.users.index') }}"><i class="bi bi-person me-2 text-primary"></i>Kelola User</a></li>
                 <li><a class="dropdown-item py-2" href="#" data-bs-toggle="modal" data-bs-target="#apiDocsModal"><i class="bi bi-journal-code me-2 text-info"></i>Dokumentasi API</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item py-2 text-primary fw-semibold" href="https://uinic-2026-tis.vercel.app/"><i class="bi bi-box-arrow-up-right me-2"></i>Halaman Beranda Frontend</a></li>
+                <li>
+                    <form action="{{ route('admin.logout') }}" method="POST" class="m-0 p-0">
+                        @csrf
+                        <button type="submit" class="dropdown-item py-2 text-danger fw-semibold">
+                            <i class="bi bi-box-arrow-right me-2"></i>Keluar (Logout)
+                        </button>
+                    </form>
+                </li>
             </ul>
         </div>
     </div>

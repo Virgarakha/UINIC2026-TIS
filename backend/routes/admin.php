@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AnalisisAiController;
 use App\Http\Controllers\Admin\ApiDocsController;
+use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HadiahController;
 use App\Http\Controllers\Admin\LaporanController;
@@ -26,6 +27,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('admin.dashboard');
 });
+
+// 0. AUTHENTICATION
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 1. MAIN
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

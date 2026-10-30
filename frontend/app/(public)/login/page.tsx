@@ -217,8 +217,11 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => handleQuickDemo("admin@uinic.com", "admin")}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-[#18231D] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                onClick={() => {
+                  window.location.href = "https://itbs-alkautsar.cloud/admin/login";
+                }}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-full border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100 text-xs font-bold text-[#1E5345] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title="Arahkan ke Portal Admin DLH Backend"
               >
                 <span>🛡️</span>
                 <span className="truncate">Admin DLH</span>

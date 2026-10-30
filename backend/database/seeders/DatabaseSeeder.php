@@ -30,10 +30,10 @@ class DatabaseSeeder extends Seeder
 
         // Seed default Administrator
         $admin = User::firstOrCreate(
-            ['email' => 'admin@uinic.com'],
+            ['email' => 'admin@gmail.com'],
             [
-                'name' => 'Admin UINIC',
-                'password' => Hash::make('password'),
+                'name' => 'Admin DLH',
+                'password' => Hash::make('12345'),
                 'role' => 'admin',
                 'email_verified_at' => now(),
             ]

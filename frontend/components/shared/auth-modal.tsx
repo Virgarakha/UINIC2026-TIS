@@ -160,11 +160,15 @@ export function AuthModal({
             </button>
             <button
               type="button"
-              onClick={() => handleQuickDemoLogin("admin@uinic.com")}
-              className="py-2 px-2 rounded-xl bg-white border border-slate-200 hover:border-[#0EB29A] text-left transition-all shadow-xs hover:shadow-sm cursor-pointer group"
+              onClick={() => {
+                onClose();
+                window.location.href = "https://itbs-alkautsar.cloud/admin/login";
+              }}
+              className="py-2 px-2 rounded-xl bg-emerald-50/50 border border-emerald-200 hover:border-[#0EB29A] text-left transition-all shadow-xs hover:shadow-sm cursor-pointer group"
+              title="Arahkan ke Portal Admin DLH Backend"
             >
-              <span className="text-[11px] font-bold text-[#2B3752] block group-hover:text-[#0EB29A] truncate">Admin DLH</span>
-              <span className="text-[9px] text-slate-500 block truncate">Dinas Lingkungan</span>
+              <span className="text-[11px] font-bold text-[#1E5345] block group-hover:text-[#0EB29A] truncate">Admin DLH</span>
+              <span className="text-[9px] text-emerald-700 font-semibold block truncate">Dinas Lingkungan</span>
             </button>
           </div>
         </div>
