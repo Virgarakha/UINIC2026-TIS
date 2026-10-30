@@ -21,6 +21,7 @@ export function MobileNav({ onLaporClick, className }: MobileNavProps = {}) {
     setUser(getStoredUser());
   }, [pathname]);
 
+  const isPengepul = user?.role === "pengepul";
   const isWarga = user?.role === "warga";
   const isGuest = isGuestUser(user);
 
