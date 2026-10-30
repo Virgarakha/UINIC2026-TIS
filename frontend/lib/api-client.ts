@@ -12,6 +12,7 @@ import {
   DeveloperSummary,
   ApiPlanTier,
 } from "@/types";
+import { normalizeHazardType } from "./gemini";
 
 export const getApiBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -269,16 +270,43 @@ export async function createLaporanApi(payload: CreateLaporanPayload): Promise<L
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // Ensure tipe_bahaya is strictly valid and <= 60 chars to comply with backend validation
+    const sanitizedPayload = {
+      ...payload,
+      tipe_bahaya: payload.tipe_bahaya ? normalizeHazardType(payload.tipe_bahaya) : null,
+      analisis_ai: payload.analisis_ai
+        ? {
+            ...payload.analisis_ai,
+            potensi_bahaya: normalizeHazardType(payload.analisis_ai.potensi_bahaya),
+          }
+        : undefined,
+    };
+
     const res = await fetch(`${getApiBaseUrl()}/laporan`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(sanitizedPayload),
     });
 
     if (!res.ok) {
       const errorBody = await res.text();
       console.error(`Backend returned HTTP ${res.status}:`, errorBody);
-      throw new Error(`Server HTTP ${res.status}: ${errorBody.slice(0, 150)}`);
+      let readableMsg = `Server HTTP ${res.status}`;
+      try {
+        const parsedErr = JSON.parse(errorBody);
+        if (parsedErr.message) {
+          readableMsg = parsedErr.message;
+        }
+        if (parsedErr.errors) {
+          const firstErrKey = Object.keys(parsedErr.errors)[0];
+          if (firstErrKey && parsedErr.errors[firstErrKey]?.[0]) {
+            readableMsg = `${readableMsg}: ${parsedErr.errors[firstErrKey][0]}`;
+          }
+        }
+      } catch {
+        readableMsg = `${readableMsg}: ${errorBody.slice(0, 150)}`;
+      }
+      throw new Error(readableMsg);
     }
 
     const json = await res.json();

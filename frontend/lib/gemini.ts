@@ -57,6 +57,67 @@ async function callGeminiWithFailover(payload: unknown): Promise<string> {
   throw new Error(`All Gemini models in failover pool failed: ${lastErrorText}`);
 }
 
+export function normalizeHazardType(val?: string | null): string {
+  if (!val) return "Aman";
+  const s = val.trim();
+  const lower = s.toLowerCase();
+
+  if (
+    lower.includes("banjir") ||
+    lower.includes("luap") ||
+    lower.includes("aliran") ||
+    lower.includes("drainase") ||
+    lower.includes("sungai") ||
+    lower.includes("parit") ||
+    lower.includes("genang")
+  ) {
+    return "Banjir & Luapan Air";
+  }
+  if (
+    lower.includes("metana") ||
+    lower.includes("kebakaran") ||
+    lower.includes("bakar") ||
+    lower.includes("api") ||
+    lower.includes("gas")
+  ) {
+    return "Bahaya Kebakaran & Gas Metana";
+  }
+  if (
+    lower.includes("wabah") ||
+    lower.includes("dbd") ||
+    lower.includes("penyakit") ||
+    lower.includes("medis") ||
+    lower.includes("b3") ||
+    lower.includes("kimia") ||
+    lower.includes("infeksi") ||
+    lower.includes("jentik")
+  ) {
+    return "Wabah Penyakit & Sanitasi";
+  }
+  if (
+    lower.includes("bau") ||
+    lower.includes("cemar") ||
+    lower.includes("toksik") ||
+    lower.includes("busuk") ||
+    lower.includes("lindi")
+  ) {
+    return "Pencemaran Bau & Kualitas Air";
+  }
+  if (
+    lower.includes("longsor") ||
+    lower.includes("tanggul") ||
+    lower.includes("runtuh") ||
+    lower.includes("erosi")
+  ) {
+    return "Longsor Timbunan / Erosi Tanggul";
+  }
+  if (lower === "aman" || lower.includes("aman") || lower.includes("tidak ada") || lower.includes("rendah")) {
+    return "Aman";
+  }
+  if (s.length <= 50) return s;
+  return s.slice(0, 47) + "...";
+}
+
 export interface AnalisisAiResult {
   is_valid_sampah: boolean;
   alasan_validasi: string;
@@ -169,7 +230,7 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
   "volume_sampah_m3": number,
   "persentase_sumbatan_aliran": number (0-100),
   "estimasi_berat_kg": number,
-  "potensi_bahaya": string,
+  "potensi_bahaya": string (Wajib singkat maks 40 karakter, pilih salah satu: 'Banjir & Luapan Air', 'Bahaya Kebakaran & Gas Metana', 'Wabah Penyakit & Sanitasi', 'Pencemaran Bau & Kualitas Air', atau 'Aman'),
   "prediksi_banjir": string,
   "confidence_score": number (0-100),
   "rekomendasi_tindakan": string,
@@ -220,7 +281,7 @@ Keluarkan hasil HANYA dalam format JSON valid berikut tanpa markdown di luar jso
       volume_sampah_m3: Number(parsed.volume_sampah_m3) || 0,
       persentase_sumbatan_aliran: Number(parsed.persentase_sumbatan_aliran) || 0,
       estimasi_berat_kg: Number(parsed.estimasi_berat_kg) || 0,
-      potensi_bahaya: parsed.potensi_bahaya || "Aman",
+      potensi_bahaya: normalizeHazardType(parsed.potensi_bahaya),
       prediksi_banjir: parsed.prediksi_banjir || "Aliran air normal.",
       confidence_score: Number(parsed.confidence_score) || 92,
       rekomendasi_tindakan: parsed.rekomendasi_tindakan || "Pembersihan rutin dianjurkan.",

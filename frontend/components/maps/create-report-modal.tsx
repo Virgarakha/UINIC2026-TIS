@@ -16,13 +16,12 @@ import {
   Check,
   CheckCircle2,
   AlertTriangle,
-  Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { getLiveWeather, WeatherData } from "@/lib/weather";
-import { analyzeWasteWithGemini, AnalisisAiResult } from "@/lib/gemini";
+import { analyzeWasteWithGemini, AnalisisAiResult, normalizeHazardType } from "@/lib/gemini";
 import { createLaporanApi } from "@/lib/api-client";
 import {
   burnForensicWatermark,
@@ -420,7 +419,7 @@ export function CreateReportModal({
         deskripsi: description || `[Kategori AI: ${aiResult.kategori_nama}] Laporan sampah terdeteksi oleh warga.`,
         kategori_id: effectiveKategoriId,
         is_resiko_banjir: aiResult.persentase_sumbatan_aliran > 50,
-        tipe_bahaya: aiResult.potensi_bahaya,
+        tipe_bahaya: normalizeHazardType(aiResult.potensi_bahaya),
         metadata_forensik: forensicMetadata,
         analisis_ai: {
           is_valid_sampah: aiResult.is_valid_sampah,
@@ -430,7 +429,7 @@ export function CreateReportModal({
           volume_sampah_m3: aiResult.volume_sampah_m3,
           persentase_sumbatan_aliran: aiResult.persentase_sumbatan_aliran,
           estimasi_berat_kg: aiResult.estimasi_berat_kg,
-          potensi_bahaya: aiResult.potensi_bahaya,
+          potensi_bahaya: normalizeHazardType(aiResult.potensi_bahaya),
           prediksi_banjir: aiResult.prediksi_banjir,
           confidence_score: aiResult.confidence_score,
           rekomendasi_tindakan: aiResult.rekomendasi_tindakan,
@@ -947,18 +946,12 @@ export function CreateReportModal({
                 </div>
               )}
 
-              {/* Weather Data & Economic Value Bar */}
+              {/* Weather Data */}
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between text-[11px] text-[#2E6E65]">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <CloudRain className="h-3.5 w-3.5 text-[#0EB29A]" />
                   <span>Sensor Hidrologi Open-Meteo Ready</span>
                 </div>
-                {aiValidation?.nilai_ekonomi_estimasi ? (
-                  <div className="flex items-center gap-1 font-bold text-emerald-800">
-                    <Coins className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Potensi Nilai: Rp {aiValidation.nilai_ekonomi_estimasi.toLocaleString("id-ID")}</span>
-                  </div>
-                ) : null}
               </div>
             </div>
 

@@ -18,7 +18,6 @@ import {
   CloudRain,
   Image as ImageIcon,
   Check,
-  Coins,
   Truck,
   Gift,
   LogIn,
@@ -32,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { getLiveWeather, WeatherData } from "@/lib/weather";
-import { analyzeWasteWithGemini, AnalisisAiResult } from "@/lib/gemini";
+import { analyzeWasteWithGemini, AnalisisAiResult, normalizeHazardType } from "@/lib/gemini";
 import { createLaporanApi } from "@/lib/api-client";
 import { burnForensicWatermark, MetadataForensik } from "@/lib/image-watermark";
 import { saveStoredUserReport, recordPointTransaction, getStoredUser, isGuestUser } from "@/lib/auth-storage";
@@ -71,7 +70,6 @@ export default function LaporCameraPage() {
   const [title, setTitle] = React.useState("");
   const [kategoriId, setKategoriId] = React.useState("1");
   const [description, setDescription] = React.useState("");
-  const [citizenActionOption, setCitizenActionOption] = React.useState<"jual" | "sedekah">("jual");
   const [isTrackerOpen, setIsTrackerOpen] = React.useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = React.useState(false);
   const touchStartYRef = React.useRef<number | null>(null);
@@ -452,10 +450,10 @@ export default function LaporCameraPage() {
         latitude: lat,
         longitude: lng,
         alamat_lokasi: title,
-        deskripsi: `${description ? description + " • " : ""}[Kategori AI: ${aiResult.kategori_nama}] [Opsi Warga: ${citizenActionOption === "jual" ? "Jual ke Mitra Pengepul (Tunai)" : isGuest ? "Penjemputan Terbuka (Mode Tamu)" : "Sedekah Lingkungan (+100 Poin)"}]`,
+        deskripsi: description ? `${description} • [Kategori AI: ${aiResult.kategori_nama}]` : `[Kategori AI: ${aiResult.kategori_nama}] Laporan titik sampah terverifikasi oleh warga.`,
         kategori_id: effectiveKategoriId,
         is_resiko_banjir: aiResult.persentase_sumbatan_aliran > 50,
-        tipe_bahaya: aiResult.potensi_bahaya,
+        tipe_bahaya: normalizeHazardType(aiResult.potensi_bahaya),
         metadata_forensik: forensicMetadata,
         analisis_ai: {
           is_valid_sampah: aiResult.is_valid_sampah,
@@ -465,7 +463,7 @@ export default function LaporCameraPage() {
           volume_sampah_m3: aiResult.volume_sampah_m3,
           persentase_sumbatan_aliran: aiResult.persentase_sumbatan_aliran,
           estimasi_berat_kg: aiResult.estimasi_berat_kg,
-          potensi_bahaya: aiResult.potensi_bahaya,
+          potensi_bahaya: normalizeHazardType(aiResult.potensi_bahaya),
           prediksi_banjir: aiResult.prediksi_banjir,
           confidence_score: aiResult.confidence_score,
           rekomendasi_tindakan: aiResult.rekomendasi_tindakan,
@@ -501,11 +499,10 @@ export default function LaporCameraPage() {
 
       // Award points to user and record in ledger (only for logged-in citizens)
       if (!isGuest) {
-        const pointReward = citizenActionOption === "sedekah" ? 100 : 50;
         recordPointTransaction(
-          pointReward,
-          citizenActionOption === "sedekah" ? "sedekah_sampah" : "lapor_sampah",
-          `Reward Laporan AI: ${newReport.alamat_lokasi} (${citizenActionOption === "sedekah" ? "Sedekah Lingkungan" : "Validasi AI"})`
+          50,
+          "lapor_sampah",
+          `Reward Laporan AI: ${newReport.alamat_lokasi} (Validasi AI)`
         );
       }
 
@@ -837,24 +834,20 @@ export default function LaporCameraPage() {
                 </p>
               </div>
 
-              {/* Point Award Badge & Citizen Choice Summary */}
+              {/* Point Award Badge & Citizen Report Summary */}
               <div className="flex flex-col gap-2 max-w-sm mx-auto">
                 {!isGuest && (
                   <div className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
                     <span>
                       🌟 Anda Memperoleh{" "}
                       <strong className="text-amber-900 font-black">
-                        +{citizenActionOption === "sedekah" ? "100" : "50"} Poin Warga
+                        +50 Poin Warga
                       </strong>
                     </span>
                   </div>
                 )}
                 <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
-                  <span>
-                    {citizenActionOption === "jual"
-                      ? "💵 Opsi: Jual ke Mitra Pengepul (Tunai)"
-                      : "📋 Laporan Terbuka Warga"}
-                  </span>
+                  <span>📋 Laporan Terbuka Warga Terverifikasi</span>
                 </div>
               </div>
 
@@ -1068,74 +1061,6 @@ export default function LaporCameraPage() {
                     </span>
                   </div>
                 )}
-              </div>
-
-              {/* 2b. Waste Value Estimator & Citizen Choice (Jual Tunai vs Sedekah Poin) */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-teal-50/60 border border-emerald-200/80 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900">
-                    <Coins className="h-4 w-4 text-emerald-600" />
-                    <span>Estimasi Potensi Nilai Daur Ulang</span>
-                  </div>
-                  <span className="text-[11px] font-black text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
-                    {aiValidation?.nilai_ekonomi_estimasi
-                      ? `Rp ${aiValidation.nilai_ekonomi_estimasi.toLocaleString("id-ID")}`
-                      : kategoriId === "2"
-                      ? "Rp 25.000 - Rp 60.000"
-                      : "Rp 15.000 - Rp 35.000"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-emerald-800 leading-snug">
-                  Pilih bagaimana Anda ingin memanfaatkan sampah ini saat armada tiba:
-                </p>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setCitizenActionOption("jual")}
-                    className={cn(
-                      "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between",
-                      citizenActionOption === "jual"
-                        ? "border-[#0EB29A] bg-white text-[#0EB29A] font-bold shadow-xs ring-2 ring-[#0EB29A]/20"
-                        : "border-emerald-200/60 bg-white/60 text-slate-600 hover:bg-white"
-                    )}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <span>💵</span>
-                      <span className="font-black text-[11px]">Jual ke Pengepul</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 leading-tight">
-                      Uang tunai saat armada menimbang
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isGuest) {
-                        setCitizenActionOption("sedekah");
-                      }
-                    }}
-                    className={cn(
-                      "p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between",
-                      isGuest
-                        ? "border-slate-200 bg-slate-100/80 text-slate-400 cursor-not-allowed opacity-80"
-                        : citizenActionOption === "sedekah"
-                        ? "border-amber-500 bg-white text-amber-700 font-bold shadow-xs ring-2 ring-amber-500/20 cursor-pointer"
-                        : "border-emerald-200/60 bg-white/60 text-slate-600 hover:bg-white cursor-pointer"
-                    )}
-                    title={isGuest ? "Masuk akun terlebih dahulu untuk mendapatkan reward poin" : "Dapatkan +100 Poin Rewards"}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <span>{isGuest ? "🔒" : "🎁"}</span>
-                      <span className="font-black text-[11px]">
-                        {isGuest ? "Sedekah (Terkunci)" : "Sedekah / Poin"}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 leading-tight">
-                      {isGuest ? "Login untuk klaim poin" : "Dapatkan +100 Poin Rewards"}
-                    </span>
-                  </button>
-                </div>
               </div>
 
               {/* 3. Description Input */}

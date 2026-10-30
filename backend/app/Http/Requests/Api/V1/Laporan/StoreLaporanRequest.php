@@ -16,6 +16,18 @@ class StoreLaporanRequest extends FormRequest
     }
 
     /**
+     * Prepare data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('tipe_bahaya') && is_string($this->tipe_bahaya)) {
+            $this->merge([
+                'tipe_bahaya' => mb_substr($this->tipe_bahaya, 0, 60),
+            ]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
