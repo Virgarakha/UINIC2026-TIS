@@ -20,10 +20,29 @@ class StoreLaporanRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $mergeData = [];
+
         if ($this->has('tipe_bahaya') && is_string($this->tipe_bahaya)) {
-            $this->merge([
-                'tipe_bahaya' => mb_substr($this->tipe_bahaya, 0, 60),
-            ]);
+            $mergeData['tipe_bahaya'] = mb_substr($this->tipe_bahaya, 0, 60);
+        }
+
+        if ($this->has('kategori_id')) {
+            $catId = (int) $this->kategori_id;
+            $categoryExists = \Illuminate\Support\Facades\DB::table('kategori_sampah')->where('id', $catId)->exists();
+            if (!$categoryExists) {
+                $fallbackId = \Illuminate\Support\Facades\DB::table('kategori_sampah')
+                    ->where('slug', 'tps-liar-lahan-kosong')
+                    ->value('id')
+                    ?? \Illuminate\Support\Facades\DB::table('kategori_sampah')->value('id');
+
+                if ($fallbackId) {
+                    $mergeData['kategori_id'] = $fallbackId;
+                }
+            }
+        }
+
+        if (!empty($mergeData)) {
+            $this->merge($mergeData);
         }
     }
 

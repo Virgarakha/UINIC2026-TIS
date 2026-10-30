@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { getLiveWeather, WeatherData } from "@/lib/weather";
-import { analyzeWasteWithGemini, AnalisisAiResult, normalizeHazardType } from "@/lib/gemini";
+import { analyzeWasteWithGemini, AnalisisAiResult, normalizeHazardType, normalizeKategoriId } from "@/lib/gemini";
 import { createLaporanApi } from "@/lib/api-client";
 import {
   burnForensicWatermark,
@@ -407,7 +407,10 @@ export function CreateReportModal({
       // 3. Persist to Backend API & PostgreSQL Database with Forensic Metadata
       setProcessStep("Menyimpan laporan & metadata forensik anti-fraud ke PostgreSQL...");
 
-      const effectiveKategoriId = aiResult.kategori_id || parseInt(kategoriId, 10) || 1;
+      const effectiveKategoriId = normalizeKategoriId(
+        aiResult.kategori_id || parseInt(kategoriId, 10),
+        aiResult.kategori_nama
+      );
 
       const createdReport = await createLaporanApi({
         foto_url:
@@ -861,12 +864,10 @@ export function CreateReportModal({
                         {aiValidation.kategori_id === 1
                           ? "🌊"
                           : aiValidation.kategori_id === 2
-                          ? "📦"
+                          ? "🛑"
                           : aiValidation.kategori_id === 3
-                          ? "🍂"
-                          : aiValidation.kategori_id === 4
-                          ? "☣️"
-                          : "🛑"}
+                          ? "🚰"
+                          : "🏛️"}
                       </span>
                       <div>
                         <div className="flex items-center gap-1.5">

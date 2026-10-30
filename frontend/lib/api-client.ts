@@ -12,7 +12,7 @@ import {
   DeveloperSummary,
   ApiPlanTier,
 } from "@/types";
-import { normalizeHazardType } from "./gemini";
+import { normalizeHazardType, normalizeKategoriId } from "./gemini";
 
 export const getApiBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -270,13 +270,20 @@ export async function createLaporanApi(payload: CreateLaporanPayload): Promise<L
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // Ensure tipe_bahaya is strictly valid and <= 60 chars to comply with backend validation
+    // Ensure tipe_bahaya is strictly valid and <= 60 chars, and kategori_id is strictly valid (1-4)
+    const effectiveCatId = normalizeKategoriId(
+      payload.kategori_id || payload.analisis_ai?.kategori_id,
+      payload.analisis_ai?.kategori_nama
+    );
+
     const sanitizedPayload = {
       ...payload,
+      kategori_id: effectiveCatId,
       tipe_bahaya: payload.tipe_bahaya ? normalizeHazardType(payload.tipe_bahaya) : null,
       analisis_ai: payload.analisis_ai
         ? {
             ...payload.analisis_ai,
+            kategori_id: effectiveCatId,
             potensi_bahaya: normalizeHazardType(payload.analisis_ai.potensi_bahaya),
           }
         : undefined,

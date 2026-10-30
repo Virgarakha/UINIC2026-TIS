@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { getLiveWeather, WeatherData } from "@/lib/weather";
-import { analyzeWasteWithGemini, AnalisisAiResult, normalizeHazardType } from "@/lib/gemini";
+import { analyzeWasteWithGemini, AnalisisAiResult, normalizeHazardType, normalizeKategoriId } from "@/lib/gemini";
 import { createLaporanApi } from "@/lib/api-client";
 import { burnForensicWatermark, MetadataForensik } from "@/lib/image-watermark";
 import { saveStoredUserReport, recordPointTransaction, getStoredUser, isGuestUser } from "@/lib/auth-storage";
@@ -440,7 +440,10 @@ export default function LaporCameraPage() {
       // 3. Persist to Backend API & PostgreSQL Database
       setProcessStep("Menyimpan laporan ke database & radar publik...");
       const effectiveUserId = isGuest ? 1 : (currentUser?.id || 1);
-      const effectiveKategoriId = aiResult.kategori_id || parseInt(kategoriId, 10) || 1;
+      const effectiveKategoriId = normalizeKategoriId(
+        aiResult.kategori_id || parseInt(kategoriId, 10),
+        aiResult.kategori_nama
+      );
 
       const newReport = await createLaporanApi({
         user_id: effectiveUserId,
@@ -986,12 +989,10 @@ export default function LaporCameraPage() {
                           {aiValidation.kategori_id === 1
                             ? "🌊"
                             : aiValidation.kategori_id === 2
-                            ? "📦"
+                            ? "🛑"
                             : aiValidation.kategori_id === 3
-                            ? "🍂"
-                            : aiValidation.kategori_id === 4
-                            ? "☣️"
-                            : "🛑"}
+                            ? "🚰"
+                            : "🏛️"}
                         </span>
                         <div>
                           <div className="flex items-center gap-1.5">
