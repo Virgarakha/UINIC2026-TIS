@@ -101,6 +101,7 @@ export default function LaporCameraPage() {
   // AI Validation & Auto Categorization State
   const [aiValidation, setAiValidation] = React.useState<AnalisisAiResult | null>(null);
   const [isValidatingPhoto, setIsValidatingPhoto] = React.useState(false);
+  const validationSeqRef = React.useRef(0);
 
   const [currentUser, setCurrentUser] = React.useState<any>(null);
   const isGuest = isGuestUser(currentUser);
@@ -108,6 +109,7 @@ export default function LaporCameraPage() {
   // Automatic AI verification and categorization function
   const validatePhotoWithAi = React.useCallback(
     async (imageBase64: string, hintFileName?: string) => {
+      const currentSeq = ++validationSeqRef.current;
       setIsValidatingPhoto(true);
       setErrorMessage(null);
       try {
@@ -125,7 +127,14 @@ export default function LaporCameraPage() {
           longitude: lng,
           weather: weather,
         });
+
+        // Drop stale out-of-order response if another photo was captured/uploaded
+        if (currentSeq !== validationSeqRef.current) {
+          return null;
+        }
+
         setAiValidation(res);
+        setErrorMessage(null); // Clear form error banner so no contradictory messages appear
 
         if (res.is_valid_sampah) {
           if (res.kategori_id) {
@@ -134,18 +143,17 @@ export default function LaporCameraPage() {
           if (!title.trim() && res.jenis_sampah_dominan) {
             setTitle(`Timbunan ${res.jenis_sampah_dominan}`);
           }
-        } else {
-          setErrorMessage(
-            res.alasan_validasi ||
-              "Foto ditolak oleh AI Inspector: Objek bukan timbunan sampah atau saluran air tersumbat."
-          );
         }
         return res;
       } catch (err) {
-        console.warn("AI validation error:", err);
+        if (currentSeq === validationSeqRef.current) {
+          console.warn("AI validation error:", err);
+        }
         return null;
       } finally {
-        setIsValidatingPhoto(false);
+        if (currentSeq === validationSeqRef.current) {
+          setIsValidatingPhoto(false);
+        }
       }
     },
     [geo.latitude, geo.longitude, title, description]
@@ -232,7 +240,7 @@ export default function LaporCameraPage() {
 
   // Capture photo from live camera
   const handleCapture = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || isValidatingPhoto) return;
     const video = videoRef.current;
     const width = video.videoWidth || 1280;
     const height = video.videoHeight || 720;
@@ -278,6 +286,8 @@ export default function LaporCameraPage() {
       setForensicMetadata(null);
     }
 
+    setErrorMessage(null);
+    setAiValidation(null);
     stopCamera();
     setIsSheetExpanded(true);
     if (capturedImg) {
@@ -292,6 +302,7 @@ export default function LaporCameraPage() {
 
   // Retake photo
   const handleRetake = () => {
+    validationSeqRef.current++; // Invalidate any running validations
     setPreviewImage(null);
     setBase64Data(null);
     setForensicMetadata(null);
@@ -305,6 +316,10 @@ export default function LaporCameraPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    validationSeqRef.current++; // Invalidate any running validations
+    setErrorMessage(null);
+    setAiValidation(null);
 
     try {
       const reader = new FileReader();
@@ -692,10 +707,10 @@ export default function LaporCameraPage() {
               <button
                 type="button"
                 onClick={handleCapture}
-                disabled={!isCameraActive}
+                disabled={!isCameraActive || isValidatingPhoto}
                 className={cn(
                   "h-20 w-20 rounded-full border-4 border-white bg-white/30 backdrop-blur-sm p-1.5 transition-transform active:scale-90 shadow-2xl cursor-pointer",
-                  !isCameraActive && "opacity-40 pointer-events-none"
+                  (!isCameraActive || isValidatingPhoto) && "opacity-40 pointer-events-none"
                 )}
                 title="Tekan untuk Ambil Foto Timbunan Sampah"
               >
