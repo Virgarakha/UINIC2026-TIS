@@ -14,7 +14,7 @@
     </a>
 
     <!-- Sidebar Navigation -->
-    <div class="flex-grow-1 overflow-y-auto py-2">
+    <div class="flex-grow-1 overflow-y-auto py-2" style="scrollbar-width: none; -ms-overflow-style: none;">
         <!-- Section: MAIN -->
         <div class="synto-menu-header">MAIN</div>
         <a href="{{ route('admin.dashboard') }}" class="synto-nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">

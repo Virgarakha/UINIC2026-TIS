@@ -60,21 +60,24 @@
             left: 0;
             bottom: 0;
             overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: none !important; /* Firefox */
+            -ms-overflow-style: none !important; /* IE/Edge */
         }
 
-        /* Custom Scrollbar for Sidebar */
-        .synto-sidebar::-webkit-scrollbar {
-            width: 5px;
+        /* Sembunyikan scrollbar sepenuhnya (tetap bisa di-scroll) */
+        .synto-sidebar,
+        .synto-sidebar *,
+        .synto-sidebar .overflow-y-auto {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
         }
-        .synto-sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .synto-sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-        .synto-sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .synto-sidebar::-webkit-scrollbar,
+        .synto-sidebar *::-webkit-scrollbar,
+        .synto-sidebar .overflow-y-auto::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
         }
 
         /* Main Wrapper layout */
