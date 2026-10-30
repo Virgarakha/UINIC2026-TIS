@@ -26,6 +26,7 @@ import {
   BellRing,
   Truck,
   User as UserIcon,
+  MapPin,
 } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Layer as LeafletLayer } from "leaflet";
 import { SearchFloatingBar } from "./search-floating-bar";
@@ -741,9 +742,69 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
   const [showHeatmap, setShowHeatmap] = React.useState<boolean>(false);
   const [showHazardZones, setShowHazardZones] = React.useState<boolean>(true);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = React.useState<boolean>(false);
+  const [showLocationPrompt, setShowLocationPrompt] = React.useState<boolean>(false);
   const [warnings, setWarnings] = React.useState<PeringatanDini[]>([]);
   const heatmapLayerRef = React.useRef<any>(null);
   const hazardLayersRef = React.useRef<any[]>([]);
+
+  // Prompt user for location permission if not yet granted (Simple & Authentic Human Feel)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed = sessionStorage.getItem("uinic_loc_prompt_dismissed");
+    if (dismissed) return;
+
+    if (navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((status) => {
+          if (status.state === "prompt") {
+            const timer = setTimeout(() => setShowLocationPrompt(true), 600);
+            return () => clearTimeout(timer);
+          } else if (status.state === "granted") {
+            setShowLocationPrompt(false);
+          }
+        })
+        .catch(() => {
+          if (!geo.accuracy) {
+            const timer = setTimeout(() => setShowLocationPrompt(true), 600);
+            return () => clearTimeout(timer);
+          }
+        });
+    } else if (!geo.accuracy) {
+      const timer = setTimeout(() => setShowLocationPrompt(true), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [geo.accuracy]);
+
+  const handleAllowLocation = () => {
+    setShowLocationPrompt(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("uinic_loc_prompt_dismissed", "true");
+    }
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          geo.refresh();
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 16, {
+              duration: 1.2,
+            });
+          }
+        },
+        (err) => {
+          console.warn("Geolocation permission error or dismissed:", err);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  };
+
+  const handleDismissLocationPrompt = () => {
+    setShowLocationPrompt(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("uinic_loc_prompt_dismissed", "true");
+    }
+  };
 
   // Load stored user session and bookmarks on mount
   React.useEffect(() => {
@@ -3473,6 +3534,44 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           handleRecenterOnTruck();
         }}
       />
+
+      {/* 14. Location Permission Prompt (Simple, clean, authentic, human feel) */}
+      {showLocationPrompt && (
+        <div className="fixed inset-0 z-[1200] flex items-end sm:items-center justify-center p-4 bg-slate-900/35 transition-opacity">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="h-10 w-10 rounded-xl bg-emerald-50 text-[#0EB29A] flex items-center justify-center flex-shrink-0">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div className="space-y-1 pr-1">
+                <h3 className="text-sm font-bold text-[#18231D]">
+                  Izinkan Akses Lokasi
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Aktifkan GPS agar radar dapat menampilkan titik sampah dan peringatan banjir di sekitar posisi Anda secara akurat.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-4 pt-2">
+              <button
+                type="button"
+                onClick={handleDismissLocationPrompt}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors rounded-xl cursor-pointer"
+              >
+                Nanti Saja
+              </button>
+              <button
+                type="button"
+                onClick={handleAllowLocation}
+                className="px-4 py-2 text-xs font-bold text-white bg-[#0EB29A] hover:bg-[#0c9d88] transition-colors rounded-xl shadow-xs cursor-pointer"
+              >
+                Aktifkan Lokasi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
