@@ -14,6 +14,13 @@
 
     <!-- Right: Quick Action Icons & Profile -->
     <div class="d-flex align-items-center gap-2">
+        <!-- Direct Link to Frontend Home -->
+        <a href="https://uinic-2026-tis.vercel.app/" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 rounded-pill px-3 py-1 fw-bold text-decoration-none" style="font-size: 11.5px; border-color: #0EB29A; color: #0EB29A;" title="Buka Halaman Beranda Frontend">
+            <i class="bi bi-globe2"></i>
+            <span class="d-none d-sm-inline">Portal Warga</span>
+            <i class="bi bi-box-arrow-up-right small opacity-75"></i>
+        </a>
+
         <!-- API Version Badge -->
         <a href="{{ route('admin.api-docs.index') }}" class="text-decoration-none" title="Dokumentasi & Paket API">
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 d-none d-lg-inline-block fw-semibold" style="font-size: 11px;">
@@ -78,7 +85,7 @@
                 <li><a class="dropdown-item py-2" href="{{ route('admin.users.index') }}"><i class="bi bi-person me-2 text-primary"></i>Kelola User</a></li>
                 <li><a class="dropdown-item py-2" href="#" data-bs-toggle="modal" data-bs-target="#apiDocsModal"><i class="bi bi-journal-code me-2 text-info"></i>Dokumentasi API</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item py-2 text-danger" href="{{ route('admin.dashboard') }}"><i class="bi bi-box-arrow-right me-2"></i>Dashboard</a></li>
+                <li><a class="dropdown-item py-2 text-primary fw-semibold" href="https://uinic-2026-tis.vercel.app/"><i class="bi bi-box-arrow-up-right me-2"></i>Halaman Beranda Frontend</a></li>
             </ul>
         </div>
     </div>

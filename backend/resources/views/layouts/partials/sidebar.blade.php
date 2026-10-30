@@ -1,11 +1,14 @@
 <aside class="synto-sidebar d-flex flex-column flex-shrink-0">
-    <!-- Brand / Logo (TRINFO) -->
-    <a href="{{ route('admin.dashboard') }}" class="synto-brand text-decoration-none">
+    <!-- Brand / Logo (TRINFO) -> Links to Frontend Home -->
+    <a href="https://uinic-2026-tis.vercel.app/" class="synto-brand text-decoration-none" title="Kunjungi Halaman Beranda Frontend">
         <div class="synto-brand-logo p-1 d-flex align-items-center justify-content-center" style="background: rgba(14, 178, 154, 0.15); border-radius: 10px;">
             <img src="{{ asset('images/logo.png') }}" alt="TRINFO" style="height: 28px; width: auto; object-fit: contain;">
         </div>
         <div class="d-flex flex-column">
-            <span class="fs-5 fw-bold text-white tracking-wide lh-1">TRINFO</span>
+            <div class="d-flex align-items-center gap-1.5">
+                <span class="fs-5 fw-bold text-white tracking-wide lh-1">TRINFO</span>
+                <i class="bi bi-box-arrow-up-right text-secondary" style="font-size: 10px;"></i>
+            </div>
             <small class="text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">TRASH INFORMATION SYSTEM</small>
         </div>
     </a>
@@ -77,7 +80,12 @@
         </a>
 
         <!-- Section: API & INTEGRATION -->
-        <div class="synto-menu-header">API & INTEGRATION</div>
+        <div class="synto-menu-header">PORTAL & INTEGRASI</div>
+        <a href="https://uinic-2026-tis.vercel.app/" class="synto-nav-link text-white fw-semibold mb-1" style="background: rgba(14, 178, 154, 0.15); border: 1px solid rgba(14, 178, 154, 0.3);">
+            <i class="bi bi-globe2 text-primary"></i>
+            <span>Portal Warga (Web)</span>
+            <i class="bi bi-box-arrow-up-right ms-auto fs-6 opacity-75 text-primary"></i>
+        </a>
         <a href="{{ route('admin.api-docs.index') }}" class="synto-nav-link {{ request()->routeIs('admin.api-docs.*') ? 'active' : '' }}">
             <i class="bi bi-file-earmark-code-fill"></i>
             <span>Dokumentasi & Paket API</span>
