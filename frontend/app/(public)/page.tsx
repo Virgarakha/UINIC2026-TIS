@@ -32,6 +32,55 @@ import { User, LaporanSampah } from "@/types";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { getStoredUser, recordPointTransaction } from "@/lib/auth-storage";
+import { motion, type Variants } from "framer-motion";
+
+// Framer motion variants for smooth scroll-in animations
+const sectionVariants: Variants = {
+  hidden: { opacity: 0, y: 32 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.7,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const staggerContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.08,
+    },
+  },
+};
+
+const cardFadeUpVariants: Variants = {
+  hidden: { opacity: 0, y: 28 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.55,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const fadeInUp: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export default function LandingHomePage() {
   const [mitraList, setMitraList] = React.useState<User[]>([]);
@@ -243,14 +292,20 @@ export default function LandingHomePage() {
       {/* ========================================================
           1. HERO SECTION (Warm, Punchy, Beautifully Balanced)
       ======================================================== */}
-      <section className="relative overflow-hidden pt-8 pb-14 md:pt-14 md:pb-20">
+      <motion.section
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainerVariants}
+        className="relative overflow-hidden pt-8 pb-14 md:pt-14 md:pb-20"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
             
             {/* Left Column: Bold Typography & Actions */}
-            <div className="lg:col-span-7 flex flex-col justify-center">
-              
-
+            <motion.div
+              variants={fadeInUp}
+              className="lg:col-span-7 flex flex-col justify-center"
+            >
               {/* Main Headline with High Character */}
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[62px] font-extrabold tracking-tight text-[#18231D] leading-[1.12] mb-6">
                 Wujudkan kota masa depan bersih, bebas sampah dan{" "}
@@ -286,33 +341,53 @@ export default function LandingHomePage() {
               </div>
 
               {/* Live Real-time Stat Pills */}
-              <div className="grid grid-cols-3 gap-3 max-w-xl pt-6 border-t border-[#DFE7DD]">
-                <div className="p-3 rounded-xl bg-white border border-[#DFE7DD]">
+              <motion.div
+                variants={staggerContainerVariants}
+                className="grid grid-cols-3 gap-3 max-w-xl pt-6 border-t border-[#DFE7DD]"
+              >
+                <motion.div
+                  variants={cardFadeUpVariants}
+                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  className="p-3 rounded-xl bg-white border border-[#DFE7DD] hover:border-[#1E5345]/30 hover:shadow-2xs transition-all"
+                >
                   <div className="text-xl sm:text-2xl font-semibold text-[#18231D] tabular-nums">
                     {totalReportsCount}
                   </div>
                   <div className="text-[11px] font-semibold text-[#63756A]">Titik Laporan</div>
-                </div>
+                </motion.div>
 
-                <div className="p-3 rounded-xl bg-white border border-[#DFE7DD]">
+                <motion.div
+                  variants={cardFadeUpVariants}
+                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  className="p-3 rounded-xl bg-white border border-[#DFE7DD] hover:border-[#1E5345]/30 hover:shadow-2xs transition-all"
+                >
                   <div className="text-xl sm:text-2xl font-semibold text-[#1E5345] tabular-nums">
                     {totalCleanedCount}
                   </div>
                   <div className="text-[11px] font-semibold text-[#63756A]">Tuntas Bersih</div>
-                </div>
+                </motion.div>
 
-                <div className="p-3 rounded-xl bg-white border border-[#DFE7DD]">
+                <motion.div
+                  variants={cardFadeUpVariants}
+                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  className="p-3 rounded-xl bg-white border border-[#DFE7DD] hover:border-[#1E5345]/30 hover:shadow-2xs transition-all"
+                >
                   <div className="text-xl sm:text-2xl font-semibold text-[#18231D] tabular-nums">
                     ~{totalVolumeM3.toFixed(1)} <span className="text-xs font-medium text-[#63756A]">m³</span>
                   </div>
                   <div className="text-[11px] font-semibold text-[#63756A]">Material Terpilah</div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
 
-            </div>
+            </motion.div>
 
             {/* Right Column: Custom Visual Artwork with Live Overlay Tags */}
-            <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+              className="lg:col-span-5 flex justify-center lg:justify-end relative"
+            >
               <img
                 src="/images/vektor.png"
                 alt="Ilustrasi Ekosistem TRINFO"
@@ -320,7 +395,15 @@ export default function LandingHomePage() {
               />
 
               {/* Floating Verified Overlay Pill */}
-              <div className="absolute top-6 left-2 sm:-left-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3 animate-in fade-in">
+              <motion.div
+                initial={{ opacity: 0, x: -16, y: 8 }}
+                animate={{ opacity: 1, x: 0, y: [0, -6, 0] }}
+                transition={{
+                  opacity: { duration: 0.6, delay: 0.35 },
+                  y: { repeat: Infinity, duration: 4.5, ease: "easeInOut" },
+                }}
+                className="absolute top-6 left-2 sm:-left-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3"
+              >
                 <div className="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center text-[#1E5345] font-semibold">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
@@ -328,10 +411,18 @@ export default function LandingHomePage() {
                   <div className="text-xs font-semibold text-[#18231D]">Mitra Resmi DLH</div>
                   <div className="text-[10px] font-semibold text-slate-500">Armada Siaga Wilayah</div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Floating Reward Overlay Pill */}
-              <div className="absolute bottom-6 right-2 sm:-right-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3 animate-in fade-in">
+              <motion.div
+                initial={{ opacity: 0, x: 16, y: 8 }}
+                animate={{ opacity: 1, x: 0, y: [0, 6, 0] }}
+                transition={{
+                  opacity: { duration: 0.6, delay: 0.45 },
+                  y: { repeat: Infinity, duration: 5, ease: "easeInOut" },
+                }}
+                className="absolute bottom-6 right-2 sm:-right-4 bg-white/95 backdrop-blur-md border border-[#DFE7DD] px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-3"
+              >
                 <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
                   <Coins className="h-5 w-5" />
                 </div>
@@ -339,20 +430,26 @@ export default function LandingHomePage() {
                   <div className="text-xs font-semibold text-[#18231D]">+15 Poin Tiap Ulasan</div>
                   <div className="text-[10px] font-semibold text-slate-500">Klaim Sembako & Bibit</div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* ========================================================
           2. DUA FOKUS UTAMA PENANGANAN (Visual Experience Cards)
       ======================================================== */}
-      <section className="py-12 sm:py-16">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-60px" }}
+        variants={sectionVariants}
+        className="py-12 sm:py-16"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="mb-10 max-w-3xl">
+          <motion.div variants={fadeInUp} className="mb-10 max-w-3xl">
             <span className="text-xs font-semibold tracking-widest text-[#2E6E65] uppercase block mb-2">
               FOKUS PRIORITAS INTERVENSI
             </span>
@@ -362,12 +459,16 @@ export default function LandingHomePage() {
             <p className="text-sm sm:text-base text-[#4B5950] mt-3 font-medium leading-relaxed">
               Integrasi sistem tanggap darurat hidrologi pencegah banjir luapan dan aktivasi logistik sirkular berinsentif untuk Kota Malang.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <motion.div variants={staggerContainerVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
             {/* Card 1: Sumbatan Saluran Air & Banjir (Corporate Navy #2B3752 + Emerald Teal #0EB29A) */}
-            <div className="rounded-[32px] bg-[#2B3752] text-white p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden shadow-xl border border-[#0EB29A]/30 group">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -6, transition: { duration: 0.25 } }}
+              className="rounded-[32px] bg-[#2B3752] text-white p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden shadow-xl border border-[#0EB29A]/30 group"
+            >
               {/* Corner Ambient Glow with Primary Teal */}
               <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-bl from-[#0EB29A]/20 via-[#2E6E65]/15 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
 
@@ -378,8 +479,6 @@ export default function LandingHomePage() {
                     <AlertTriangle className="h-3.5 w-3.5 text-[#0EB29A] shrink-0" />
                     <span>01 • MITIGASI LUAPAN AIR</span>
                   </div>
-
-                 
                 </div>
 
                 <h3 className="text-2xl sm:text-3xl font-semibold text-white leading-snug mb-3">
@@ -441,22 +540,24 @@ export default function LandingHomePage() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-            </div>
+            </motion.div>
 
             {/* Card 2: Penyaluran Material Sampah Pilah (Deep Forest Green #2E6E65 + Emerald Teal #0EB29A) */}
-            <div className="rounded-[32px] bg-[#F4F9F8] text-[#2B3752] p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden shadow-xl border-2 border-[#0EB29A]/30 group">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -6, transition: { duration: 0.25 } }}
+              className="rounded-[32px] bg-[#F4F9F8] text-[#2B3752] p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden shadow-xl border-2 border-[#0EB29A]/30 group"
+            >
               {/* Corner Ambient Glow */}
               <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-bl from-[#0EB29A]/15 via-[#2E6E65]/10 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
 
               <div className="relative z-10">
                 {/* Header Pills */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                  <div className="inline-flex items-center  gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold ">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold ">
                     <Truck className="h-3.5 w-3.5 text-[#2E6E65] shrink-0" />
                     <span>02 • SIRKULASI EKONOMI</span>
                   </div>
-
-               
                 </div>
 
                 <h3 className="text-2xl sm:text-3xl font-semibold text-[#2B3752] leading-snug mb-3">
@@ -518,37 +619,49 @@ export default function LandingHomePage() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-            </div>
+            </motion.div>
 
-          </div>
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* ========================================================
           3. STATISTIK & METRIK DAMPAK LINGKUNGAN KOTA MALANG
       ======================================================== */}
-      <section className="py-16 sm:py-20 border-t border-[#E8EDE5] bg-white relative overflow-hidden">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-60px" }}
+        variants={sectionVariants}
+        className="py-16 sm:py-20 border-t border-[#E8EDE5] bg-white relative overflow-hidden"
+      >
         {/* Subtle background glow */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-50/50 rounded-full blur-3xl pointer-events-none -z-10" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* Header */}
-          <div className="text-center max-w-3xl mx-auto mb-14">
-           
+          <motion.div variants={fadeInUp} className="text-center max-w-3xl mx-auto mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold text-[#18231D] tracking-tight leading-tight">
               Data Lapangan &amp; Dampak Nyata di Kota Malang
             </h2>
             <p className="text-sm sm:text-base text-[#4B5950] mt-3 leading-relaxed">
               Transparansi volume timbulan sampah harian, mitigasi sumbatan saluran air perkotaan, dan efisiensi sirkulasi daur ulang untuk mengurangi beban TPA Supit Urang.
             </p>
-          </div>
+          </motion.div>
 
           {/* 4 Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <motion.div
+            variants={staggerContainerVariants}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+          >
 
             {/* Metric 1: Timbulan Sampah Supit Urang */}
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -5 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all"
+            >
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
@@ -574,10 +687,14 @@ export default function LandingHomePage() {
                   <TrendingDown className="h-3.5 w-3.5 text-[#10B981]" /> Target -30%
                 </span>
               </div>
-            </div>
+            </motion.div>
 
             {/* Metric 2: Titik Pantau Drainase Kritis */}
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -5 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all"
+            >
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
@@ -603,10 +720,14 @@ export default function LandingHomePage() {
                   <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" /> Pantau Real-time
                 </span>
               </div>
-            </div>
+            </motion.div>
 
             {/* Metric 3: Diversi Daur Ulang Anorganik */}
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -5 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all"
+            >
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
@@ -632,10 +753,14 @@ export default function LandingHomePage() {
                   <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" /> Terserap Sirkular
                 </span>
               </div>
-            </div>
+            </motion.div>
 
             {/* Metric 4: Respons Tanggap Cepat */}
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -5 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE7DD] p-6 sm:p-7 flex flex-col justify-between hover:border-[#1E5345]/40 hover:shadow-md transition-all"
+            >
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="h-10 w-10 rounded-xl bg-[#1E5345]/10 border border-[#1E5345]/15 text-[#1E5345] flex items-center justify-center shrink-0">
@@ -661,22 +786,26 @@ export default function LandingHomePage() {
                   <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" /> Disposisi Cepat
                 </span>
               </div>
-            </div>
+            </motion.div>
 
-          </div>
-
-       
+          </motion.div>
 
         </div>
-      </section>
+      </motion.section>
 
       {/* ========================================================
           4. MITRA ARMADA PENGEPUL TERVERIFIKASI
       ======================================================== */}
-      <section className="py-16 bg-[#F4F6F1] border-y border-[#E2E8DE]">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-60px" }}
+        variants={sectionVariants}
+        className="py-16 bg-[#F4F6F1] border-y border-[#E2E8DE]"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+          <motion.div variants={fadeInUp} className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
             <div>
               <h2 className="text-3xl sm:text-4xl font-semibold text-[#18231D] tracking-tight">
                 Mitra Pengepul Terverifikasi & Armada Siaga
@@ -693,13 +822,18 @@ export default function LandingHomePage() {
               <span>Daftarkan Armada Anda</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </div>
+          </motion.div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <motion.div
+            variants={staggerContainerVariants}
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          >
             {mitraList.map((mitra) => (
-              <div
+              <motion.div
                 key={mitra.id}
+                variants={cardFadeUpVariants}
+                whileHover={{ y: -6 }}
                 className="rounded-3xl bg-white border border-[#DFE6DB] p-6 sm:p-7 flex flex-col justify-between shadow-2xs hover:shadow-md hover:border-[#10B981] transition-all"
               >
                 <div>
@@ -797,9 +931,9 @@ export default function LandingHomePage() {
                   </a>
                 </div>
 
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
         </div>
 
@@ -912,15 +1046,21 @@ export default function LandingHomePage() {
             )}
           </div>
         </Modal>
-      </section>
+      </motion.section>
 
       {/* ========================================================
           5. 4-LANGKAH ALUR KERJA SISTEM (WORKFLOW)
       ======================================================== */}
-      <section className="py-16 bg-white">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-60px" }}
+        variants={sectionVariants}
+        className="py-16 bg-white"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <motion.div variants={fadeInUp} className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-semibold tracking-widest text-[#1E5345] uppercase block mb-2">
               ALUR KERJA RESPON CEPAT
             </span>
@@ -930,11 +1070,18 @@ export default function LandingHomePage() {
             <p className="text-sm text-[#4B5950] mt-2">
               Empat tahapan otomatisasi tanggap darurat sampah perkotaan yang transparan dan terukur.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <motion.div
+            variants={staggerContainerVariants}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
             
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -4 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative"
+            >
               <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">01</span>
               <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
                 Foto & Titik Koordinat
@@ -942,9 +1089,13 @@ export default function LandingHomePage() {
               <p className="text-xs text-[#526157] leading-relaxed">
                 Warga memotret tumpukan sampah dengan kamera anti-fraud bersertifikasi GPS lokasi dan penanda waktu otomatis.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -4 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative"
+            >
               <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">02</span>
             
               <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
@@ -953,9 +1104,13 @@ export default function LandingHomePage() {
               <p className="text-xs text-[#526157] leading-relaxed">
                 Gemini Vision mengestimasi kubikasi volume (m³), jenis sampah dominan, dan tingkat risiko sumbatan saluran air.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -4 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative"
+            >
               <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">03</span>
              
               <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
@@ -964,9 +1119,13 @@ export default function LandingHomePage() {
               <p className="text-xs text-[#526157] leading-relaxed">
                 Notifikasi otomatis diteruskan ke mitra pengepul terdekat untuk penjemputan sampah sesuai kapasitas kendaraan.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative">
+            <motion.div
+              variants={cardFadeUpVariants}
+              whileHover={{ y: -4 }}
+              className="rounded-3xl bg-[#FAFBF9] border border-[#DFE6DB] p-6 shadow-2xs relative"
+            >
               <span className="text-3xl font-semibold text-[#10B981]/25 block mb-2">04</span>
              
               <h4 className="font-semibold text-[#18231D] text-base mb-1.5">
@@ -975,19 +1134,30 @@ export default function LandingHomePage() {
               <p className="text-xs text-[#526157] leading-relaxed">
                 Warga pelapor menerima poin reward yang dapat ditukarkan voucher sembako, bibit pohon, atau donasi sungai bersih.
               </p>
-            </div>
+            </motion.div>
 
-          </div>
+          </motion.div>
 
         </div>
-      </section>
+      </motion.section>
 
       {/* ========================================================
           6. BOTTOM CALL TO ACTION BANNER (Warm Forest Dark)
       ======================================================== */}
-      <section className="py-12 pb-20">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-60px" }}
+        variants={sectionVariants}
+        className="py-12 pb-20"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[32px] bg-[#142820] text-white p-8 sm:p-14 text-center relative overflow-hidden shadow-xl">
+          <motion.div
+            variants={cardFadeUpVariants}
+            whileHover={{ scale: 1.008 }}
+            transition={{ duration: 0.3 }}
+            className="rounded-[32px] bg-[#142820] text-white p-8 sm:p-14 text-center relative overflow-hidden shadow-xl"
+          >
 
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold max-w-3xl mx-auto leading-tight mb-4">
               Mulai Laporkan Titik Sampah atau Gabung Jadi Mitra Armada Resmi
@@ -1013,9 +1183,9 @@ export default function LandingHomePage() {
               </Link>
             </div>
 
-          </div>
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
     </div>
   );
