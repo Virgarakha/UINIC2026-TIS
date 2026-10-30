@@ -22,7 +22,7 @@ export function getStoredUser(): User | null {
     const raw = localStorage.getItem(USER_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || parsed.id === 1 || parsed.is_guest) return null;
+    if (!parsed || parsed.is_guest || (parsed.id === 1 && parsed.email === "tamu@ecocitizen.id")) return null;
     return parsed;
   } catch {
     return null;
@@ -31,7 +31,7 @@ export function getStoredUser(): User | null {
 
 export function isGuestUser(user?: User | null): boolean {
   if (!user) return true;
-  return user.id === 1 || Boolean(user.is_guest);
+  return Boolean(user.is_guest || (user.id === 1 && user.email === "tamu@ecocitizen.id"));
 }
 
 export function isUserAuthenticated(): boolean {
@@ -40,7 +40,7 @@ export function isUserAuthenticated(): boolean {
     const raw = localStorage.getItem(USER_KEY);
     if (!raw) return false;
     const user = JSON.parse(raw);
-    return Boolean(user && user.id !== 1 && !user.is_guest);
+    return Boolean(user && !user.is_guest && !(user.id === 1 && user.email === "tamu@ecocitizen.id"));
   } catch {
     return false;
   }

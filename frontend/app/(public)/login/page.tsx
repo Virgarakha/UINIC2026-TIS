@@ -196,23 +196,32 @@ export default function LoginPage() {
             </div>
 
             {/* 1-Click Demo Buttons in Clean Pill Style */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-3 gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => handleQuickDemo("pengepul@ecocitizen.id", "pengepul")}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-[#18231D] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                onClick={() => handleQuickDemo("budi@ecocitizen.id", "warga")}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-[#18231D] shadow-2xs transition-all active:scale-95 cursor-pointer"
               >
-                <span>🚛</span>
-                <span className="truncate">Mitra Pengepul</span>
+                <span>👤</span>
+                <span className="truncate">Warga</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickDemo("budi@ecocitizen.id", "warga")}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-[#18231D] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                onClick={() => handleQuickDemo("pengepul@ecocitizen.id", "pengepul")}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-[#18231D] shadow-2xs transition-all active:scale-95 cursor-pointer"
               >
-                <span>👤</span>
-                <span className="truncate">Warga Pelapor</span>
+                <span>🚛</span>
+                <span className="truncate">Pengepul</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickDemo("admin@uinic.com", "admin")}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-[#18231D] shadow-2xs transition-all active:scale-95 cursor-pointer"
+              >
+                <span>🛡️</span>
+                <span className="truncate">Admin DLH</span>
               </button>
             </div>
 

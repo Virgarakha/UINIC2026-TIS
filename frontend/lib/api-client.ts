@@ -397,8 +397,8 @@ export async function loginApi(email: string, password: string): Promise<LoginRe
     if (email === "admin@uinic.com" || email.includes("admin")) {
       return {
         user: {
-          id: 1,
-          name: "Admin UINIC",
+          id: 99,
+          name: "Admin DLH",
           email: "admin@uinic.com",
           role: "admin",
           poin: 500,

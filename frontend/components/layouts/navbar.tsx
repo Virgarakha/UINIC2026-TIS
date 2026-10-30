@@ -175,6 +175,7 @@ export function Navbar() {
                 </div>
                 <span className="truncate max-w-[100px]">{user.name.split(" ")[0]}</span>
                 {user.role === "pengepul" && <Truck className="h-3 w-3 text-emerald-300" />}
+                {user.role === "admin" && <ShieldCheck className="h-3 w-3 text-emerald-300" />}
               </Link>
             ) : (
               <Link
@@ -185,17 +186,19 @@ export function Navbar() {
               </Link>
             )}
 
-            {/* Admin Link */}
-            <a
-              href={siteConfig.links.backendAdmin}
-              target="_blank"
-              rel="noreferrer"
-              title="Akses panel admin"
-              className="hidden lg:inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#18231D] border border-[#DFE7DD] rounded-xl px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
-            >
-              <span>Admin</span>
-              <ExternalLink className="h-3 w-3 opacity-60" />
-            </a>
+            {/* Admin Link - ONLY VISIBLE IF LOGGED IN USER IS ADMIN */}
+            {user && !isGuestUser(user) && user.role === "admin" && (
+              <a
+                href={siteConfig.links.backendAdmin}
+                target="_blank"
+                rel="noreferrer"
+                title="Akses panel admin"
+                className="hidden lg:inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-[#18231D] border border-[#DFE7DD] rounded-xl px-2.5 py-1.5 hover:bg-slate-50 transition-colors shadow-2xs"
+              >
+                <span>Admin</span>
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </a>
+            )}
 
             {/* Mobile Hamburger Toggle */}
             <button
@@ -268,6 +271,22 @@ export function Navbar() {
                   <span className="text-[10px] text-slate-500 uppercase">{user.role} • {user.poin || user.poin_reward || 0} Poin</span>
                 </div>
               </Link>
+            )}
+
+            {user && !isGuestUser(user) && user.role === "admin" && (
+              <a
+                href={siteConfig.links.backendAdmin}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-[#0EB29A]" />
+                  Akses Admin Command Center
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+              </a>
             )}
 
             <Link href="/lapor" onClick={() => setIsMobileMenuOpen(false)}>

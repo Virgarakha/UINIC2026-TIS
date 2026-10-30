@@ -35,12 +35,14 @@ export function AuthModal({
 
     try {
       const res = await loginApi(email, password);
+      const isAdmin = email.includes("admin") || res.user.role === "admin";
+      const isPengepul = email.includes("pengepul") || res.user.role === "pengepul";
       const user: User = {
-        id: res.user.id,
-        name: res.user.name,
-        email: res.user.email,
-        role: (res.user.role as any) || "warga",
-        poin: res.user.poin_reward || 240,
+        id: res.user.id || (isAdmin ? 99 : 2),
+        name: res.user.name || (isAdmin ? "Admin DLH" : "User"),
+        email: res.user.email || email,
+        role: isAdmin ? "admin" : isPengepul ? "pengepul" : "warga",
+        poin: res.user.poin_reward || (isAdmin ? 500 : 240),
         phone: res.user.no_telepon,
       };
 
@@ -61,12 +63,14 @@ export function AuthModal({
     setErrorMessage(null);
     loginApi(demoEmail, "password")
       .then((res) => {
+        const isAdmin = demoEmail.includes("admin") || res.user.role === "admin";
+        const isPengepul = demoEmail.includes("pengepul") || res.user.role === "pengepul";
         const user: User = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          role: (res.user.role as any) || "warga",
-          poin: res.user.poin_reward || 240,
+          id: res.user.id || (isAdmin ? 99 : 2),
+          name: res.user.name || (isAdmin ? "Admin DLH" : "User"),
+          email: res.user.email || demoEmail,
+          role: isAdmin ? "admin" : isPengepul ? "pengepul" : "warga",
+          poin: res.user.poin_reward || (isAdmin ? 500 : 240),
           phone: res.user.no_telepon,
         };
         setStoredSession(user, res.token);
