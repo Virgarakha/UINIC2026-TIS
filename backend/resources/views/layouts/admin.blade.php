@@ -45,13 +45,75 @@
             overflow-x: hidden;
         }
 
-        /* Sidebar Styling (Synto Theme) */
+        /* Sidebar Styling (Synto Theme) - FIXED */
         .synto-sidebar {
             width: 260px;
-            min-height: 100vh;
+            height: 100vh;
             background-color: var(--synto-sidebar-bg);
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1040;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+        }
+
+        /* Custom Scrollbar for Sidebar */
+        .synto-sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .synto-sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .synto-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .synto-sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Main Wrapper layout */
+        .synto-main-wrapper {
+            margin-left: 260px;
+            width: calc(100% - 260px);
+            min-width: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (max-width: 767.98px) {
+            .synto-sidebar {
+                left: -260px;
+                box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
+            }
+            .synto-sidebar.show {
+                left: 0;
+            }
+            .synto-main-wrapper {
+                margin-left: 0;
+                width: 100%;
+            }
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1035;
+            }
+            .sidebar-backdrop.show {
+                display: block;
+            }
         }
         .synto-brand {
             padding: 1.25rem 1.5rem;
@@ -292,12 +354,13 @@
     @stack('styles')
 </head>
 <body class="d-flex flex-column min-vh-100">
-    <div class="d-flex flex-grow-1">
+    <div class="d-flex flex-grow-1 position-relative">
         <!-- Synto Sidebar -->
         @include('layouts.partials.sidebar')
+        <div class="sidebar-backdrop d-md-none" id="sidebarBackdrop"></div>
 
         <!-- Main Wrapper -->
-        <div class="d-flex flex-column flex-grow-1 w-100" style="min-width: 0;">
+        <div class="synto-main-wrapper d-flex flex-column flex-grow-1" style="min-width: 0;">
             <!-- Synto Topbar -->
             @include('layouts.partials.navbar')
 
@@ -449,6 +512,29 @@
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
+
+        // Mobile Sidebar Toggle Handling
+        const sidebar = document.querySelector('.synto-sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        const toggleBtns = document.querySelectorAll('[data-bs-target=".synto-sidebar"], [data-bs-toggle="collapse"][data-bs-target=".synto-sidebar"]');
+
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (sidebar) {
+                    sidebar.classList.toggle('show');
+                    if (backdrop) backdrop.classList.toggle('show', sidebar.classList.contains('show'));
+                }
+            });
+        });
+
+        if (backdrop) {
+            backdrop.addEventListener('click', function() {
+                if (sidebar) sidebar.classList.remove('show');
+                backdrop.classList.remove('show');
+            });
+        }
     </script>
 
     @stack('scripts')
