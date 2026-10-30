@@ -1153,29 +1153,36 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
         }
       });
 
-      // Render dynamic circles and pill badges matching real active waste
+      // Render dynamic circles and clean editorial GIS badges matching real active waste
       activeHazardTargets.forEach((t) => {
         const isAwas = t.level === "AWAS";
         const isWaspada = t.level === "WASPADA";
-        const color = isAwas ? "#ef4444" : isWaspada ? "#f97316" : "#f59e0b";
 
-        // Circle 1: Outer Buffer Perimeter (Animated dashed border)
+        // Professional GIS hazard color tokens (editorial & non-slop)
+        const strokeColor = isAwas ? "#E11D48" : isWaspada ? "#EA580C" : "#D97706";
+        const fillColor = isAwas ? "#F43F5E" : isWaspada ? "#FB923C" : "#F59E0B";
+        const cardBorder = isAwas ? "border-rose-200" : isWaspada ? "border-orange-200" : "border-amber-200";
+        const badgeBg = isAwas ? "bg-rose-50" : isWaspada ? "bg-orange-50" : "bg-amber-50";
+        const badgeTextColor = isAwas ? "text-rose-700" : isWaspada ? "text-orange-700" : "text-amber-800";
+        const dotColor = isAwas ? "bg-rose-600" : isWaspada ? "bg-orange-500" : "bg-amber-500";
+
+        // Circle 1: Outer Buffer Perimeter (Subtle dashed hairline)
         const outerCircle = L.circle([t.lat, t.lng], {
           radius: t.radiusMeters,
-          color,
-          fillColor: color,
-          fillOpacity: isAwas ? 0.12 : 0.08,
-          weight: 2,
-          dashArray: "6, 8",
+          color: strokeColor,
+          fillColor,
+          fillOpacity: isAwas ? 0.07 : 0.05,
+          weight: 1.5,
+          dashArray: "5, 6",
         }).addTo(map);
 
-        // Circle 2: Inner Core Critical Perimeter (35% of total radius)
+        // Circle 2: Inner Core Critical Perimeter (30% of total radius)
         const innerCircle = L.circle([t.lat, t.lng], {
-          radius: Math.round(t.radiusMeters * 0.35),
-          color,
-          fillColor: color,
-          fillOpacity: isAwas ? 0.24 : 0.16,
-          weight: 1.5,
+          radius: Math.round(t.radiusMeters * 0.3),
+          color: strokeColor,
+          fillColor,
+          fillOpacity: isAwas ? 0.16 : 0.11,
+          weight: 1.2,
         }).addTo(map);
 
         (outerCircle as any)._targetReportId = t.report.id;
@@ -1188,45 +1195,40 @@ export function GoogleMapsView({ showMobileNav = true }: GoogleMapsViewProps = {
           const isCompact = mapZoom < 14;
           const latOffset = (t.radiusMeters / 111000) * (isCompact ? 0.98 : 0.96);
 
-          let hazardIconSymbol = "⚠️";
-          const lower = t.tipeBahaya.toLowerCase();
-          if (lower.includes("banjir") || lower.includes("luap") || lower.includes("air")) {
-            hazardIconSymbol = "🌊";
-          } else if (lower.includes("metana") || lower.includes("bakar") || lower.includes("api")) {
-            hazardIconSymbol = "🔥";
-          } else if (lower.includes("wabah") || lower.includes("dbd") || lower.includes("sampah")) {
-            hazardIconSymbol = "☣️";
-          }
-
-          const labelContent = isCompact
-            ? `${hazardIconSymbol} ${t.level}`
-            : `${hazardIconSymbol} ${t.level}: ${t.tipeBahaya} (${t.radiusMeters}m)`;
-
           const tagIcon = L.divIcon({
             className: "custom-hazard-tag-marker",
-            html: `
-              <div style="position: relative; display: inline-flex; width: max-content; transform: translate(-50%, -100%); pointer-events: auto;">
-                <div class="inline-flex items-center gap-1.5 ${
-                  isCompact ? "px-2 py-0.5 text-[9px]" : "px-3 py-1.5 text-[11px]"
-                } rounded-full ${
-                  isAwas
-                    ? "bg-gradient-to-r from-rose-600 via-rose-700 to-red-800 shadow-rose-950/60"
-                    : isWaspada
-                    ? "bg-gradient-to-r from-orange-500 to-amber-600 shadow-orange-950/60"
-                    : "bg-gradient-to-r from-amber-500 via-orange-600 to-amber-700 shadow-amber-950/60"
-                } text-white font-black shadow-xl border ${
-                  isCompact ? "border-white/80" : "border-2 border-white"
-                } whitespace-nowrap cursor-pointer hover:scale-105 active:scale-95 transition-all select-none">
-                  <span class="relative flex ${isCompact ? "h-1.5 w-1.5" : "h-2.5 w-2.5"} items-center justify-center flex-shrink-0">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80"></span>
-                    <span class="relative inline-flex rounded-full ${isCompact ? "h-1 w-1" : "h-1.5 w-1.5"} bg-white shadow-xs"></span>
-                  </span>
-                  <span class="drop-shadow-sm font-black tracking-wide">
-                    ${labelContent}
-                  </span>
+            html: isCompact
+              ? `
+                <div style="position: relative; display: inline-flex; width: max-content; transform: translate(-50%, -100%); pointer-events: auto;">
+                  <div style="margin-bottom: 5px;" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/95 backdrop-blur-md border ${cardBorder} shadow-sm hover:shadow-md text-[#18231D] transition-all cursor-pointer select-none">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${badgeBg} ${badgeTextColor} text-[9px] font-bold uppercase tracking-wider">
+                      <span class="h-1.5 w-1.5 rounded-full ${dotColor}"></span>
+                      <span>${t.level}</span>
+                    </span>
+                    <span class="text-[10px] font-semibold text-[#63756A] font-mono">
+                      ${t.radiusMeters}m
+                    </span>
+                    <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rotate-45 border-r border-b ${cardBorder}"></div>
+                  </div>
                 </div>
-              </div>
-            `,
+              `
+              : `
+                <div style="position: relative; display: inline-flex; width: max-content; transform: translate(-50%, -100%); pointer-events: auto;">
+                  <div style="margin-bottom: 6px;" class="group inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border ${cardBorder} shadow-md hover:shadow-lg text-[#18231D] transition-all cursor-pointer select-none">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md ${badgeBg} ${badgeTextColor} text-[10px] font-bold tracking-wider uppercase">
+                      <span class="h-1.5 w-1.5 rounded-full ${dotColor}"></span>
+                      <span>${t.level}</span>
+                    </span>
+                    <span class="text-xs font-semibold text-[#18231D] tracking-tight">
+                      ${t.tipeBahaya}
+                    </span>
+                    <span class="text-[10px] font-mono font-medium text-[#63756A] bg-slate-100/90 px-1.5 py-0.5 rounded-md border border-slate-200/70">
+                      ${t.radiusMeters}m
+                    </span>
+                    <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rotate-45 border-r border-b ${cardBorder}"></div>
+                  </div>
+                </div>
+              `,
             iconSize: [0, 0],
             iconAnchor: [0, 0],
           });
