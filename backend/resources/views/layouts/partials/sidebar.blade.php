@@ -90,21 +90,5 @@
         </a>
     </div>
 
-    <!-- Bottom System Status Card -->
-    <div class="p-3 border-top border-white border-opacity-10 mt-auto">
-        <div class="p-2 rounded-3 bg-black bg-opacity-30 border border-white border-opacity-10">
-            <div class="d-flex align-items-center justify-content-between mb-1">
-                <span class="badge bg-indigo text-white px-2 py-1" style="background-color: #4f46e5; font-size: 10px;">
-                    PostgreSQL 17 Tab
-                </span>
-                <span class="d-inline-flex align-items-center gap-1 text-success" style="font-size: 11px;">
-                    <span class="spinner-grow spinner-grow-sm text-success" style="width: 7px; height: 7px;" role="status"></span>
-                    Online
-                </span>
-            </div>
-            <small class="text-secondary d-block text-truncate" style="font-size: 11px;">
-                <i class="bi bi-shield-check text-info me-1"></i> AI Early Warning Active
-            </small>
-        </div>
-    </div>
+   
 </aside>
